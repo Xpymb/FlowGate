@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
         <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
         <PackageReference Include="NSubstitute" Version="6.2.0" />
@@ -15,6 +16,7 @@
         <ProjectReference Include="..\FlowGate.Tests.Common\FlowGate.Tests.Common.csproj" />
         <ProjectReference Include="..\..\Services\Bll\FlowGate.Bll.Implementations\FlowGate.Bll.Implementations.csproj" />
         <ProjectReference Include="..\..\Shared\FlowGate.Shared.Dal\FlowGate.Shared.Dal.csproj" />
+        <ProjectReference Include="..\..\Services\Dal\FlowGate.Dal.Implementations\FlowGate.Dal.Implementations.csproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -1,13 +1,18 @@
 using FlowGate.Bll.Implementations;
+using FlowGate.Dal.Implementations;
 using FlowGate.Shared.Bll;
 using FlowGate.Shared.Dal;
+using FlowGate.Shared.GitHub;
 using FlowGate.Shared.Keenetic;
 using FlowGate.Shared.Options;
 using FlowGate.Shared.WebApi;
 using FlowGate.Shared.WebApi.Errors;
 using FlowGate.WebApi.Endpoints.Health;
+using FlowGate.WebApi.Endpoints.Jobs;
 using FlowGate.WebApi.Endpoints.Keenetic;
+using FlowGate.WebApi.Endpoints.Xray;
 using FlowGate.WebApi.Hosting;
+using FlowGate.WebApi.Jobs;
 using FlowGate.WebApi.Serialization;
 
 var builder = WebApplication.CreateSlimBuilder(args);
@@ -29,8 +34,13 @@ builder.Services
     .AddFlowGateOptions(builder.Configuration)
     .AddFlowGateSharedDal()
     .AddFlowGateSharedBll()
+    .AddFlowGateDal()
     .AddFlowGateBll();
 builder.Services.AddKeeneticRciClient();
+builder.Services.AddGitHubReleasesClient();
+
+builder.Services.AddHostedService<XrayLifecycleJob>();
+builder.Services.AddHostedService<XrayUpdateCheckJob>();
 
 var app = builder.Build();
 
@@ -43,6 +53,8 @@ app.MapOpenApi();
 var api = app.MapGroup("/api");
 api.MapHealthEndpoints();
 api.MapKeeneticEndpoints();
+api.MapXrayEndpoints();
+api.MapJobEndpoints();
 
 app.MapFlowGateFrontendFallback();
 

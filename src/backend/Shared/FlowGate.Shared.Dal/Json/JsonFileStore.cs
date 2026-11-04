@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 
+using FlowGate.Shared.Dal.Files;
+
 namespace FlowGate.Shared.Dal.Json;
 
 /// <summary>
@@ -105,46 +107,9 @@ public sealed class JsonFileStore<T> : IJsonFileStore<T>, IDisposable
         }
     }
 
-    private async Task SaveAsync(T value, CancellationToken cancellationToken)
-    {
-        var directory = Path.GetDirectoryName(FilePath)!;
-        Directory.CreateDirectory(directory);
-
-        var temporaryPath = Path.Combine(directory, $".{Path.GetFileName(FilePath)}.{Guid.NewGuid():N}.tmp");
-        try
-        {
-            await using (var stream = new FileStream(temporaryPath, CreateOptions()))
-            {
-                await JsonSerializer.SerializeAsync(stream, value, _typeInfo, cancellationToken);
-                await stream.FlushAsync(cancellationToken);
-                stream.Flush(flushToDisk: true);
-            }
-
-            File.Move(temporaryPath, FilePath, overwrite: true);
-        }
-        finally
-        {
-            if (File.Exists(temporaryPath))
-            {
-                File.Delete(temporaryPath);
-            }
-        }
-    }
-
-    private static FileStreamOptions CreateOptions()
-    {
-        var options = new FileStreamOptions
-        {
-            Mode = FileMode.CreateNew,
-            Access = FileAccess.Write,
-            Share = FileShare.None,
-        };
-
-        if (!OperatingSystem.IsWindows())
-        {
-            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-        }
-
-        return options;
-    }
+    private Task SaveAsync(T value, CancellationToken cancellationToken) =>
+        AtomicFile.WriteAsync(
+            FilePath,
+            (stream, token) => JsonSerializer.SerializeAsync(stream, value, _typeInfo, token),
+            cancellationToken);
 }

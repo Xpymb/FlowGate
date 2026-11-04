@@ -65,6 +65,15 @@ public sealed class FakeHttpMessageHandler : HttpMessageHandler
     public static HttpResponseMessage Json(string json, HttpStatusCode statusCode = HttpStatusCode.OK) =>
         new(statusCode) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
 
+    /// <summary>
+    ///     Создаёт ответ с двоичным телом
+    /// </summary>
+    /// <param name="content">Тело ответа</param>
+    /// <param name="statusCode">HTTP-статус</param>
+    /// <returns>Ответ</returns>
+    public static HttpResponseMessage Bytes(byte[] content, HttpStatusCode statusCode = HttpStatusCode.OK) =>
+        new(statusCode) { Content = new ByteArrayContent(content) };
+
     /// <inheritdoc />
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {

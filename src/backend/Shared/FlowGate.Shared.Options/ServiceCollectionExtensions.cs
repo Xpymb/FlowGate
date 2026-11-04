@@ -12,7 +12,7 @@ namespace FlowGate.Shared.Options;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    ///     Регистрирует <see cref="FlowGateOptions"/> и <see cref="KeeneticOptions"/> с валидацией при старте
+    ///     Регистрирует все опции FlowGate с валидацией при старте
     /// </summary>
     /// <param name="services">Коллекция сервисов</param>
     /// <param name="configuration">Конфигурация приложения</param>
@@ -23,12 +23,20 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IValidateOptions<FlowGateOptions>, FlowGateOptionsValidator>();
         services.AddSingleton<IValidateOptions<KeeneticOptions>, KeeneticOptionsValidator>();
+        services.AddSingleton<IValidateOptions<XrayOptions>, XrayOptionsValidator>();
+        services.AddSingleton<IValidateOptions<GitHubOptions>, GitHubOptionsValidator>();
 
         services.AddOptionsWithValidateOnStart<FlowGateOptions>()
             .Bind(configuration.GetSection(FlowGateOptions.SectionName));
 
         services.AddOptionsWithValidateOnStart<KeeneticOptions>()
             .Bind(configuration.GetSection(KeeneticOptions.SectionName));
+
+        services.AddOptionsWithValidateOnStart<XrayOptions>()
+            .Bind(configuration.GetSection(XrayOptions.SectionName));
+
+        services.AddOptionsWithValidateOnStart<GitHubOptions>()
+            .Bind(configuration.GetSection(GitHubOptions.SectionName));
 
         return services;
     }

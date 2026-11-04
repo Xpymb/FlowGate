@@ -27,6 +27,7 @@
         <ProjectReference Include="..\..\Shared\FlowGate.Shared.Dal\FlowGate.Shared.Dal.csproj" />
         <ProjectReference Include="..\..\Shared\FlowGate.Shared.WebApi\FlowGate.Shared.WebApi.csproj" />
         <ProjectReference Include="..\..\Shared\Keenetic\FlowGate.Shared.Keenetic.HttpClient\FlowGate.Shared.Keenetic.HttpClient.csproj" />
+        <ProjectReference Include="..\..\Shared\GitHub\FlowGate.Shared.GitHub.HttpClient\FlowGate.Shared.GitHub.HttpClient.csproj" />
     </ItemGroup>
 
 </Project>

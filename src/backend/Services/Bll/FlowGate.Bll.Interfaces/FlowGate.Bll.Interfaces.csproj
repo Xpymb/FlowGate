@@ -2,6 +2,8 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\..\Shared\FlowGate.Exceptions\FlowGate.Exceptions.csproj" />
+        <ProjectReference Include="..\..\..\Shared\FlowGate.Shared.Bll\FlowGate.Shared.Bll.csproj" />
+        <ProjectReference Include="..\..\FlowGate.Contracts\FlowGate.Contracts.csproj" />
         <ProjectReference Include="..\..\FlowGate.SharedContracts\FlowGate.SharedContracts.csproj" />
     </ItemGroup>
 

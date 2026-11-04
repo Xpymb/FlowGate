@@ -3,14 +3,18 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 
+using FlowGate.Shared.Bll.Processes;
+using FlowGate.Shared.GitHub;
 using FlowGate.Shared.Keenetic;
 using FlowGate.Tests.Common.Fixtures;
 using FlowGate.Tests.Common.Http;
+using FlowGate.Tests.Common.Processes;
+using FlowGate.Tests.Common.Xray;
 
 namespace FlowGate.Tests.Integration;
 
 /// <summary>
-///     Хост FlowGate для интеграционных тестов: RCI подменён, каталоги данных и фронта — временные
+///     Хост FlowGate для интеграционных тестов: RCI, GitHub и запуск процессов подменены, каталоги — временные
 /// </summary>
 public sealed class FlowGateWebApplicationFactory : WebApplicationFactory<Program>
 {
@@ -22,6 +26,21 @@ public sealed class FlowGateWebApplicationFactory : WebApplicationFactory<Progra
     public FakeHttpMessageHandler Rci { get; } = FakeHttpMessageHandler.RespondJson(RciFixtures.ShowVersion);
 
     /// <summary>
+    ///     Подменённый GitHub с релизами Xray
+    /// </summary>
+    public FakeXrayGitHub GitHub { get; } = new();
+
+    /// <summary>
+    ///     Подменный запуск команд (ведёт себя как Xray)
+    /// </summary>
+    public FakeProcessRunner ProcessRunner { get; } = new();
+
+    /// <summary>
+    ///     Подменный запуск долгоживущих процессов
+    /// </summary>
+    public FakeProcessLauncher ProcessLauncher { get; } = new();
+
+    /// <summary>
     ///     Каталог данных приложения
     /// </summary>
     public string DataDirectory => Path.Combine(_root, "data");
@@ -31,6 +50,11 @@ public sealed class FlowGateWebApplicationFactory : WebApplicationFactory<Progra
     /// </summary>
     public string WebRootPath => Path.Combine(_root, "www");
 
+    /// <summary>
+    ///     Путь к бинарнику Xray
+    /// </summary>
+    public string XrayBinaryPath => Path.Combine(_root, "bin", "xray");
+
     /// <inheritdoc />
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -38,9 +62,18 @@ public sealed class FlowGateWebApplicationFactory : WebApplicationFactory<Progra
         builder.UseSetting("FlowGate:DataDirectory", DataDirectory);
         builder.UseSetting("FlowGate:WebRootPath", WebRootPath);
         builder.UseSetting("Keenetic:RciBaseUrl", "http://127.0.0.1:79/rci/");
+        builder.UseSetting("Xray:BinaryPath", XrayBinaryPath);
+        builder.UseSetting("Xray:WorkDirectory", Path.Combine(_root, "tmp"));
+        builder.UseSetting("Xray:StartTimeoutSeconds", "0");
+        builder.UseSetting("Xray:MinFreeSpaceMegabytes", "0");
 
         builder.ConfigureTestServices(services =>
-            services.AddKeeneticRciClient().ConfigurePrimaryHttpMessageHandler(() => Rci));
+        {
+            services.AddKeeneticRciClient().ConfigurePrimaryHttpMessageHandler(() => Rci);
+            services.AddGitHubReleasesClient().ConfigurePrimaryHttpMessageHandler(() => GitHub.Handler);
+            services.AddSingleton<IProcessRunner>(ProcessRunner);
+            services.AddSingleton<IProcessLauncher>(ProcessLauncher);
+        });
     }
 
     /// <inheritdoc />

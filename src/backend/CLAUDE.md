@@ -46,7 +46,8 @@ docker buildx build -f docker/Dockerfile.router --output type=local,dest=out/rou
 
 ```bash
 scp -O -P 222 out/router/* root@192.168.1.1:/tmp/fgtest/
-ssh -p 222 root@192.168.1.1 'cd /tmp/fgtest && chmod +x flowgate && start-stop-daemon -S -b -m -p pid -d . -x ./flowgate -- --urls http://192.168.1.1:8090 --FlowGate:DataDirectory=/tmp/fgtest/data'
+ssh -p 222 root@192.168.1.1 'cd /tmp/fgtest && chmod +x flowgate && start-stop-daemon -S -b -m -p pid -d . -x /bin/sh -- -c "exec ./flowgate --urls http://192.168.1.1:8090 --FlowGate:DataDirectory=/tmp/fgtest/data --Xray:BinaryPath=/tmp/fgtest/xray --Xray:WorkDirectory=/tmp/fgtest/work >>flowgate.log 2>&1"'
+# остановка (FlowGate сам остановит xray): start-stop-daemon -K -s TERM -p /tmp/fgtest/pid
 ```
 
 Локальный запуск (`dotnet run`, профиль `http`, `http://localhost:6000`) ходит в RCI через SSH-туннель:
@@ -72,6 +73,7 @@ Shared/
   FlowGate.Shared.Dal              JsonFileStore<T>: атомарная запись JSON
   FlowGate.Shared.WebApi           ExceptionHandlerMiddleware, формат ошибок
   Keenetic/FlowGate.Shared.Keenetic.HttpClient   RCI-клиент Keenetic
+  GitHub/FlowGate.Shared.GitHub.HttpClient       релизы и скачивание файлов с GitHub
 Tests/
   FlowGate.Tests.Common            фикстуры (embedded), FakeHttpMessageHandler
   FlowGate.Tests.Unit
@@ -104,6 +106,23 @@ Shared.* ──► Exceptions, Shared.Options (не на Services/*)
   `[OptionsValidator]`.
 - У библиотек включён `IsAotCompatible` — предупреждения IL2xxx/IL3xxx не игнорировать.
 
+### Xray
+
+- Xray — **дочерний процесс** FlowGate (`IXrayProcessService`): автозапуск, перезапуск после падения с паузой
+  1→2→4…→60 с, pid-файл в `Xray:WorkDirectory`, при старте убивается осиротевший xray (если `/proc/<pid>/exe` — наш бинарник).
+- Любая операция, которая трогает бинарник или конфиг при работающем процессе, идёт через
+  `IXrayProcessService.RunExclusiveAsync`, иначе супервизор может перезапустить xray посреди подмены.
+- `xray.json` не пишется руками: модель (`IXrayConfigSource`) → `IXrayConfigBuilder` → кандидат → `xray run -test` → атомарная
+  замена (`IXrayConfigService`). При старте FlowGate конфиг пересобирается.
+- Установка (`IXrayInstaller`) — фоновая задача `xray-install`: скачать zip + `.dgst`, сверить SHA-256, взять из архива только
+  `xray`, проверить `version` и текущий конфиг новым бинарником, подменить (`.new` → rename, прежний в `.bak`), при неудачном
+  запуске вернуть `.bak`.
+
+### Фоновые задачи
+
+Долгие операции — через `IJobRunner` (в памяти, одна задача вида одновременно, иначе `ConflictException`, история из 20).
+Эндпоинт отвечает **202** + `JobDto` + `Location: /api/jobs/{id}`, прогресс — шаги `IJobContext.Report`.
+
 ### Хранение
 
 JSON-файлы в `FlowGate:DataDirectory` (на роутере `/opt/etc/flowgate/`) через `JsonFileStore<T>`: запись во
@@ -117,8 +136,11 @@ JSON-файлы в `FlowGate:DataDirectory` (на роутере `/opt/etc/flowg
 |---|---|---|
 | `EntityNotFoundException` | 404 | `ENTITY_NOT_FOUND` |
 | `RequestValidationException` | 400 | `VALIDATION_ERROR` |
+| `ConflictException` | 409 | `CONFLICT` |
+| `XrayOperationException` | 500 | `XRAY_OPERATION_FAILED` |
 | `KeeneticCommandException` | 502 | `KEENETIC_COMMAND_FAILED` |
 | `KeeneticUnavailableException` | 503 | `KEENETIC_UNAVAILABLE` |
+| `ExternalServiceUnavailableException` | 503 | `EXTERNAL_UNAVAILABLE` |
 | `BadHttpRequestException` | его статус | `BAD_REQUEST` |
 | прочее | 500 | `INTERNAL_ERROR` |
 
@@ -169,6 +191,10 @@ JSON-файлы в `FlowGate:DataDirectory` (на роутере `/opt/etc/flowg
 - Структура: подмены в полях через `Substitute.For<T>()`, `_sut` создаётся в конструкторе.
 - Без `//`-комментариев в телах тестов; публичные тест-классы и `[Fact]`/`[Theory]` — с краткой XML-документацией.
 - Фикстуры — embedded resources в `Tests.Common/Fixtures/` (ответы RCI сняты с реального роутера).
-- HTTP к Keenetic подменяется `FakeHttpMessageHandler`, а не моком `HttpClient`.
+- HTTP к Keenetic и GitHub подменяется `FakeHttpMessageHandler` (`FakeXrayGitHub` — релизы Xray с генерируемыми zip/.dgst),
+  а не моком `HttpClient`.
+- Процессы подменяются `FakeProcessRunner`/`FakeProcessLauncher`: версия фейкового xray записана в сам файл (`FakeXrayBinary`),
+  поэтому установка, подмена и откат проверяются на настоящих файлах во временном каталоге.
+- Таймеры и паузы — через внедрённый `TimeProvider`; в тестах `FakeTimeProvider`.
 - Мокать: RCI-клиент, внешние HTTP, провайдеры DAL в unit-тестах. Не мокать: доменные сущности, парсеры,
   `JsonFileStore` (пишет во временный каталог).

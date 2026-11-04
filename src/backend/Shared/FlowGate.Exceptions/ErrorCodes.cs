@@ -31,6 +31,21 @@ public static class ErrorCodes
     public const string KeeneticUnavailable = "KEENETIC_UNAVAILABLE";
 
     /// <summary>
+    ///     Операция конфликтует с уже выполняющейся
+    /// </summary>
+    public const string Conflict = "CONFLICT";
+
+    /// <summary>
+    ///     Внешний сервис (GitHub, сервер подписки) недоступен или ответил ошибкой
+    /// </summary>
+    public const string ExternalUnavailable = "EXTERNAL_UNAVAILABLE";
+
+    /// <summary>
+    ///     Не удалась операция с Xray: установка, запуск или применение конфигурации
+    /// </summary>
+    public const string XrayOperationFailed = "XRAY_OPERATION_FAILED";
+
+    /// <summary>
     ///     Непредвиденная ошибка сервера
     /// </summary>
     public const string InternalError = "INTERNAL_ERROR";

@@ -19,6 +19,9 @@
     <Project Path="Shared/FlowGate.Shared.Options/FlowGate.Shared.Options.csproj" />
     <Project Path="Shared/FlowGate.Shared.WebApi/FlowGate.Shared.WebApi.csproj" />
   </Folder>
+  <Folder Name="/Shared/GitHub/">
+    <Project Path="Shared/GitHub/FlowGate.Shared.GitHub.HttpClient/FlowGate.Shared.GitHub.HttpClient.csproj" />
+  </Folder>
   <Folder Name="/Shared/Keenetic/">
     <Project Path="Shared/Keenetic/FlowGate.Shared.Keenetic.HttpClient/FlowGate.Shared.Keenetic.HttpClient.csproj" />
   </Folder>

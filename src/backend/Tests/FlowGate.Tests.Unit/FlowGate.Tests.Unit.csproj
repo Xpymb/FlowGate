@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+        <PackageReference Include="NSubstitute" Version="6.2.0" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="xunit.v3" Version="4.0.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\FlowGate.Tests.Common\FlowGate.Tests.Common.csproj" />
+        <ProjectReference Include="..\..\Services\Bll\FlowGate.Bll.Implementations\FlowGate.Bll.Implementations.csproj" />
+        <ProjectReference Include="..\..\Shared\FlowGate.Shared.Dal\FlowGate.Shared.Dal.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Xunit" />
+    </ItemGroup>
+
+</Project>

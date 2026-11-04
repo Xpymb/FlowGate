@@ -1,0 +1,41 @@
+[
+  {
+    "parse": {
+      "prompt": "(config-ogrp-fqdn)",
+      "status": [
+        {
+          "status": "message",
+          "code": "101581000",
+          "ident": "Network::ObjectGroup",
+          "message": "\"fgspike-test\": group created."
+        }
+      ]
+    }
+  },
+  {
+    "parse": {
+      "prompt": "(config)",
+      "status": [
+        {
+          "status": "message",
+          "code": "101582400",
+          "ident": "Network::ObjectGroup",
+          "message": "\"fgspike-test\": set group description."
+        }
+      ]
+    }
+  },
+  {
+    "parse": {
+      "prompt": "(config)",
+      "status": [
+        {
+          "status": "message",
+          "code": "101582200",
+          "ident": "Network::ObjectGroup",
+          "message": "\"fgspike-test\": added included FQDN \"example.com\"."
+        }
+      ]
+    }
+  }
+]

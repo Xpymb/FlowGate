@@ -1,0 +1,174 @@
+# CLAUDE.md
+
+Руководство для Claude Code по бэкенду FlowGate.
+
+FlowGate — менеджер Xray для роутеров Keenetic (aarch64, KeeneticOS 5): WebUI, установка и обновление Xray,
+подписки, соединения socks/http/wireguard как интерфейсы Keenetic, штатные DNS-маршруты KeeneticOS со списками
+доменов v2fly. Бэкенд — один NativeAOT-бинарник на роутере. Фронт живёт отдельно (`src/frontend`), бэкенд отдаёт
+его статику и REST API.
+
+Факты о роутере, проверенные на железе (команды NDMS, коды ошибок RCI, лимиты, память), — в
+[`docs/keenetic-findings.md`](../../docs/keenetic-findings.md). Перед работой с NDMS читай его.
+
+## Команды
+
+> ⚠️ **`dotnet build` запускать запрещено.** Для проверки компиляции используй `dotnet test` — он сам пересоберёт
+> нужные проекты. Интеграционные тесты ссылаются на `FlowGate.WebApi`, поэтому хост тоже компилируется.
+
+`dotnet test` работает в режиме **Microsoft.Testing.Platform** (`global.json` рядом с `FlowGate.slnx`), поэтому
+команды запускай из `src/backend` или глубже.
+
+```bash
+# все тесты
+dotnet test --solution FlowGate.slnx
+
+# один проект
+dotnet test --project Tests/FlowGate.Tests.Unit/FlowGate.Tests.Unit.csproj
+
+# фильтр по классу / методу (маски *)
+dotnet test --project Tests/FlowGate.Tests.Unit/FlowGate.Tests.Unit.csproj --filter-class "*KeeneticRciClientTests"
+
+# покрытие (Microsoft.Testing.Extensions.CodeCoverage), отчёт в TestResults/
+dotnet test --solution FlowGate.slnx --coverage --coverage-output-format cobertura
+```
+
+Синтаксис VSTest (`--filter "FullyQualifiedName~..."`, путь проекта без `--project`) в MTP не работает.
+
+Бинарник для роутера собирается **только** кросс-сборкой в Docker на x64 → `linux-musl-arm64`, статически, вместе
+с OpenSSL. Сборка под эмуляцией arm64 не годится: ILCompiler под QEMU падает случайным образом.
+
+```bash
+# результат: out/router/flowgate (static-pie aarch64, ~20 МиБ) + appsettings.json
+docker buildx build -f docker/Dockerfile.router --output type=local,dest=out/router .
+```
+
+Проверка на роутере (только `/tmp`, конфигурацию Keenetic не меняет; `scp` только с `-O`, `nohup` на роутере нет):
+
+```bash
+scp -O -P 222 out/router/* root@192.168.1.1:/tmp/fgtest/
+ssh -p 222 root@192.168.1.1 'cd /tmp/fgtest && chmod +x flowgate && start-stop-daemon -S -b -m -p pid -d . -x ./flowgate -- --urls http://192.168.1.1:8090 --FlowGate:DataDirectory=/tmp/fgtest/data'
+```
+
+Локальный запуск (`dotnet run`, профиль `http`, `http://localhost:6000`) ходит в RCI через SSH-туннель:
+`ssh -p 222 -L 7979:127.0.0.1:79 root@192.168.1.1` (см. `appsettings.Development.json`).
+
+## Архитектура
+
+### Проекты
+
+```
+Services/
+  FlowGate.WebApi                  хост: Program.cs, Endpoints/<Фича>/, Jobs/, Serialization/, Hosting/
+  FlowGate.SharedContracts         Tier 1: DTO API (Dto/, Requests/) — без логики
+  FlowGate.Contracts               Tier 2: доменные сущности с логикой (<Фича>/)
+  Bll/FlowGate.Bll.Interfaces      интерфейсы сервисов (<Фича>/I*Service)
+  Bll/FlowGate.Bll.Implementations реализации + маппинг DTO <-> Entity (<Фича>/)
+  Dal/FlowGate.Dal.Interfaces      интерфейсы провайдеров хранения (I*Provider)
+  Dal/FlowGate.Dal.Implementations провайдеры (JSON-файлы через Shared.Dal)
+Shared/
+  FlowGate.Exceptions              исключения API с errorCode и HTTP-статусом
+  FlowGate.Shared.Options          классы опций, их валидаторы и регистрация
+  FlowGate.Shared.Bll              общая BLL-инфраструктура (очередь операций NDMS)
+  FlowGate.Shared.Dal              JsonFileStore<T>: атомарная запись JSON
+  FlowGate.Shared.WebApi           ExceptionHandlerMiddleware, формат ошибок
+  Keenetic/FlowGate.Shared.Keenetic.HttpClient   RCI-клиент Keenetic
+Tests/
+  FlowGate.Tests.Common            фикстуры (embedded), FakeHttpMessageHandler
+  FlowGate.Tests.Unit
+  FlowGate.Tests.Integration       WebApplicationFactory<Program>; ссылается на WebApi намеренно
+```
+
+### Поток зависимостей
+
+```
+WebApi ──► SharedContracts, Bll.Interfaces, Shared.WebApi, Shared.Options
+Bll.Implementations ──► Bll.Interfaces, Contracts, SharedContracts, Dal.Interfaces, Shared.Bll, Keenetic.HttpClient
+Contracts ──► SharedContracts
+Dal.Implementations ──► Dal.Interfaces, Contracts, Shared.Dal
+Shared.* ──► Exceptions, Shared.Options (не на Services/*)
+```
+
+- Эндпоинты работают только с DTO из `SharedContracts`; маппинг DTO ↔ Entity — в BLL.
+- В `SharedContracts` нет логики. Бизнес-правила — в сущностях `Contracts` и сервисах BLL.
+- Все записи в NDMS идут через `INdmsOperationQueue` (один писатель). Параллельные записи в конфигурацию Keenetic
+  дают гонки — BROray на этом обжёгся.
+
+### NativeAOT — обязательные правила
+
+- MVC-контроллеров нет: Minimal API, класс `XxxEndpoints` со статическим `MapXxxEndpoints(this IEndpointRouteBuilder)`.
+- JSON только через source-generated `JsonSerializerContext`. Новый DTO API → добавить в
+  `WebApi/Serialization/AppJsonSerializerContext.cs`. Никакого `JsonSerializer.Serialize<T>(value)` без `JsonTypeInfo`.
+- Без рефлексии: никакого Mapster/AutoMapper, `Activator.CreateInstance`, сканирования сборок. Маппинг — руками
+  (статические `*Mapper.ToDto()`).
+- Опции: `Bind` (генератор привязки конфигурации включён в `Directory.Build.props`) + валидатор через
+  `[OptionsValidator]`.
+- У библиотек включён `IsAotCompatible` — предупреждения IL2xxx/IL3xxx не игнорировать.
+
+### Хранение
+
+JSON-файлы в `FlowGate:DataDirectory` (на роутере `/opt/etc/flowgate/`) через `JsonFileStore<T>`: запись во
+временный файл + rename, на Linux права 600. БД нет.
+
+### Ошибки
+
+`ExceptionHandlerMiddleware` отвечает `{errorCode, message, traceId}`:
+
+| Исключение | HTTP | errorCode |
+|---|---|---|
+| `EntityNotFoundException` | 404 | `ENTITY_NOT_FOUND` |
+| `RequestValidationException` | 400 | `VALIDATION_ERROR` |
+| `KeeneticCommandException` | 502 | `KEENETIC_COMMAND_FAILED` |
+| `KeeneticUnavailableException` | 503 | `KEENETIC_UNAVAILABLE` |
+| `BadHttpRequestException` | его статус | `BAD_REQUEST` |
+| прочее | 500 | `INTERNAL_ERROR` |
+
+4xx логируются Warning одной строкой без стека, 5xx — Error с исключением.
+Бизнес-события — одна строка на событие (`Xray обновлён 26.9.9 → 26.10.1`).
+
+### RCI Keenetic
+
+- Чтение: `IKeeneticRciClient.GetAsync("show/version")` → `GET http://127.0.0.1:79/rci/show/version`.
+- Запись: `ExecuteAsync(commands)` → `POST /rci/` с `[{"parse":"<cli>"}]`. HTTP всегда 200, результат каждой
+  команды в `status[]`. **Пакет не транзакционный**: ошибка посередине не останавливает остальные команды —
+  проверяй `RciBatchResult` (`EnsureSuccess`, `Failed`).
+- Сохранение: `SaveConfigurationAsync()` (`system configuration save`) — один раз в конце операции.
+- Коды ошибок — `RciErrorCodes`. Удаление несуществующего объекта даёт `7405602 argument parse error`.
+
+## Code Conventions
+
+Перенесены из LessQuick с одним отличием: **copyright-заголовков в `.cs` нет**.
+
+### XML-документация
+
+- Документируй всё публичное: классы, интерфейсы, методы, свойства, **конструкторы**. На русском, `///`.
+- Конструктор: `Инициализирует новый экземпляр класса <see cref="ClassName"/>`.
+- Interface → Implementation: полная документация в интерфейсе, `/// <inheritdoc />` в реализации.
+- `<param>`, `<returns>`, `<exception>`, `<see cref=""/>` по месту.
+- **Никаких `//`-комментариев внутри методов** (если пользователь не попросил). Код объясняет себя именами.
+
+### Стиль
+
+- Проверки на null — `is null` / `is not null`, не `== null`.
+- Аргументы конструктора: `_x = x ?? throw new ArgumentNullException(nameof(x));`.
+- File-scoped namespaces, скобки Allman, блоки `case` в фигурных скобках.
+- Именование: интерфейсы с `I`, `*Service` (BLL), `*Provider` (DAL), `*Job` (фоновые задачи), `*Endpoints`
+  (Minimal API); приватные поля `_camelCase`; асинхронные методы с суффиксом `Async`.
+- Порядок членов: public → protected → private. Using: System → сторонние → проектные; лишние удалять.
+- LINQ вместо циклов там, где читается проще.
+- `async`/`await` для любого I/O, `CancellationToken` прокидывается до конца.
+
+### Фоновые задачи
+
+`BackgroundService` + `PeriodicTimer` в `WebApi/Jobs/`. Джоба только тикает: создаёт scope, берёт сервис BLL и
+делегирует ему. Логики в джобе нет.
+
+## Тесты
+
+- Стек: xunit.v3 (MTP), NSubstitute, `NullLogger<T>`, `Microsoft.Testing.Extensions.CodeCoverage`.
+- Именование: `Method_Scenario_ExpectedResult`.
+- Структура: подмены в полях через `Substitute.For<T>()`, `_sut` создаётся в конструкторе.
+- Без `//`-комментариев в телах тестов; публичные тест-классы и `[Fact]`/`[Theory]` — с краткой XML-документацией.
+- Фикстуры — embedded resources в `Tests.Common/Fixtures/` (ответы RCI сняты с реального роутера).
+- HTTP к Keenetic подменяется `FakeHttpMessageHandler`, а не моком `HttpClient`.
+- Мокать: RCI-клиент, внешние HTTP, провайдеры DAL в unit-тестах. Не мокать: доменные сущности, парсеры,
+  `JsonFileStore` (пишет во временный каталог).

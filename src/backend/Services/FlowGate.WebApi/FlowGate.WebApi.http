@@ -1,0 +1,12 @@
+@FlowGate.WebApi_HostAddress = http://localhost:6000
+
+### Проверка живости
+GET {{FlowGate.WebApi_HostAddress}}/api/health
+Accept: application/json
+
+### Сведения о роутере (нужен туннель к RCI: ssh -p 222 -L 7979:127.0.0.1:79 root@192.168.1.1)
+GET {{FlowGate.WebApi_HostAddress}}/api/keenetic/system
+Accept: application/json
+
+### OpenAPI
+GET {{FlowGate.WebApi_HostAddress}}/openapi/v1.json

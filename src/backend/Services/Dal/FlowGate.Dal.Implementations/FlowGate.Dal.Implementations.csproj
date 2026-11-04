@@ -1,0 +1,8 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <ProjectReference Include="..\FlowGate.Dal.Interfaces\FlowGate.Dal.Interfaces.csproj" />
+        <ProjectReference Include="..\..\..\Shared\FlowGate.Shared.Dal\FlowGate.Shared.Dal.csproj" />
+    </ItemGroup>
+
+</Project>

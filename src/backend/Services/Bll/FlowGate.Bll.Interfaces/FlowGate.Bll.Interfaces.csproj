@@ -1,0 +1,8 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\Shared\FlowGate.Exceptions\FlowGate.Exceptions.csproj" />
+        <ProjectReference Include="..\..\FlowGate.SharedContracts\FlowGate.SharedContracts.csproj" />
+    </ItemGroup>
+
+</Project>

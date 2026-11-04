@@ -225,3 +225,15 @@ nul
 .zed
 .claude
 config.alloy
+
+# AI artifacts
+.claude
+.ai
+.aiassistant
+.repowise
+.mcp.json
+.codex
+spike
+docs
+_nul
+copilot-instructions.md

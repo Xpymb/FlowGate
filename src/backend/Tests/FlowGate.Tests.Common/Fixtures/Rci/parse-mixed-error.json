@@ -1,0 +1,41 @@
+[
+  {
+    "parse": {
+      "prompt": "(config)",
+      "status": [
+        {
+          "status": "message",
+          "code": "101582200",
+          "ident": "Network::ObjectGroup",
+          "message": "\"fgspike-test\": added included FQDN \"before-error.example.com\"."
+        }
+      ]
+    }
+  },
+  {
+    "parse": {
+      "prompt": "(config)",
+      "status": [
+        {
+          "status": "error",
+          "code": "7405600",
+          "ident": "Command::Base",
+          "message": "no such command: fgspike-bad-keyword."
+        }
+      ]
+    }
+  },
+  {
+    "parse": {
+      "prompt": "(config)",
+      "status": [
+        {
+          "status": "message",
+          "code": "101582200",
+          "ident": "Network::ObjectGroup",
+          "message": "\"fgspike-test\": added included FQDN \"after-error.example.com\"."
+        }
+      ]
+    }
+  }
+]

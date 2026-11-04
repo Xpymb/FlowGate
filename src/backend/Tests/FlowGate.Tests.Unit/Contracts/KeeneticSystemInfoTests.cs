@@ -15,7 +15,7 @@ public class KeeneticSystemInfoTests
     [Fact]
     public void IsSupported_KeeneticOs5OnAarch64WithComponents_ReturnsTrue()
     {
-        var sut = new KeeneticSystemInfo("Hopper SE (KN-3812)", "5.02.B.2.0-2", "5.2 Beta 2", "aarch64", AllComponents);
+        var sut = new KeeneticSystemInfo("Hopper SE (KN-3812)", "KN-0000", "5.02.B.2.0-2", "5.2 Beta 2", "aarch64", AllComponents);
 
         Assert.True(sut.IsSupported);
         Assert.Equal(5, sut.MajorVersion);
@@ -28,7 +28,7 @@ public class KeeneticSystemInfoTests
     [Fact]
     public void IsSupported_KeeneticOs4_ReturnsFalseWithVersionProblem()
     {
-        var sut = new KeeneticSystemInfo("Giga", "4.03.C.6.0-0", "4.3.6", "aarch64", AllComponents);
+        var sut = new KeeneticSystemInfo("Giga", "KN-0000", "4.03.C.6.0-0", "4.3.6", "aarch64", AllComponents);
 
         Assert.False(sut.IsSupported);
         var problem = Assert.Single(sut.Problems);
@@ -41,7 +41,7 @@ public class KeeneticSystemInfoTests
     [Fact]
     public void IsSupported_MipsArchitecture_ReturnsFalse()
     {
-        var sut = new KeeneticSystemInfo("Viva", "5.00.C.1.0-0", "5.0.1", "mips", AllComponents);
+        var sut = new KeeneticSystemInfo("Viva", "KN-0000", "5.00.C.1.0-0", "5.0.1", "mips", AllComponents);
 
         Assert.False(sut.IsArchitectureSupported);
         Assert.False(sut.IsSupported);
@@ -53,7 +53,7 @@ public class KeeneticSystemInfoTests
     [Fact]
     public void MissingComponents_NoWireguardAndProxy_ReportsBoth()
     {
-        var sut = new KeeneticSystemInfo("Hopper", "5.01.A.1.0-0", "5.1", "aarch64", ["base", "opkg"]);
+        var sut = new KeeneticSystemInfo("Hopper", "KN-0000", "5.01.A.1.0-0", "5.1", "aarch64", ["base", "opkg"]);
 
         Assert.Equal(["proxy", "wireguard"], sut.MissingComponents);
         Assert.Equal(2, sut.Problems.Count);
@@ -68,7 +68,7 @@ public class KeeneticSystemInfoTests
     [InlineData("beta")]
     public void MajorVersion_UnparsableRelease_IsNullAndUnsupported(string release)
     {
-        var sut = new KeeneticSystemInfo("X", release, "?", "aarch64", AllComponents);
+        var sut = new KeeneticSystemInfo("X", "KN-0000", release, "?", "aarch64", AllComponents);
 
         Assert.Null(sut.MajorVersion);
         Assert.False(sut.IsVersionSupported);

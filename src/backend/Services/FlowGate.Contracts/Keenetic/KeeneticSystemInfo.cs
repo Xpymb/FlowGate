@@ -26,6 +26,7 @@ public sealed class KeeneticSystemInfo
     ///     Инициализирует новый экземпляр класса <see cref="KeeneticSystemInfo"/>
     /// </summary>
     /// <param name="model">Модель</param>
+    /// <param name="hardwareId">Индекс модели, например <c>KN-3812</c></param>
     /// <param name="release">Версия прошивки, например <c>5.02.B.2.0-2</c></param>
     /// <param name="title">Название версии</param>
     /// <param name="architecture">Архитектура</param>
@@ -33,12 +34,14 @@ public sealed class KeeneticSystemInfo
     /// <exception cref="ArgumentNullException">Если любой аргумент равен null</exception>
     public KeeneticSystemInfo(
         string model,
+        string hardwareId,
         string release,
         string title,
         string architecture,
         IReadOnlyCollection<string> components)
     {
         Model = model ?? throw new ArgumentNullException(nameof(model));
+        HardwareId = hardwareId ?? throw new ArgumentNullException(nameof(hardwareId));
         Release = release ?? throw new ArgumentNullException(nameof(release));
         Title = title ?? throw new ArgumentNullException(nameof(title));
         Architecture = architecture ?? throw new ArgumentNullException(nameof(architecture));
@@ -50,6 +53,11 @@ public sealed class KeeneticSystemInfo
     ///     Модель
     /// </summary>
     public string Model { get; }
+
+    /// <summary>
+    ///     Индекс модели, например <c>KN-3812</c>
+    /// </summary>
+    public string HardwareId { get; }
 
     /// <summary>
     ///     Версия прошивки

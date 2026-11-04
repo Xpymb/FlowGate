@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 
+using FlowGate.Bll.Implementations;
 using FlowGate.Shared.Bll.Processes;
 using FlowGate.Shared.GitHub;
 using FlowGate.Shared.Keenetic;
@@ -29,6 +30,11 @@ public sealed class FlowGateWebApplicationFactory : WebApplicationFactory<Progra
     ///     Подменённый GitHub с релизами Xray
     /// </summary>
     public FakeXrayGitHub GitHub { get; } = new();
+
+    /// <summary>
+    ///     Подменённый HTTP провайдеров подписок; по умолчанию отдаёт base64-список из трёх серверов
+    /// </summary>
+    public FakeHttpMessageHandler SubscriptionHttp { get; } = new(_ => FakeHttpMessageHandler.Json(SubscriptionFixtures.Base64List()));
 
     /// <summary>
     ///     Подменный запуск команд (ведёт себя как Xray)
@@ -71,6 +77,7 @@ public sealed class FlowGateWebApplicationFactory : WebApplicationFactory<Progra
         {
             services.AddKeeneticRciClient().ConfigurePrimaryHttpMessageHandler(() => Rci);
             services.AddGitHubReleasesClient().ConfigurePrimaryHttpMessageHandler(() => GitHub.Handler);
+            services.AddSubscriptionHttpClient().ConfigurePrimaryHttpMessageHandler(() => SubscriptionHttp);
             services.AddSingleton<IProcessRunner>(ProcessRunner);
             services.AddSingleton<IProcessLauncher>(ProcessLauncher);
         });

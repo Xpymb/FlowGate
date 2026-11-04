@@ -1,0 +1,41 @@
+[
+  {
+    "remarks": "🇳🇱 Нидерланды",
+    "dns": { "servers": ["1.1.1.1"] },
+    "routing": { "rules": [ { "type": "field", "outboundTag": "direct", "domain": ["geosite:private"] } ] },
+    "inbounds": [ { "port": 10808, "protocol": "socks" } ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vless",
+        "settings": { "vnext": [ { "address": "nl.example.net", "port": 443, "users": [ { "id": "00000000-0000-0000-0000-000000000001", "encryption": "none", "flow": "" } ] } ] },
+        "streamSettings": {
+          "network": "grpc",
+          "security": "reality",
+          "realitySettings": { "serverName": "www.example.com", "fingerprint": "chrome", "publicKey": "PUBLICKEY1", "shortId": "abcd" },
+          "grpcSettings": { "serviceName": "grpc-nl", "multiMode": true }
+        }
+      },
+      { "tag": "direct", "protocol": "freedom" },
+      { "tag": "block", "protocol": "blackhole" }
+    ]
+  },
+  {
+    "remarks": "🇩🇪 Германия",
+    "observatory": { "subjectSelector": ["proxy-"] },
+    "routing": { "balancers": [ { "tag": "auto", "selector": ["proxy-"] } ] },
+    "outbounds": [
+      { "tag": "proxy-1", "protocol": "vless", "settings": { "address": "de1.example.net", "port": 443, "id": "00000000-0000-0000-0000-000000000002", "encryption": "none" }, "streamSettings": { "network": "raw", "security": "tls", "tlsSettings": { "serverName": "de1.example.net" } } },
+      { "tag": "proxy-2", "protocol": "vless", "settings": { "address": "de2.example.net", "port": 443, "id": "00000000-0000-0000-0000-000000000003", "encryption": "none" }, "streamSettings": { "network": "raw", "security": "tls", "tlsSettings": { "serverName": "de2.example.net" } } },
+      { "tag": "proxy-3", "protocol": "vless", "settings": { "address": "de3.example.net", "port": 443, "id": "00000000-0000-0000-0000-000000000004", "encryption": "none" }, "streamSettings": { "network": "raw", "security": "tls", "tlsSettings": { "serverName": "de3.example.net" } } },
+      { "tag": "direct", "protocol": "freedom" }
+    ]
+  },
+  {
+    "remarks": "Каскад",
+    "outbounds": [
+      { "tag": "chained", "protocol": "trojan", "settings": { "address": "c.example.net", "port": 443, "password": "x" }, "proxySettings": { "tag": "proxy-1" } },
+      { "tag": "kcp", "protocol": "mtproto", "settings": {} }
+    ]
+  }
+]

@@ -20,6 +20,7 @@ public static class KeeneticSystemInfoMapper
 
         return new KeeneticSystemInfoDto(
             info.Model,
+            info.HardwareId,
             info.Release,
             info.Title,
             info.Architecture,

@@ -1,8 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
 
+using FlowGate.Dal.Implementations.Servers;
 using FlowGate.Dal.Implementations.Settings;
+using FlowGate.Dal.Implementations.Subscriptions;
 using FlowGate.Dal.Implementations.Xray;
+using FlowGate.Dal.Interfaces.Servers;
 using FlowGate.Dal.Interfaces.Settings;
+using FlowGate.Dal.Interfaces.Subscriptions;
 using FlowGate.Dal.Interfaces.Xray;
 
 namespace FlowGate.Dal.Implementations;
@@ -21,6 +25,8 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<ISettingsProvider, SettingsProvider>();
         services.AddSingleton<IXrayConfigFileProvider, XrayConfigFileProvider>();
+        services.AddSingleton<IServerProvider, ServerProvider>();
+        services.AddSingleton<ISubscriptionProvider, SubscriptionProvider>();
         return services;
     }
 }

@@ -28,4 +28,9 @@ public abstract class FlowGateException : Exception
     ///     HTTP-статус ответа
     /// </summary>
     public int StatusCode { get; }
+
+    /// <summary>
+    ///     Подробности для клиента (например список ошибок проверки) или null
+    /// </summary>
+    public IReadOnlyList<string>? Details { get; protected init; }
 }

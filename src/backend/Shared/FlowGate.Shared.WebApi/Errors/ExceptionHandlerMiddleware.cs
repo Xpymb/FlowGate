@@ -58,6 +58,7 @@ public sealed class ExceptionHandlerMiddleware
             BadHttpRequestException badRequest => (badRequest.StatusCode, ErrorCodes.BadRequest, badRequest.Message),
             _ => (StatusCodes.Status500InternalServerError, ErrorCodes.InternalError, InternalErrorMessage),
         };
+        var details = (exception as FlowGateException)?.Details;
 
         if (statusCode >= StatusCodes.Status500InternalServerError)
         {
@@ -92,7 +93,7 @@ public sealed class ExceptionHandlerMiddleware
 
         await JsonSerializer.SerializeAsync(
             context.Response.Body,
-            new ErrorResponse(errorCode, message, traceId),
+            new ErrorResponse(errorCode, message, traceId, details),
             ErrorJsonContext.Default.ErrorResponse,
             context.RequestAborted);
     }

@@ -54,6 +54,7 @@ public sealed class KeeneticSystemService : IKeeneticSystemService
 
         return new KeeneticSystemInfo(
             ReadString(version, "model"),
+            ReadString(version, "hw_id"),
             release,
             ReadString(version, "title"),
             ReadString(version, "arch"),

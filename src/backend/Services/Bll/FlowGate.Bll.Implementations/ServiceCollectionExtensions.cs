@@ -1,10 +1,16 @@
+using System.Net;
+
 using Microsoft.Extensions.DependencyInjection;
 
 using FlowGate.Bll.Implementations.Jobs;
 using FlowGate.Bll.Implementations.Keenetic;
+using FlowGate.Bll.Implementations.Servers;
+using FlowGate.Bll.Implementations.Subscriptions;
 using FlowGate.Bll.Implementations.Xray;
 using FlowGate.Bll.Interfaces.Jobs;
 using FlowGate.Bll.Interfaces.Keenetic;
+using FlowGate.Bll.Interfaces.Servers;
+using FlowGate.Bll.Interfaces.Subscriptions;
 using FlowGate.Bll.Interfaces.Xray;
 
 namespace FlowGate.Bll.Implementations;
@@ -35,6 +41,29 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IXrayInstaller, XrayInstaller>();
         services.AddSingleton<IXrayService, XrayService>();
 
+        services.AddSingleton<IServerImportParser, ServerImportParser>();
+        services.AddSingleton<IOutboundValidator, OutboundValidator>();
+        services.AddSingleton<IServerService, ServerService>();
+
+        services.AddSingleton<ISubscriptionFetcher, SubscriptionFetcher>();
+        services.AddSingleton<ISubscriptionService, SubscriptionService>();
+        services.AddSubscriptionHttpClient();
+
         return services;
     }
+
+    /// <summary>
+    ///     Регистрирует HTTP-клиент подписок: перенаправления выключены (их обрабатывает <see cref="SubscriptionFetcher"/>),
+    ///     распаковка gzip/deflate/br включена, таймаут задаётся на запрос
+    /// </summary>
+    /// <param name="services">Коллекция сервисов</param>
+    /// <returns>Построитель HTTP-клиента, например для подмены обработчика в тестах</returns>
+    public static IHttpClientBuilder AddSubscriptionHttpClient(this IServiceCollection services) =>
+        services.AddHttpClient(SubscriptionFetcher.HttpClientName, client => client.Timeout = Timeout.InfiniteTimeSpan)
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+                AutomaticDecompression = DecompressionMethods.All,
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            });
 }

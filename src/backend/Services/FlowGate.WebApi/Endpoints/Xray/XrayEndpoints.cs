@@ -4,6 +4,7 @@ using FlowGate.Bll.Interfaces.Xray;
 using FlowGate.Shared.WebApi.Errors;
 using FlowGate.SharedContracts.Dto.Jobs;
 using FlowGate.SharedContracts.Dto.Xray;
+using FlowGate.SharedContracts.Dto.Settings;
 
 namespace FlowGate.WebApi.Endpoints.Xray;
 
@@ -34,7 +35,7 @@ public static class XrayEndpoints
 
         xray.MapPost("/install", InstallAsync)
             .WithName("InstallXray")
-            .WithSummary("Запустить установку версии (по умолчанию последней стабильной)")
+            .WithSummary("Запустить установку версии (по умолчанию последней стабильной); via — Auto, Proxy или Direct")
             .Produces<ErrorResponse>(StatusCodes.Status400BadRequest)
             .Produces<ErrorResponse>(StatusCodes.Status404NotFound)
             .Produces<ErrorResponse>(StatusCodes.Status409Conflict)
@@ -74,9 +75,10 @@ public static class XrayEndpoints
     private static async Task<Accepted<JobDto>> InstallAsync(
         IXrayService xray,
         XrayInstallRequest? request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        UpdateVia via = UpdateVia.Auto)
     {
-        var job = await xray.InstallAsync(request ?? new XrayInstallRequest(null), cancellationToken);
+        var job = await xray.InstallAsync(request ?? new XrayInstallRequest(null), via, cancellationToken);
         return TypedResults.Accepted($"/api/jobs/{job.Id}", job);
     }
 

@@ -1,6 +1,7 @@
 using FlowGate.Exceptions;
 using FlowGate.SharedContracts.Dto.Jobs;
 using FlowGate.SharedContracts.Dto.Subscriptions;
+using FlowGate.SharedContracts.Dto.Settings;
 
 namespace FlowGate.Bll.Interfaces.Subscriptions;
 
@@ -57,11 +58,12 @@ public interface ISubscriptionService
     ///     Запускает фоновое обновление подписки
     /// </summary>
     /// <param name="id">Идентификатор</param>
+    /// <param name="via">Как загружать: по настройкам, только через прокси обновлений или напрямую</param>
     /// <param name="cancellationToken">Токен отмены</param>
     /// <returns>Запущенная задача</returns>
     /// <exception cref="EntityNotFoundException">Если подписки нет</exception>
     /// <exception cref="ConflictException">Если эта подписка уже обновляется</exception>
-    Task<JobDto> RefreshAsync(string id, CancellationToken cancellationToken);
+    Task<JobDto> RefreshAsync(string id, UpdateVia via, CancellationToken cancellationToken);
 
     /// <summary>
     ///     Обновляет по очереди все подписки, которым пора обновиться. Ошибки отдельных подписок записываются в них, а не бросаются

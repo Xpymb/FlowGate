@@ -5,17 +5,22 @@ using Microsoft.Extensions.Options;
 
 using FlowGate.Bll.Implementations.DomainSources.Readers;
 using FlowGate.Bll.Implementations.Jobs;
+using FlowGate.Bll.Implementations.Settings;
+using FlowGate.Bll.Implementations.UpdateProxy;
 using FlowGate.Bll.Interfaces.DnsRoutes;
 using FlowGate.Bll.Interfaces.DomainSources;
+using FlowGate.Bll.Interfaces.UpdateProxy;
 using FlowGate.Contracts.DomainLists;
 using FlowGate.Contracts.DomainSources;
 using FlowGate.Dal.Interfaces.DnsRoutes;
 using FlowGate.Dal.Interfaces.DomainSources;
+using FlowGate.Dal.Interfaces.Settings;
 using FlowGate.Exceptions;
 using FlowGate.Shared.Bll.Jobs;
 using FlowGate.Shared.Options;
 using FlowGate.SharedContracts.Dto.DomainSources;
 using FlowGate.SharedContracts.Dto.Jobs;
+using FlowGate.SharedContracts.Dto.Settings;
 
 namespace FlowGate.Bll.Implementations.DomainSources;
 
@@ -40,7 +45,9 @@ public sealed partial class DomainSourceService : IDomainSourceService
     private readonly IDnsRouteService _routeService;
     private readonly IJobRunner _jobs;
     private readonly TimeProvider _timeProvider;
-    private readonly TimeSpan _refreshInterval;
+    private readonly ISettingsProvider _settings;
+    private readonly IUpdateProxyService _updateProxy;
+    private readonly DomainSourceOptions _options;
     private readonly ILogger<DomainSourceService> _logger;
 
     /// <summary>
@@ -55,6 +62,8 @@ public sealed partial class DomainSourceService : IDomainSourceService
     /// <param name="routeService">Маршруты (применение после обновления)</param>
     /// <param name="jobs">Фоновые задачи</param>
     /// <param name="timeProvider">Источник времени</param>
+    /// <param name="settings">Пользовательские настройки (интервал обновления)</param>
+    /// <param name="updateProxy">Прокси обновлений</param>
     /// <param name="options">Настройки источников</param>
     /// <param name="logger">Логгер</param>
     /// <exception cref="ArgumentNullException">Если любой аргумент равен null</exception>
@@ -68,6 +77,8 @@ public sealed partial class DomainSourceService : IDomainSourceService
         IDnsRouteService routeService,
         IJobRunner jobs,
         TimeProvider timeProvider,
+        ISettingsProvider settings,
+        IUpdateProxyService updateProxy,
         IOptions<DomainSourceOptions> options,
         ILogger<DomainSourceService> logger)
     {
@@ -81,7 +92,9 @@ public sealed partial class DomainSourceService : IDomainSourceService
         _jobs = jobs ?? throw new ArgumentNullException(nameof(jobs));
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         ArgumentNullException.ThrowIfNull(options);
-        _refreshInterval = TimeSpan.FromHours(options.Value.RefreshIntervalHours);
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _updateProxy = updateProxy ?? throw new ArgumentNullException(nameof(updateProxy));
+        _options = options.Value;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -203,21 +216,22 @@ public sealed partial class DomainSourceService : IDomainSourceService
     }
 
     /// <inheritdoc />
-    public async Task<JobDto> RefreshAsync(string id, CancellationToken cancellationToken)
+    public async Task<JobDto> RefreshAsync(string id, UpdateVia via, CancellationToken cancellationToken)
     {
         var source = await GetExistingAsync(id, cancellationToken);
-        return StartRefresh(source).ToDto();
+        return StartRefresh(source, via).ToDto();
     }
 
     /// <inheritdoc />
     public async Task<int> RefreshDueAsync(CancellationToken cancellationToken)
     {
         var now = _timeProvider.GetUtcNow();
+        var refreshInterval = UpdateIntervals.DomainSourceRefresh(await _settings.GetAsync(cancellationToken), _options);
         var used = (await _routes.GetAllAsync(cancellationToken)).Select(route => route.SourceId).ToHashSet(StringComparer.Ordinal);
         var due = (await _sources.GetAllAsync(cancellationToken))
             .Where(source => source.HasFile && source.AutoUpdate && used.Contains(source.Id))
             .Where(source => source.LastRefresh is null
-                || source.LastRefresh.At + (source.LastRefresh.Status == DomainSourceRefreshStatus.Failed ? RetryAfterFailure : _refreshInterval) <= now)
+                || source.LastRefresh.At + (source.LastRefresh.Status == DomainSourceRefreshStatus.Failed ? RetryAfterFailure : refreshInterval) <= now)
             .ToList();
 
         var refreshed = 0;
@@ -373,11 +387,11 @@ public sealed partial class DomainSourceService : IDomainSourceService
             : throw new RequestValidationException("Фильтр атрибута: имя вроде ads или !ads");
     }
 
-    private JobSnapshot StartRefresh(DomainSource source) =>
+    private JobSnapshot StartRefresh(DomainSource source, UpdateVia via = UpdateVia.Auto) =>
         _jobs.Start(
             JobKindPrefix + source.Id,
             $"Обновление источника «{source.Name}»",
-            (context, token) => RefreshCoreAsync(source.Id, context, token));
+            (context, token) => UpdateRoute.RunAsync(_updateProxy, via, context, () => RefreshCoreAsync(source.Id, context, token), token));
 
     private async Task RefreshCoreAsync(string id, IJobContext context, CancellationToken cancellationToken)
     {

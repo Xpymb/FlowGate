@@ -25,7 +25,7 @@ public sealed class XrayProcessServiceTests : IDisposable
     }
 
     /// <summary>
-    ///     Запуск передаёт xray путь к конфигурации и пишет pid-файл
+    ///     Запуск передаёт xray путь к конфигурации
     /// </summary>
     [Fact]
     public async Task StartAsync_Installed_RunsXrayWithConfig()
@@ -38,7 +38,6 @@ public sealed class XrayProcessServiceTests : IDisposable
         var status = _env.Process.GetStatus();
         Assert.Equal(XrayProcessState.Running, status.State);
         Assert.Equal(process.Id, status.ProcessId);
-        Assert.Equal(process.Id.ToString(), File.ReadAllText(Path.Combine(_env.XrayOptions.WorkDirectory, "xray.pid")));
     }
 
     /// <summary>
@@ -129,7 +128,6 @@ public sealed class XrayProcessServiceTests : IDisposable
         Assert.True(_env.Launcher.Started[0].WasKilled);
         Assert.Single(_env.Launcher.Started);
         Assert.Equal(XrayProcessState.Stopped, _env.Process.GetStatus().State);
-        Assert.False(File.Exists(Path.Combine(_env.XrayOptions.WorkDirectory, "xray.pid")));
     }
 
     /// <summary>

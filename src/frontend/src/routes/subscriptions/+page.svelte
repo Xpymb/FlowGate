@@ -4,15 +4,17 @@
 	import Badge from '#lib/components/Badge.svelte';
 	import Dialog from '#lib/components/Dialog.svelte';
 	import Loadable from '#lib/components/Loadable.svelte';
+	import UpdateButton from '#lib/components/UpdateButton.svelte';
 	import { formatBytes, formatDateTime, hostOf, toNumber } from '#lib/format.js';
 	import { trackJob } from '#lib/jobs.svelte.js';
-	import { label, refreshStatuses } from '#lib/labels.js';
+	import { hoursLabel, intervalOptions, label, refreshStatuses } from '#lib/labels.js';
 	import { Resource } from '#lib/resource.svelte.js';
 	import { attempt } from '#lib/toast.svelte.js';
 	import type { components } from '#lib/api/schema.js';
 
 	type Subscription = components['schemas']['SubscriptionDto'];
 	type SaveRequest = components['schemas']['SubscriptionSaveRequest'];
+	type UpdateVia = components['schemas']['UpdateVia'];
 
 	const subscriptions = new Resource(() => unwrap(api.GET('/api/subscriptions')));
 
@@ -85,8 +87,11 @@
 		}
 	}
 
-	async function refresh(id: string) {
-		await follow(id, api.POST('/api/subscriptions/{id}/refresh', { params: { path: { id } } }));
+	async function refresh(id: string, via: UpdateVia) {
+		await follow(
+			id,
+			api.POST('/api/subscriptions/{id}/refresh', { params: { path: { id }, query: { via } } })
+		);
 	}
 
 	async function follow(id: string, start: Parameters<typeof trackJob>[0]) {
@@ -171,9 +176,12 @@
 							<p class="muted">{item.provider.announce}</p>
 						{/if}
 						<div class="actions">
-							<button class="small" disabled={refreshing[item.id]} onclick={() => refresh(item.id)}>
-								{refreshing[item.id] ? 'Обновляется…' : 'Обновить'}
-							</button>
+							<UpdateButton
+								small
+								label="Обновить"
+								busy={refreshing[item.id]}
+								onrun={(via) => refresh(item.id, via)}
+							/>
 							<button class="secondary small" onclick={() => openEdit(item)}>Изменить</button>
 							<button class="danger small" onclick={() => remove(item)}>Удалить</button>
 						</div>
@@ -199,14 +207,13 @@
 			><input type="checkbox" bind:checked={form.autoUpdate} /> Обновлять по расписанию</label
 		>
 		<label>
-			Интервал, ч (1–168)
-			<input
-				bind:value={form.interval}
-				type="number"
-				min="1"
-				max="168"
-				placeholder="как у провайдера или 24"
-			/>
+			Интервал обновления
+			<select bind:value={form.interval}>
+				<option value="">как у провайдера или по умолчанию</option>
+				{#each intervalOptions(form.interval) as hours (hours)}
+					<option value={hours.toString()}>{hoursLabel(hours)}</option>
+				{/each}
+			</select>
 		</label>
 		<label>
 			User-Agent

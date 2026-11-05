@@ -1,6 +1,9 @@
 using Microsoft.Extensions.Logging.Abstractions;
 
+using NSubstitute;
+
 using FlowGate.Bll.Implementations.Xray;
+using FlowGate.Bll.Interfaces.UpdateProxy;
 using FlowGate.Dal.Implementations.Settings;
 using FlowGate.Dal.Implementations.Xray;
 using FlowGate.Shared.Bll.Jobs;
@@ -44,7 +47,8 @@ public sealed class XrayTestEnvironment : IDisposable
         ConfigFile = new XrayConfigFileProvider(flowGateOptions, xrayOptions);
         Settings = new SettingsProvider(new JsonFileStoreFactory(flowGateOptions));
         Logs = new XrayLogBuffer(xrayOptions, TimeProvider);
-        Process = new XrayProcessService(xrayOptions, ConfigFile, Launcher, Logs, TimeProvider, NullLogger<XrayProcessService>.Instance);
+        Processes = new XrayProcessManager(Launcher, ProcessTable, xrayOptions, NullLogger<XrayProcessManager>.Instance);
+        Process = new XrayProcessService(xrayOptions, ConfigFile, Processes, Logs, TimeProvider, NullLogger<XrayProcessService>.Instance);
         VersionProvider = new XrayVersionProvider(xrayOptions, Runner, NullLogger<XrayVersionProvider>.Instance);
         ConfigService = new XrayConfigService(
             new EmptyXrayConfigSource(),
@@ -70,10 +74,12 @@ public sealed class XrayTestEnvironment : IDisposable
             ConfigService,
             Settings,
             Jobs,
+            Substitute.For<IUpdateProxyService>(),
             xrayOptions,
             NullLogger<XrayInstaller>.Instance);
         Service = new XrayService(
             Process,
+            Processes,
             VersionProvider,
             Releases,
             Installer,
@@ -81,6 +87,7 @@ public sealed class XrayTestEnvironment : IDisposable
             Settings,
             Logs,
             xrayOptions,
+            TimeProvider,
             NullLogger<XrayService>.Instance);
     }
 
@@ -108,6 +115,16 @@ public sealed class XrayTestEnvironment : IDisposable
     ///     Подменный запуск процессов
     /// </summary>
     public FakeProcessLauncher Launcher { get; } = new();
+
+    /// <summary>
+    ///     Подменная таблица процессов ОС
+    /// </summary>
+    public FakeProcessTable ProcessTable { get; } = new();
+
+    /// <summary>
+    ///     Менеджер процессов Xray
+    /// </summary>
+    public XrayProcessManager Processes { get; }
 
     /// <summary>
     ///     Файл конфигурации

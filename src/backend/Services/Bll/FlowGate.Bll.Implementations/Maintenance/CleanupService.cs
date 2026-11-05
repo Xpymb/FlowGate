@@ -18,7 +18,7 @@ public sealed class CleanupService : ICleanupService
     private const string DeleteRulePrefix = "no dns-proxy route ";
     private const string DeleteGroupPrefix = "no object-group fqdn ";
 
-    private readonly IXrayProcessService _xray;
+    private readonly IXrayProcessManager _xray;
     private readonly IKeeneticDnsService _dns;
     private readonly IKeeneticInterfaceService _interfaces;
     private readonly IDnsRouteProvider _routes;
@@ -27,14 +27,14 @@ public sealed class CleanupService : ICleanupService
     /// <summary>
     ///     Инициализирует новый экземпляр класса <see cref="CleanupService"/>
     /// </summary>
-    /// <param name="xray">Процесс Xray</param>
+    /// <param name="xray">Менеджер процессов Xray: останавливает все процессы нашего бинарника</param>
     /// <param name="dns">Группы и DNS-маршруты Keenetic</param>
     /// <param name="interfaces">Интерфейсы Keenetic</param>
     /// <param name="routes">Хранилище маршрутов</param>
     /// <param name="logger">Логгер</param>
     /// <exception cref="ArgumentNullException">Если любой аргумент равен null</exception>
     public CleanupService(
-        IXrayProcessService xray,
+        IXrayProcessManager xray,
         IKeeneticDnsService dns,
         IKeeneticInterfaceService interfaces,
         IDnsRouteProvider routes,
@@ -55,7 +55,7 @@ public sealed class CleanupService : ICleanupService
 
         if (!dryRun)
         {
-            await RunStepAsync("остановка xray", errors, () => _xray.KillOrphanAsync(cancellationToken));
+            await RunStepAsync("остановка xray", errors, () => _xray.KillStrangersAsync(cancellationToken));
         }
 
         var dnsCommands = new List<string>();

@@ -34,7 +34,7 @@ public sealed class SubscriptionOptions
     ///     Интервал обновления, если его не задали ни пользователь, ни провайдер, часы
     /// </summary>
     [Range(1, 168)]
-    public int DefaultUpdateIntervalHours { get; set; } = 24;
+    public int DefaultUpdateIntervalHours { get; set; } = 12;
 
     /// <summary>
     ///     Через сколько минут повторить обновление после ошибки

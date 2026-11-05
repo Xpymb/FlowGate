@@ -8,6 +8,7 @@
 	import Dialog from '#lib/components/Dialog.svelte';
 	import ListFormatHelp from '#lib/components/ListFormatHelp.svelte';
 	import SourceFormFields from '#lib/components/SourceForm.svelte';
+	import UpdateButton from '#lib/components/UpdateButton.svelte';
 	import { formatDateTime, toNumber } from '#lib/format.js';
 	import { trackJob } from '#lib/jobs.svelte.js';
 	import { label, refreshStatuses, sourceKinds } from '#lib/labels.js';
@@ -19,6 +20,7 @@
 	type ListSummary = components['schemas']['DomainListSummaryDto'];
 	type Preview = components['schemas']['DomainListPreviewDto'];
 	type LocalList = components['schemas']['LocalListDto'];
+	type UpdateVia = components['schemas']['UpdateVia'];
 
 	const visibleLimit = 300;
 	const id = $derived(page.params.id ?? '');
@@ -97,9 +99,11 @@
 		searchTimer = setTimeout(() => void loadLists(), 250);
 	}
 
-	async function refresh() {
+	async function refresh(via: UpdateVia) {
 		refreshing = true;
-		await trackJob(api.POST('/api/domain-sources/{id}/refresh', { params: { path: { id } } }));
+		await trackJob(
+			api.POST('/api/domain-sources/{id}/refresh', { params: { path: { id }, query: { via } } })
+		);
 		refreshing = false;
 		await loadAll(id);
 	}
@@ -255,9 +259,7 @@
 			{/if}
 			<div class="actions buttons">
 				{#if source.kind !== 'Local'}
-					<button disabled={refreshing} onclick={refresh}>
-						{refreshing ? 'Обновляется…' : 'Обновить'}
-					</button>
+					<UpdateButton label="Обновить" busy={refreshing} onrun={refresh} />
 				{/if}
 				{#if !source.builtIn}
 					<button class="secondary" onclick={openEdit}>Изменить</button>

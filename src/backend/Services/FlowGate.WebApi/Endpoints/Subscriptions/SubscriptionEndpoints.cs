@@ -4,6 +4,7 @@ using FlowGate.Bll.Interfaces.Subscriptions;
 using FlowGate.Shared.WebApi.Errors;
 using FlowGate.SharedContracts.Dto.Jobs;
 using FlowGate.SharedContracts.Dto.Subscriptions;
+using FlowGate.SharedContracts.Dto.Settings;
 
 namespace FlowGate.WebApi.Endpoints.Subscriptions;
 
@@ -48,7 +49,7 @@ public static class SubscriptionEndpoints
 
         subscriptions.MapPost("/{id}/refresh", RefreshAsync)
             .WithName("RefreshSubscription")
-            .WithSummary("Запустить обновление подписки")
+            .WithSummary("Запустить обновление подписки; via — Auto (по настройкам), Proxy или Direct")
             .Produces<ErrorResponse>(StatusCodes.Status404NotFound)
             .Produces<ErrorResponse>(StatusCodes.Status409Conflict);
 
@@ -94,9 +95,10 @@ public static class SubscriptionEndpoints
     private static async Task<Accepted<JobDto>> RefreshAsync(
         ISubscriptionService subscriptions,
         string id,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        UpdateVia via = UpdateVia.Auto)
     {
-        var job = await subscriptions.RefreshAsync(id, cancellationToken);
+        var job = await subscriptions.RefreshAsync(id, via, cancellationToken);
         return TypedResults.Accepted($"/api/jobs/{job.Id}", job);
     }
 }

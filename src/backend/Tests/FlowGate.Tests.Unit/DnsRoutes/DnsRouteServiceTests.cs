@@ -8,11 +8,13 @@ using FlowGate.Bll.Implementations.DomainSources.Readers;
 using FlowGate.Bll.Implementations.Keenetic;
 using FlowGate.Bll.Implementations.Maintenance;
 using FlowGate.Bll.Interfaces.DomainSources;
+using FlowGate.Bll.Interfaces.UpdateProxy;
 using FlowGate.Bll.Interfaces.Xray;
 using FlowGate.Contracts.Connections;
 using FlowGate.Dal.Implementations.Connections;
 using FlowGate.Dal.Implementations.DnsRoutes;
 using FlowGate.Dal.Implementations.DomainSources;
+using FlowGate.Dal.Implementations.Settings;
 using FlowGate.Exceptions;
 using FlowGate.Shared.Bll.Jobs;
 using FlowGate.Shared.Bll.Ndms;
@@ -88,6 +90,8 @@ public sealed class DnsRouteServiceTests : IDisposable
             _sut,
             _jobs,
             TimeProvider.System,
+            new SettingsProvider(storeFactory),
+            Substitute.For<IUpdateProxyService>(),
             sourceOptions,
             NullLogger<DomainSourceService>.Instance);
 
@@ -264,7 +268,7 @@ public sealed class DnsRouteServiceTests : IDisposable
         _keenetic.SetRouteDisabled(Group, "Wireguard0", disabled: true);
         await _sut.ReconcileAsync(new HashSet<string>(), Token);
         var cleanup = new CleanupService(
-            Substitute.For<IXrayProcessService>(),
+            Substitute.For<IXrayProcessManager>(),
             _dns,
             new KeeneticInterfaceService(_rci, _queue, NullLogger<KeeneticInterfaceService>.Instance),
             _routes,

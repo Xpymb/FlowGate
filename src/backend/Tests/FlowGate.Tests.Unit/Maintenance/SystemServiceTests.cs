@@ -4,8 +4,11 @@ using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 
 using FlowGate.Bll.Implementations.Maintenance;
+using FlowGate.Bll.Interfaces.UpdateProxy;
 using FlowGate.Bll.Interfaces.Xray;
+using FlowGate.Contracts.Settings;
 using FlowGate.Contracts.Xray;
+using FlowGate.Dal.Interfaces.Settings;
 using FlowGate.Exceptions;
 using FlowGate.Shared.Bll.Jobs;
 using FlowGate.Shared.Bll.Processes;
@@ -27,6 +30,8 @@ public sealed class SystemServiceTests : IDisposable
     private readonly IGitHubReleasesClient _gitHub = Substitute.For<IGitHubReleasesClient>();
     private readonly IXrayProcessService _xray = Substitute.For<IXrayProcessService>();
     private readonly FakeProcessRunner _processRunner = new();
+    private readonly ISettingsProvider _settings = Substitute.For<ISettingsProvider>();
+    private readonly IUpdateProxyService _updateProxy = Substitute.For<IUpdateProxyService>();
     private readonly FakeTimeProvider _time = new(DateTimeOffset.UtcNow);
     private readonly JobRunner _jobs;
     private readonly SystemOptions _options;
@@ -48,11 +53,14 @@ public sealed class SystemServiceTests : IDisposable
         };
         _xray.GetStatus().Returns(new XrayProcessStatus(XrayProcessState.Stopped, null, null, 0, null, null));
         _processRunner.Handler = (_, _) => new ProcessResult(0, "", "");
+        _settings.GetAsync(Arg.Any<CancellationToken>()).Returns(AppSettings.Default);
         _sut = new SystemService(
             _gitHub,
             _xray,
             _jobs,
             _processRunner,
+            _settings,
+            _updateProxy,
             MsOptions.Create(_options),
             _time,
             NullLogger<SystemService>.Instance);
@@ -128,6 +136,44 @@ public sealed class SystemServiceTests : IDisposable
         var call = Assert.Single(_processRunner.Calls);
         Assert.Equal("/opt/sbin/start-stop-daemon", call.FileName);
         Assert.Equal(["-S", "-b", "-m", "-p", SystemService.UpgradePidFile, "-x", "/bin/sh", "--", _options.UpgradeScriptPath], call.Arguments);
+    }
+
+    /// <summary>
+    ///     Прокси обновлений включён — скрипт получает бинарник Xray, конфиг и порт отдельного экземпляра
+    /// </summary>
+    [Fact]
+    public async Task RequestUpgrade_UpdateProxyEnabled_PassesProxyArguments()
+    {
+        await File.WriteAllTextAsync(_options.UpgradeScriptPath, "#!/bin/sh\n", Token);
+        _updateProxy.PrepareStandaloneAsync(Arg.Any<CancellationToken>())
+            .Returns(new UpdateProxyStandaloneConfig("/opt/sbin/flowgate-xray", "/tmp/flowgate/update-proxy-upgrade.json", 10791));
+
+        var job = _sut.RequestUpgrade();
+        await _jobs.WaitAsync(job.Id, Token);
+
+        var call = Assert.Single(_processRunner.Calls);
+        Assert.Equal(
+            ["--xray", "/opt/sbin/flowgate-xray", "--proxy-config", "/tmp/flowgate/update-proxy-upgrade.json", "--proxy-port", "10791"],
+            call.Arguments.Skip(9));
+    }
+
+    /// <summary>
+    ///     Проверка по расписанию: интервал из настроек ещё не истёк — GitHub не спрашивается
+    /// </summary>
+    [Fact]
+    public async Task CheckForUpdatesIfDueAsync_IntervalFromSettings_SkipsUntilDue()
+    {
+        _settings.GetAsync(Arg.Any<CancellationToken>())
+            .Returns(AppSettings.Default with { Intervals = new UpdateIntervalSettings { SystemUpdateCheckHours = 2 } });
+        _gitHub.GetReleasesAsync("Xpymb/FlowGate", Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns([Release("v99.0.0")]);
+
+        Assert.True(await _sut.CheckForUpdatesIfDueAsync(Token));
+        _time.Advance(TimeSpan.FromHours(1));
+        Assert.False(await _sut.CheckForUpdatesIfDueAsync(Token));
+        _time.Advance(TimeSpan.FromHours(1));
+        Assert.True(await _sut.CheckForUpdatesIfDueAsync(Token));
+
+        await _gitHub.Received(2).GetReleasesAsync("Xpymb/FlowGate", Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 
     /// <summary>

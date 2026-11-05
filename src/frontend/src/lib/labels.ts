@@ -31,12 +31,42 @@ export const routeStates: Record<string, { label: string; tone: Tone }> = {
 	Disabled: { label: 'выключен', tone: 'muted' }
 };
 
+export const updateProxyStates: Record<string, { label: string; tone: Tone }> = {
+	Disabled: { label: 'выключен', tone: 'muted' },
+	Idle: { label: 'ждёт запроса', tone: 'accent' },
+	Running: { label: 'работает', tone: 'ok' },
+	Unavailable: { label: 'недоступен, напрямую', tone: 'warn' }
+};
+
 export const refreshStatuses: Record<string, { label: string; tone: Tone }> = {
 	Ok: { label: 'ок', tone: 'ok' },
 	Partial: { label: 'частично', tone: 'warn' },
 	Waiting: { label: 'ждёт источник', tone: 'warn' },
 	Failed: { label: 'ошибка', tone: 'danger' }
 };
+
+/** Варианты интервала обновления в выпадающих списках, часы. */
+export const intervalChoices = [1, 3, 6, 12, 24] as const;
+
+/** Варианты для списка: стандартные плюс текущее значение, если оно задано вне списка (например, через API). */
+export function intervalOptions(current: string): number[] {
+	const value = Number(current);
+	const choices: number[] = [...intervalChoices];
+	return current && !choices.includes(value) ? [...choices, value].sort((a, b) => a - b) : choices;
+}
+
+/** «1 час», «3 часа», «12 часов». */
+export function hoursLabel(hours: number): string {
+	const mod10 = hours % 10;
+	const mod100 = hours % 100;
+	const word =
+		mod10 === 1 && mod100 !== 11
+			? 'час'
+			: mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
+				? 'часа'
+				: 'часов';
+	return `${hours} ${word}`;
+}
 
 export function label<T extends { label: string; tone: Tone }>(
 	map: Record<string, T>,

@@ -1,6 +1,7 @@
 using FlowGate.Exceptions;
 using FlowGate.SharedContracts.Dto.Jobs;
 using FlowGate.SharedContracts.Dto.Xray;
+using FlowGate.SharedContracts.Dto.Settings;
 
 namespace FlowGate.Bll.Interfaces.Xray;
 
@@ -30,12 +31,13 @@ public interface IXrayService
     ///     Запускает фоновую установку версии
     /// </summary>
     /// <param name="request">Версия; null — последняя стабильная</param>
+    /// <param name="via">Как загружать: по настройкам, только через прокси обновлений или напрямую</param>
     /// <param name="cancellationToken">Токен отмены</param>
     /// <returns>Запущенная задача</returns>
     /// <exception cref="RequestValidationException">Если версия указана в неверном формате</exception>
     /// <exception cref="EntityNotFoundException">Если такой версии нет среди релизов</exception>
     /// <exception cref="ConflictException">Если установка уже идёт</exception>
-    Task<JobDto> InstallAsync(XrayInstallRequest request, CancellationToken cancellationToken);
+    Task<JobDto> InstallAsync(XrayInstallRequest request, UpdateVia via, CancellationToken cancellationToken);
 
     /// <summary>
     ///     Запускает Xray и включает автозапуск
@@ -86,4 +88,12 @@ public interface IXrayService
     /// <param name="cancellationToken">Токен отмены</param>
     /// <exception cref="ExternalServiceUnavailableException">Если GitHub недоступен</exception>
     Task CheckForUpdatesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Проверяет новые релизы, если с последней проверки прошёл интервал из настроек
+    /// </summary>
+    /// <param name="cancellationToken">Токен отмены</param>
+    /// <returns>true, если проверка выполнялась</returns>
+    /// <exception cref="ExternalServiceUnavailableException">Если GitHub недоступен</exception>
+    Task<bool> CheckForUpdatesIfDueAsync(CancellationToken cancellationToken);
 }

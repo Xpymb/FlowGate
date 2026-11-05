@@ -1,41 +1,34 @@
-using Microsoft.Extensions.Options;
-
 using FlowGate.Bll.Interfaces.Xray;
-using FlowGate.Shared.Options;
 
 namespace FlowGate.WebApi.Jobs;
 
 /// <summary>
-///     Периодическая проверка новых релизов Xray (только уведомление, без установки)
+///     Проверка новых релизов Xray (только уведомление, без установки): раз в час смотрит, истёк ли интервал из настроек
 /// </summary>
 public sealed class XrayUpdateCheckJob : BackgroundService
 {
+    private static readonly TimeSpan TickInterval = TimeSpan.FromHours(1);
     private static readonly TimeSpan InitialDelay = TimeSpan.FromMinutes(1);
 
     private readonly IXrayService _xray;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<XrayUpdateCheckJob> _logger;
-    private readonly TimeSpan _interval;
 
     /// <summary>
     ///     Инициализирует новый экземпляр класса <see cref="XrayUpdateCheckJob"/>
     /// </summary>
     /// <param name="xray">Управление Xray</param>
-    /// <param name="options">Настройки Xray (интервал проверки)</param>
     /// <param name="timeProvider">Источник времени</param>
     /// <param name="logger">Логгер</param>
     /// <exception cref="ArgumentNullException">Если любой аргумент равен null</exception>
     public XrayUpdateCheckJob(
         IXrayService xray,
-        IOptions<XrayOptions> options,
         TimeProvider timeProvider,
         ILogger<XrayUpdateCheckJob> logger)
     {
         _xray = xray ?? throw new ArgumentNullException(nameof(xray));
-        ArgumentNullException.ThrowIfNull(options);
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _interval = TimeSpan.FromHours(options.Value.UpdateCheckIntervalHours);
     }
 
     /// <inheritdoc />
@@ -45,7 +38,7 @@ public sealed class XrayUpdateCheckJob : BackgroundService
         {
             await Task.Delay(InitialDelay, _timeProvider, stoppingToken);
 
-            using var timer = new PeriodicTimer(_interval, _timeProvider);
+            using var timer = new PeriodicTimer(TickInterval, _timeProvider);
             do
             {
                 await CheckAsync(stoppingToken);
@@ -61,7 +54,7 @@ public sealed class XrayUpdateCheckJob : BackgroundService
     {
         try
         {
-            await _xray.CheckForUpdatesAsync(stoppingToken);
+            await _xray.CheckForUpdatesIfDueAsync(stoppingToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

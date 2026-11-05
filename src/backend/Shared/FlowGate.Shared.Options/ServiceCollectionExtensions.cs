@@ -30,6 +30,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidateOptions<ConnectionOptions>, ConnectionOptionsValidator>();
         services.AddSingleton<IValidateOptions<ConnectionOptions>, ConnectionOptionsRangeValidator>();
         services.AddSingleton<IValidateOptions<DomainSourceOptions>, DomainSourceOptionsValidator>();
+        services.AddSingleton<IValidateOptions<UpdateProxyOptions>, UpdateProxyOptionsValidator>();
+        services.AddSingleton<IValidateOptions<UpdateProxyOptions>, UpdateProxyOptionsPortValidator>();
 
         services.AddOptionsWithValidateOnStart<FlowGateOptions>()
             .Bind(configuration.GetSection(FlowGateOptions.SectionName));
@@ -54,6 +56,9 @@ public static class ServiceCollectionExtensions
 
         services.AddOptionsWithValidateOnStart<DomainSourceOptions>()
             .Bind(configuration.GetSection(DomainSourceOptions.SectionName));
+
+        services.AddOptionsWithValidateOnStart<UpdateProxyOptions>()
+            .Bind(configuration.GetSection(UpdateProxyOptions.SectionName));
 
         return services;
     }

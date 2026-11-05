@@ -4,6 +4,7 @@ using FlowGate.Bll.Interfaces.DomainSources;
 using FlowGate.Shared.WebApi.Errors;
 using FlowGate.SharedContracts.Dto.DomainSources;
 using FlowGate.SharedContracts.Dto.Jobs;
+using FlowGate.SharedContracts.Dto.Settings;
 
 namespace FlowGate.WebApi.Endpoints.DomainSources;
 
@@ -112,9 +113,13 @@ public static class DomainSourceEndpoints
         return TypedResults.NoContent();
     }
 
-    private static async Task<Accepted<JobDto>> RefreshAsync(IDomainSourceService sources, string id, CancellationToken cancellationToken)
+    private static async Task<Accepted<JobDto>> RefreshAsync(
+        IDomainSourceService sources,
+        string id,
+        CancellationToken cancellationToken,
+        UpdateVia via = UpdateVia.Auto)
     {
-        var job = await sources.RefreshAsync(id, cancellationToken);
+        var job = await sources.RefreshAsync(id, via, cancellationToken);
         return TypedResults.Accepted($"/api/jobs/{job.Id}", job);
     }
 

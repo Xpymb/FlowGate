@@ -3,11 +3,15 @@
 	import { unwrap } from '#lib/api/errors.js';
 	import Badge from '#lib/components/Badge.svelte';
 	import Loadable from '#lib/components/Loadable.svelte';
+	import UpdateButton from '#lib/components/UpdateButton.svelte';
 	import { formatBytes, formatDateTime } from '#lib/format.js';
 	import { trackJob } from '#lib/jobs.svelte.js';
 	import { label, xrayStates } from '#lib/labels.js';
 	import { Resource } from '#lib/resource.svelte.js';
 	import { attempt } from '#lib/toast.svelte.js';
+	import type { components } from '#lib/api/schema.js';
+
+	type UpdateVia = components['schemas']['UpdateVia'];
 
 	const status = new Resource(() => unwrap(api.GET('/api/xray')));
 	let includePrerelease = $state(false);
@@ -30,9 +34,11 @@
 		void logs.reload();
 	}
 
-	async function install(version: string | null) {
+	async function install(version: string | null, via: UpdateVia) {
 		busy = true;
-		const ok = await trackJob(api.POST('/api/xray/install', { body: { version } }));
+		const ok = await trackJob(
+			api.POST('/api/xray/install', { params: { query: { via } }, body: { version } })
+		);
 		busy = false;
 		if (ok) {
 			await Promise.all([status.reload(), releases.reload(), logs.reload()]);
@@ -92,14 +98,19 @@
 							<button disabled={busy} onclick={() => control('start')}>Запустить</button>
 						{/if}
 						{#if xray.updateAvailable}
-							<button class="secondary" disabled={busy} onclick={() => install(null)}>
-								Обновить до {xray.latestVersion}
-							</button>
+							<UpdateButton
+								secondary
+								label={`Обновить до ${xray.latestVersion}`}
+								disabled={busy}
+								onrun={(via) => install(null, via)}
+							/>
 						{/if}
 					{:else}
-						<button disabled={busy} onclick={() => install(null)}
-							>Установить последнюю версию</button
-						>
+						<UpdateButton
+							label="Установить последнюю версию"
+							disabled={busy}
+							onrun={(via) => install(null, via)}
+						/>
 					{/if}
 				</div>
 			{/snippet}
@@ -143,11 +154,13 @@
 											{#if release.isInstalled}
 												<Badge tone="ok">установлена</Badge>
 											{:else}
-												<button
-													class="secondary small"
+												<UpdateButton
+													secondary
+													small
+													label="Установить"
 													disabled={busy}
-													onclick={() => install(release.version)}>Установить</button
-												>
+													onrun={(via) => install(release.version, via)}
+												/>
 											{/if}
 										</td>
 									</tr>

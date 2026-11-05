@@ -23,6 +23,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INdmsOperationQueue, NdmsOperationQueue>();
         services.AddSingleton<IProcessRunner, ProcessRunner>();
         services.AddSingleton<IProcessLauncher, ProcessLauncher>();
+        services.AddSingleton<IProcessTable, ProcFsProcessTable>();
         services.AddSingleton<IJobRunner, JobRunner>();
         return services;
     }

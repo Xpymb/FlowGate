@@ -6,9 +6,12 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using FlowGate.Bll.Implementations.Jobs;
+using FlowGate.Bll.Implementations.Settings;
 using FlowGate.Bll.Interfaces.Maintenance;
+using FlowGate.Bll.Interfaces.UpdateProxy;
 using FlowGate.Bll.Interfaces.Xray;
 using FlowGate.Contracts.Maintenance;
+using FlowGate.Dal.Interfaces.Settings;
 using FlowGate.Exceptions;
 using FlowGate.Shared.Bll;
 using FlowGate.Shared.Bll.Jobs;
@@ -42,6 +45,8 @@ public sealed class SystemService : ISystemService
     private readonly IXrayProcessService _xray;
     private readonly IJobRunner _jobs;
     private readonly IProcessRunner _processRunner;
+    private readonly ISettingsProvider _settings;
+    private readonly IUpdateProxyService _updateProxy;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<SystemService> _logger;
     private readonly SystemOptions _options;
@@ -56,6 +61,8 @@ public sealed class SystemService : ISystemService
     /// <param name="xray">Процесс Xray (pid для памяти)</param>
     /// <param name="jobs">Фоновые задачи</param>
     /// <param name="processRunner">Запуск команд</param>
+    /// <param name="settings">Пользовательские настройки (интервал проверки)</param>
+    /// <param name="updateProxy">Прокси обновлений для opkg</param>
     /// <param name="options">Настройки самообновления</param>
     /// <param name="timeProvider">Источник времени</param>
     /// <param name="logger">Логгер</param>
@@ -65,6 +72,8 @@ public sealed class SystemService : ISystemService
         IXrayProcessService xray,
         IJobRunner jobs,
         IProcessRunner processRunner,
+        ISettingsProvider settings,
+        IUpdateProxyService updateProxy,
         IOptions<SystemOptions> options,
         TimeProvider timeProvider,
         ILogger<SystemService> logger)
@@ -73,6 +82,8 @@ public sealed class SystemService : ISystemService
         _xray = xray ?? throw new ArgumentNullException(nameof(xray));
         _jobs = jobs ?? throw new ArgumentNullException(nameof(jobs));
         _processRunner = processRunner ?? throw new ArgumentNullException(nameof(processRunner));
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _updateProxy = updateProxy ?? throw new ArgumentNullException(nameof(updateProxy));
         ArgumentNullException.ThrowIfNull(options);
         _options = options.Value;
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
@@ -118,6 +129,19 @@ public sealed class SystemService : ISystemService
     }
 
     /// <inheritdoc />
+    public async Task<bool> CheckForUpdatesIfDueAsync(CancellationToken cancellationToken)
+    {
+        var interval = UpdateIntervals.SystemUpdateCheck(await _settings.GetAsync(cancellationToken), _options);
+        if (!UpdateIntervals.IsDue(_lastCheck?.CheckedAt, interval, _timeProvider.GetUtcNow()))
+        {
+            return false;
+        }
+
+        await CheckForUpdatesAsync(cancellationToken);
+        return true;
+    }
+
+    /// <inheritdoc />
     public JobDto RequestUpgrade()
     {
         if (!File.Exists(_options.UpgradeScriptPath))
@@ -130,12 +154,17 @@ public sealed class SystemService : ISystemService
 
     private async Task LaunchUpgradeAsync(IJobContext context, CancellationToken cancellationToken)
     {
+        List<string> arguments = ["-S", "-b", "-m", "-p", UpgradePidFile, "-x", "/bin/sh", "--", _options.UpgradeScriptPath];
+
+        var proxy = await _updateProxy.PrepareStandaloneAsync(cancellationToken);
+        if (proxy is not null)
+        {
+            arguments.AddRange(["--xray", proxy.BinaryPath, "--proxy-config", proxy.ConfigPath, "--proxy-port", proxy.Port.ToString(CultureInfo.InvariantCulture)]);
+            context.Report("Пакет будет загружен через прокси обновлений");
+        }
+
         context.Report("Запуск opkg upgrade flowgate");
-        var result = await _processRunner.RunAsync(
-            _options.StartStopDaemonPath,
-            ["-S", "-b", "-m", "-p", UpgradePidFile, "-x", "/bin/sh", "--", _options.UpgradeScriptPath],
-            LaunchTimeout,
-            cancellationToken);
+        var result = await _processRunner.RunAsync(_options.StartStopDaemonPath, arguments, LaunchTimeout, cancellationToken);
 
         if (result.ExitCode != 0)
         {

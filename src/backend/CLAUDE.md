@@ -39,7 +39,10 @@ dotnet test --solution FlowGate.slnx --coverage --coverage-output-format cobertu
 
 ```bash
 # результат: out/router/flowgate (static-pie aarch64, ~20 МиБ) + appsettings.json
-docker buildx build -f docker/Dockerfile.router --output type=local,dest=out/router .
+docker buildx build -f docker/Dockerfile.router --build-arg VERSION=0.1.0 --output type=local,dest=out/router .
+
+# пакет и индекс feed (из корня репозитория; нужны bash и python3)
+packaging/build-ipk.sh 0.1.0 src/backend/out/router - out/feed
 ```
 
 Проверка на роутере (только `/tmp`, конфигурацию Keenetic не меняет; `scp` только с `-O`, `nohup` на роутере нет):
@@ -195,6 +198,23 @@ JSON-файлы в `FlowGate:DataDirectory` (на роутере `/opt/etc/flowg
   проверяй `RciBatchResult` (`EnsureSuccess`, `Failed`).
 - Сохранение: `SaveConfigurationAsync()` (`system configuration save`) — один раз в конце операции.
 - Коды ошибок — `RciErrorCodes`. Удаление несуществующего объекта даёт `7405602 argument parse error`.
+
+### Упаковка и самообновление
+
+- Пакет `flowgate_<версия>_aarch64-3.10.ipk` (tar.gz, как в Entware) собирает `packaging/build-ipk.sh` через
+  `packaging/ipk.py` (режимы и владелец задаются явно, сборка воспроизводима); `packaging/check-feed.sh` проверяет
+  результат. Скрипты пакета — только LF (`.gitattributes`), сборщик отклоняет CRLF.
+- Раскладка: `/opt/bin/flowgate`, `/opt/share/flowgate/{appsettings.json,www/,upgrade.sh}` (рабочий каталог службы),
+  `/opt/etc/init.d/S99flowgate`. Данные `/opt/etc/flowgate` и Xray `/opt/sbin/flowgate-xray` в пакет не входят и
+  при `upgrade`/`remove` не трогаются. Журнал службы — `/tmp/flowgate/flowgate.log`.
+- opkg вызывает `prerm remove` и при `--force-reinstall`, поэтому `flowgate cleanup` (`ICleanupService`) не теряет
+  настройки: удаляет из Keenetic свои интерфейсы, группы `fg-*` и правила, а маршрутам ставит `Provisioned=false` с
+  прежним `LastKnownDisabled` — после установки сверка создаёт всё заново с теми же флагами.
+- Самообновление (`ISystemService.RequestUpgrade`, задача `system-upgrade`): `start-stop-daemon -S -b` запускает
+  `upgrade.sh` отвязанным процессом (переживает остановку службы), тот копирует себя в `/tmp` и выполняет
+  `opkg update && opkg upgrade flowgate`; итог — последняя строка `ok …`/`failed …` в `System:UpgradeLogPath`. Отката нет.
+- Релиз: тег `vX.Y.Z` → `.github/workflows/release.yml` (тесты, `Dockerfile.router` с `VERSION`, фронт при наличии
+  `src/frontend/package.json`, ipk, GitHub Release, feed `gh-pages/aarch64-3.10` с тремя последними версиями).
 
 ## Code Conventions
 

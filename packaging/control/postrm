@@ -1,0 +1,8 @@
+#!/bin/sh
+[ -z "${IPKG_INSTROOT:-}" ] || exit 0
+
+if [ "$1" = "remove" ]; then
+    echo "FlowGate удалён. Настройки остались в /opt/etc/flowgate, Xray — в /opt/sbin/flowgate-xray."
+    echo "Полное удаление: rm -rf /opt/etc/flowgate /opt/sbin/flowgate-xray* /opt/etc/opkg/flowgate.conf"
+fi
+exit 0

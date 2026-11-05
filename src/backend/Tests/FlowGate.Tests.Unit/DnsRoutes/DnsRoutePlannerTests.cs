@@ -251,6 +251,44 @@ public sealed class DnsRoutePlannerTests
         Assert.Null(DnsRoute.PartIndex(Base, "fg-youtube-02"));
     }
 
+    /// <summary>
+    ///     Маршрут снят командой cleanup (не создан, но был выключен) — создаётся заново выключенным
+    /// </summary>
+    [Fact]
+    public void Plan_NotProvisionedButLastKnownDisabled_CreatesDisabledRule()
+    {
+        var plan = Plan([Target(Route() with { LastKnownDisabled = true }, "a.com")], NdmsDnsState.Empty);
+
+        Assert.Equal(
+            ["dns-proxy route object-group fg-youtube Proxy0 auto", "dns-proxy route disable"],
+            plan.Commands.TakeLast(2));
+        Assert.True(plan.Outcomes[0].Disabled);
+    }
+
+    /// <summary>
+    ///     Удаление всего FlowGate: правила своих групп (на любые интерфейсы) и висящие правила <c>fg-*</c>, затем группы;
+    ///     чужие группы и их правила не трогаются
+    /// </summary>
+    [Fact]
+    public void RemoveAll_MixedState_RemovesOnlyFlowGateObjects()
+    {
+        var state = State(
+            [Group(Base, Description, "a.com"), Group("fg-mine", "", "b.com"), Group("my-list", "Мой", "c.com")],
+            [Rule(Base, "Proxy0"), Rule(Base, "Proxy7"), Rule("fg-gone", "Proxy0"), Rule("my-list", "Proxy0")]);
+
+        var commands = DnsRoutePlanner.RemoveAll(state);
+
+        Assert.Equal(
+            [
+                "no dns-proxy route object-group fg-youtube Proxy0",
+                "no dns-proxy route object-group fg-youtube Proxy7",
+                "no dns-proxy route object-group fg-gone Proxy0",
+                "no object-group fqdn fg-youtube",
+            ],
+            commands);
+        Assert.Empty(DnsRoutePlanner.RemoveAll(NdmsDnsState.Empty));
+    }
+
     private static DnsRoutePlan Plan(IReadOnlyList<DnsRouteTarget> targets, NdmsDnsState state) =>
         DnsRoutePlanner.Plan(targets, state, NoRecreated, 1000);
 

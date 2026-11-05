@@ -8,6 +8,7 @@ using FlowGate.Bll.Implementations.DomainSources;
 using FlowGate.Bll.Implementations.DomainSources.Readers;
 using FlowGate.Bll.Implementations.Jobs;
 using FlowGate.Bll.Implementations.Keenetic;
+using FlowGate.Bll.Implementations.Maintenance;
 using FlowGate.Bll.Implementations.Servers;
 using FlowGate.Bll.Implementations.Subscriptions;
 using FlowGate.Bll.Implementations.Xray;
@@ -16,6 +17,7 @@ using FlowGate.Bll.Interfaces.DnsRoutes;
 using FlowGate.Bll.Interfaces.DomainSources;
 using FlowGate.Bll.Interfaces.Jobs;
 using FlowGate.Bll.Interfaces.Keenetic;
+using FlowGate.Bll.Interfaces.Maintenance;
 using FlowGate.Bll.Interfaces.Servers;
 using FlowGate.Bll.Interfaces.Subscriptions;
 using FlowGate.Bll.Interfaces.Xray;
@@ -71,6 +73,9 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IKeeneticDnsService, KeeneticDnsService>();
         services.AddSingleton<IDnsRouteService, DnsRouteService>();
+
+        services.AddSingleton<ICleanupService, CleanupService>();
+        services.AddSingleton<ISystemService, SystemService>();
 
         return services;
     }

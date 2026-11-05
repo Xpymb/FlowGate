@@ -1,0 +1,82 @@
+#!/bin/sh
+# Служба FlowGate для Entware. FlowGate сам запускает и останавливает xray.
+
+PATH=/opt/sbin:/opt/bin:/opt/usr/sbin:/opt/usr/bin:/usr/sbin:/usr/bin:/sbin:/bin
+BIN=/opt/bin/flowgate
+SHARE=/opt/share/flowgate
+DATA=/opt/etc/flowgate
+PID=/opt/var/run/flowgate.pid
+LOG_DIR=/tmp/flowgate
+LOG=$LOG_DIR/flowgate.log
+STOP_TIMEOUT=15
+
+running() {
+    [ -f "$PID" ] || return 1
+    pid=$(cat "$PID")
+    kill -0 "$pid" 2>/dev/null && grep -q "$BIN" "/proc/$pid/cmdline" 2>/dev/null
+}
+
+start() {
+    if running; then
+        echo "FlowGate уже запущен (pid $(cat "$PID"))"
+        return 0
+    fi
+    mkdir -p "$LOG_DIR" "$DATA" /opt/var/run
+    [ -f "$LOG" ] && mv -f "$LOG" "$LOG.1"
+    start-stop-daemon -S -b -m -p "$PID" -d "$SHARE" -x /bin/sh -- \
+        -c "exec $BIN --FlowGate:DataDirectory=$DATA >>$LOG 2>&1"
+    sleep 1
+    if running; then
+        echo "FlowGate запущен (pid $(cat "$PID"))"
+        return 0
+    fi
+    echo "FlowGate не запустился, см. $LOG"
+    return 1
+}
+
+stop() {
+    if ! running; then
+        rm -f "$PID"
+        echo "FlowGate не запущен"
+        return 0
+    fi
+    pid=$(cat "$PID")
+    kill -TERM "$pid" 2>/dev/null
+    waited=0
+    while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt "$STOP_TIMEOUT" ]; do
+        sleep 1
+        waited=$((waited + 1))
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+        kill -KILL "$pid" 2>/dev/null
+        echo "FlowGate остановлен принудительно"
+    else
+        echo "FlowGate остановлен"
+    fi
+    rm -f "$PID"
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        stop
+        start
+        ;;
+    status)
+        if running; then
+            echo "FlowGate запущен (pid $(cat "$PID"))"
+        else
+            echo "FlowGate не запущен"
+            exit 1
+        fi
+        ;;
+    *)
+        echo "Использование: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac

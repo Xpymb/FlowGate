@@ -6,7 +6,9 @@ using FlowGate.Bll.Implementations.DnsRoutes;
 using FlowGate.Bll.Implementations.DomainSources;
 using FlowGate.Bll.Implementations.DomainSources.Readers;
 using FlowGate.Bll.Implementations.Keenetic;
+using FlowGate.Bll.Implementations.Maintenance;
 using FlowGate.Bll.Interfaces.DomainSources;
+using FlowGate.Bll.Interfaces.Xray;
 using FlowGate.Contracts.Connections;
 using FlowGate.Dal.Implementations.Connections;
 using FlowGate.Dal.Implementations.DnsRoutes;
@@ -41,6 +43,8 @@ public sealed class DnsRouteServiceTests : IDisposable
     private readonly DnsRouteProvider _routes;
     private readonly DnsRouteService _sut;
     private readonly DomainSourceService _sources;
+    private readonly KeeneticDnsService _dns;
+    private readonly KeeneticRciClient _rci;
 
     /// <summary>
     ///     Инициализирует новый экземпляр класса <see cref="DnsRouteServiceTests"/>
@@ -60,15 +64,15 @@ public sealed class DnsRouteServiceTests : IDisposable
             files);
 
         _queue = new NdmsOperationQueue(MsOptions.Create(new KeeneticOptions()), NullLogger<NdmsOperationQueue>.Instance);
-        var rci = new KeeneticRciClient(new HttpClient(_keenetic.Handler) { BaseAddress = new Uri("http://127.0.0.1:79/rci/") });
-        var dns = new KeeneticDnsService(rci, _queue, sourceOptions, NullLogger<KeeneticDnsService>.Instance);
+        _rci = new KeeneticRciClient(new HttpClient(_keenetic.Handler) { BaseAddress = new Uri("http://127.0.0.1:79/rci/") });
+        _dns = new KeeneticDnsService(_rci, _queue, sourceOptions, NullLogger<KeeneticDnsService>.Instance);
 
         _sut = new DnsRouteService(
             _routes,
             sourceProvider,
             _connections,
             reader,
-            dns,
+            _dns,
             _jobs,
             TimeProvider.System,
             MsOptions.Create(new DomainSourceOptions { MaxEntriesPerRoute = 5 }),
@@ -246,6 +250,35 @@ public sealed class DnsRouteServiceTests : IDisposable
         await Assert.ThrowsAsync<ConflictException>(() => _sources.DeleteAsync(sourceId, Token));
 
         Assert.StartsWith("строка 2", Assert.Single(invalid.Details!));
+    }
+
+    /// <summary>
+    ///     Переустановка пакета: <c>flowgate cleanup</c> убирает группы и правила, сверка возвращает маршрут с прежним
+    ///     флагом выключенности и не удаляет его из FlowGate
+    /// </summary>
+    [Fact]
+    public async Task Cleanup_ThenReconcile_RestoresRouteWithPreviousFlag()
+    {
+        var sourceId = await CreateLocalSourceAsync("telegram.org\n");
+        var route = await CreateRouteAsync(sourceId, "con-wg");
+        _keenetic.SetRouteDisabled(Group, "Wireguard0", disabled: true);
+        await _sut.ReconcileAsync(new HashSet<string>(), Token);
+        var cleanup = new CleanupService(
+            Substitute.For<IXrayProcessService>(),
+            _dns,
+            new KeeneticInterfaceService(_rci, _queue, NullLogger<KeeneticInterfaceService>.Instance),
+            _routes,
+            NullLogger<CleanupService>.Instance);
+
+        await cleanup.RunAsync(dryRun: false, Token);
+        Assert.Empty(_keenetic.Groups);
+        Assert.Empty(_keenetic.Routes);
+
+        await _sut.ReconcileAsync(new HashSet<string>(), Token);
+
+        Assert.Equal(["telegram.org"], _keenetic.Groups[Group]);
+        Assert.Equal(new FakeDnsRoute(Group, "Wireguard0", true, true), Assert.Single(_keenetic.Routes));
+        Assert.Equal("Disabled", (await _sut.GetAsync(route.Id, Token)).State);
     }
 
     /// <inheritdoc />

@@ -13,6 +13,7 @@ using FlowGate.WebApi.Endpoints.DomainSources;
 using FlowGate.WebApi.Endpoints.Health;
 using FlowGate.WebApi.Endpoints.Jobs;
 using FlowGate.WebApi.Endpoints.Keenetic;
+using FlowGate.WebApi.Endpoints.Maintenance;
 using FlowGate.WebApi.Endpoints.Servers;
 using FlowGate.WebApi.Endpoints.Subscriptions;
 using FlowGate.WebApi.Endpoints.Xray;
@@ -20,7 +21,23 @@ using FlowGate.WebApi.Hosting;
 using FlowGate.WebApi.Jobs;
 using FlowGate.WebApi.Serialization;
 
-var builder = WebApplication.CreateSlimBuilder(args);
+var command = FlowGateCommand.Parse(args);
+switch (command.Kind)
+{
+    case FlowGateCommandKind.Help:
+    {
+        Console.WriteLine(FlowGateCommand.Usage);
+        return 0;
+    }
+    case FlowGateCommandKind.Invalid:
+    {
+        Console.Error.WriteLine(command.Error);
+        Console.Error.WriteLine(FlowGateCommand.Usage);
+        return 2;
+    }
+}
+
+var builder = WebApplication.CreateSlimBuilder(command.HostArguments);
 
 var dataDirectory = builder.Configuration[$"{FlowGateOptions.SectionName}:{nameof(FlowGateOptions.DataDirectory)}"]
     ?? new FlowGateOptions().DataDirectory;
@@ -49,8 +66,14 @@ builder.Services.AddHostedService<XrayUpdateCheckJob>();
 builder.Services.AddHostedService<SubscriptionRefreshJob>();
 builder.Services.AddHostedService<KeeneticReconcileJob>();
 builder.Services.AddHostedService<DomainSourceRefreshJob>();
+builder.Services.AddHostedService<SystemUpdateCheckJob>();
 
 var app = builder.Build();
+
+if (command.Kind == FlowGateCommandKind.Cleanup)
+{
+    return await CleanupCommand.RunAsync(app.Services, command.DryRun, Console.Out, CancellationToken.None);
+}
 
 app.UseFlowGateExceptionHandler();
 app.UseFlowGateFrontendFiles();
@@ -68,10 +91,12 @@ api.MapSubscriptionEndpoints();
 api.MapConnectionEndpoints();
 api.MapDomainSourceEndpoints();
 api.MapDnsRouteEndpoints();
+api.MapSystemEndpoints();
 
 app.MapFlowGateFrontendFallback();
 
-app.Run();
+await app.RunAsync();
+return 0;
 
 /// <summary>
 ///     Точка входа FlowGate. Публичный partial-класс нужен для <c>WebApplicationFactory</c> в интеграционных тестах

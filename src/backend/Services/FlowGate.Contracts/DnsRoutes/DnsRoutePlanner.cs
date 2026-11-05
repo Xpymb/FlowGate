@@ -5,6 +5,7 @@ namespace FlowGate.Contracts.DnsRoutes;
 ///     Правила (docs/keenetic-findings.md §100, план этапа 5):
 ///     <list type="bullet">
 ///         <item>правило включается только при первом создании; выключенное пользователем остаётся выключенным;</item>
+///         <item>маршрут, снятый командой <c>flowgate cleanup</c> (переустановка), создаётся заново с прежним флагом;</item>
 ///         <item>правило удалено пользователем, группа на месте — восстанавливается выключенным;</item>
 ///         <item>основная группа удалена пользователем — маршрут удаляется и из FlowGate;</item>
 ///         <item>интерфейс пересоздан сверкой (Keenetic убрал правила вместе с ним) — правило возвращается с прежним флагом;</item>
@@ -59,6 +60,21 @@ public static class DnsRoutePlanner
 
         var commands = new List<string>();
         RemoveRouteGroups(route.GroupBaseName, state, commands);
+        return commands;
+    }
+
+    /// <summary>
+    ///     Команды удаления всего, что FlowGate создал в Keenetic: правила групп <c>fg-*</c> с описанием FlowGate и висящие
+    ///     правила <c>fg-*</c> без групп, затем сами группы. Чужие группы и правила не затрагиваются
+    /// </summary>
+    /// <param name="state">Состояние Keenetic</param>
+    /// <returns>Команды; пусто — удалять нечего</returns>
+    public static IReadOnlyList<string> RemoveAll(NdmsDnsState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var commands = new List<string>();
+        RemoveOrphans(state, new HashSet<string>(StringComparer.Ordinal), commands);
         return commands;
     }
 
@@ -203,7 +219,7 @@ public static class DnsRoutePlanner
         var disabled = route.RequestedDisabled
             ?? baseRule?.Disabled
             ?? previousBaseRule?.Disabled
-            ?? (!route.Provisioned ? false
+            ?? (!route.Provisioned ? route.LastKnownDisabled
                 : recreatedInterfaces.Contains(interfaceName) ? route.LastKnownDisabled
                 : true);
 

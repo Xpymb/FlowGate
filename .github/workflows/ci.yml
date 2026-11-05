@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+    tags-ignore: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Tests
+        run: dotnet test --solution FlowGate.slnx
+
+  packaging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck
+        run: |
+          shellcheck -s sh install.sh packaging/files/S99flowgate packaging/files/upgrade.sh packaging/control/preinst packaging/control/postinst packaging/control/prerm packaging/control/postrm
+          shellcheck packaging/build-ipk.sh packaging/check-feed.sh
+      - name: Build test package
+        run: |
+          mkdir -p /tmp/fgbuild /tmp/fgfeed
+          printf 'fake' > /tmp/fgbuild/flowgate
+          printf '{}' > /tmp/fgbuild/appsettings.json
+          packaging/build-ipk.sh 0.0.1 /tmp/fgbuild - /tmp/fgfeed
+          packaging/check-feed.sh /tmp/fgfeed 0.0.1

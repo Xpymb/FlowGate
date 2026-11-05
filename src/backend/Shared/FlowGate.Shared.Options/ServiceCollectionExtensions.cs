@@ -25,6 +25,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidateOptions<KeeneticOptions>, KeeneticOptionsValidator>();
         services.AddSingleton<IValidateOptions<XrayOptions>, XrayOptionsValidator>();
         services.AddSingleton<IValidateOptions<GitHubOptions>, GitHubOptionsValidator>();
+        services.AddSingleton<IValidateOptions<SystemOptions>, SystemOptionsValidator>();
         services.AddSingleton<IValidateOptions<SubscriptionOptions>, SubscriptionOptionsValidator>();
         services.AddSingleton<IValidateOptions<ConnectionOptions>, ConnectionOptionsValidator>();
         services.AddSingleton<IValidateOptions<ConnectionOptions>, ConnectionOptionsRangeValidator>();
@@ -41,6 +42,9 @@ public static class ServiceCollectionExtensions
 
         services.AddOptionsWithValidateOnStart<GitHubOptions>()
             .Bind(configuration.GetSection(GitHubOptions.SectionName));
+
+        services.AddOptionsWithValidateOnStart<SystemOptions>()
+            .Bind(configuration.GetSection(SystemOptions.SectionName));
 
         services.AddOptionsWithValidateOnStart<SubscriptionOptions>()
             .Bind(configuration.GetSection(SubscriptionOptions.SectionName));

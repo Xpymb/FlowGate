@@ -237,3 +237,6 @@ spike
 docs
 _nul
 copilot-instructions.md
+# Сборка пакета
+/out/
+__pycache__/

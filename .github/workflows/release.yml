@@ -72,8 +72,8 @@ jobs:
 
       - name: Build package
         run: |
-          packaging/build-ipk.sh "$VERSION" src/backend/out/router "$WWW_DIR" feed
-          packaging/check-feed.sh feed "$VERSION"
+          bash packaging/build-ipk.sh "$VERSION" src/backend/out/router "$WWW_DIR" feed
+          bash packaging/check-feed.sh feed "$VERSION"
           (cd feed && sha256sum "flowgate_${VERSION}_aarch64-3.10.ipk" > SHA256SUMS)
 
       - name: GitHub Release

@@ -22,6 +22,27 @@ jobs:
       - name: Tests
         run: dotnet test --solution FlowGate.slnx
 
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm ci
+      - name: Types are up to date with api/openapi.json
+        run: |
+          npm run gen:api
+          git diff --exit-code -- src/lib/api/schema.d.ts
+      - run: npm run check
+      - run: npm run lint
+      - run: npm run build
+
   packaging:
     runs-on: ubuntu-latest
     steps:
@@ -32,8 +53,9 @@ jobs:
           shellcheck packaging/build-ipk.sh packaging/check-feed.sh
       - name: Build test package
         run: |
-          mkdir -p /tmp/fgbuild /tmp/fgfeed
+          mkdir -p /tmp/fgbuild /tmp/fgfeed /tmp/fgwww
           printf 'fake' > /tmp/fgbuild/flowgate
           printf '{}' > /tmp/fgbuild/appsettings.json
-          bash packaging/build-ipk.sh 0.0.1 /tmp/fgbuild - /tmp/fgfeed
+          printf '<!doctype html>' > /tmp/fgwww/200.html
+          bash packaging/build-ipk.sh 0.0.1 /tmp/fgbuild /tmp/fgwww /tmp/fgfeed
           bash packaging/check-feed.sh /tmp/fgfeed 0.0.1

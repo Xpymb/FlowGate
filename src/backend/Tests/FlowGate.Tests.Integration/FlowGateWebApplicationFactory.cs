@@ -63,11 +63,6 @@ public sealed class FlowGateWebApplicationFactory : WebApplicationFactory<Progra
     public string DataDirectory => Path.Combine(_root, "data");
 
     /// <summary>
-    ///     Каталог статики фронта (создаётся тестом при необходимости)
-    /// </summary>
-    public string WebRootPath => Path.Combine(_root, "www");
-
-    /// <summary>
     ///     Путь к бинарнику Xray
     /// </summary>
     public string XrayBinaryPath => Path.Combine(_root, "bin", "xray");
@@ -77,7 +72,6 @@ public sealed class FlowGateWebApplicationFactory : WebApplicationFactory<Progra
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("FlowGate:DataDirectory", DataDirectory);
-        builder.UseSetting("FlowGate:WebRootPath", WebRootPath);
         builder.UseSetting("Keenetic:RciBaseUrl", "http://127.0.0.1:79/rci/");
         builder.UseSetting("Xray:BinaryPath", XrayBinaryPath);
         builder.UseSetting("Xray:WorkDirectory", Path.Combine(_root, "tmp"));

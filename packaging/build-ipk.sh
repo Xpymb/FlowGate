@@ -28,6 +28,7 @@ cp "$build_dir/flowgate" "$stage/opt/bin/flowgate"
 cp "$build_dir/appsettings.json" "$stage/opt/share/flowgate/appsettings.json"
 cp "$here/files/S99flowgate" "$stage/opt/etc/init.d/S99flowgate"
 cp "$here/files/upgrade.sh" "$stage/opt/share/flowgate/upgrade.sh"
+cp "$here/files/nginx.conf" "$stage/opt/share/flowgate/nginx.conf"
 if [ "$www_dir" != "-" ]; then
     cp -R "$www_dir/." "$stage/opt/share/flowgate/www/"
 fi

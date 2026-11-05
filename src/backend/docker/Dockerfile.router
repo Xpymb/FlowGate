@@ -18,7 +18,7 @@ RUN mkdir -p /sysroot/etc/apk \
     && apk add --root /sysroot --arch aarch64 --initdb --no-cache --no-scripts --allow-untrusted \
         musl-dev gcc libgcc libstdc++-dev zlib-dev zlib-static openssl-dev openssl-libs-static linux-headers
 
-RUN printf '#!/bin/sh\nexec clang --target=aarch64-alpine-linux-musl --sysroot=/sysroot -fuse-ld=lld "$@"\n' > /usr/local/bin/aarch64-clang \
+RUN printf '#!/bin/sh\nexec clang --target=aarch64-alpine-linux-musl --sysroot=/sysroot -fuse-ld=lld -Wno-unused-command-line-argument "$@"\n' > /usr/local/bin/aarch64-clang \
     && chmod +x /usr/local/bin/aarch64-clang
 
 ARG VERSION=0.1.0

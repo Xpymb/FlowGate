@@ -17,10 +17,4 @@ public sealed class FlowGateOptions
     /// </summary>
     [Required]
     public string DataDirectory { get; set; } = "/opt/etc/flowgate";
-
-    /// <summary>
-    ///     Каталог со статикой фронта. Если каталога нет, бэкенд работает только как API
-    /// </summary>
-    [Required]
-    public string WebRootPath { get; set; } = "/opt/share/flowgate/www";
 }

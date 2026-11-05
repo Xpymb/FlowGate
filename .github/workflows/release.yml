@@ -43,6 +43,12 @@ jobs:
         working-directory: src/backend
         run: docker buildx build -f docker/Dockerfile.router --build-arg VERSION="$VERSION" --output type=local,dest=out/router .
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
       - name: Build frontend
         run: |
           if [ -f src/frontend/package.json ]; then
@@ -80,8 +86,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "feed/flowgate_${VERSION}_aarch64-3.10.ipk" feed/SHA256SUMS \
-            --title "FlowGate $VERSION" --generate-notes
+          assets=("feed/flowgate_${VERSION}_aarch64-3.10.ipk" feed/SHA256SUMS)
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Релиз $GITHUB_REF_NAME уже создан вручную: загружаю файлы, описание и отметки не трогаю"
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${assets[@]}" --title "FlowGate $VERSION" --generate-notes
+          fi
 
       - name: Publish feed to gh-pages
         run: |

@@ -31,7 +31,6 @@ public sealed class XrayTestEnvironment : IDisposable
         var flowGateOptions = Microsoft.Extensions.Options.Options.Create(new FlowGateOptions
         {
             DataDirectory = Path.Combine(_root, "data"),
-            WebRootPath = Path.Combine(_root, "www"),
         });
         XrayOptions = new XrayOptions
         {

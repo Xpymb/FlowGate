@@ -4,8 +4,9 @@
 
 FlowGate — менеджер Xray для роутеров Keenetic (aarch64, KeeneticOS 5): WebUI, установка и обновление Xray,
 подписки, соединения socks/http/wireguard как интерфейсы Keenetic, штатные DNS-маршруты KeeneticOS со списками
-доменов v2fly. Бэкенд — один NativeAOT-бинарник на роутере. Фронт живёт отдельно (`src/frontend`), бэкенд отдаёт
-его статику и REST API.
+доменов v2fly. Бэкенд — один NativeAOT-бинарник на роутере, слушает только `127.0.0.1:8091` и отдаёт REST API. Фронт
+(`src/frontend`, SvelteKit SPA) и `/api` наружу отдаёт шлюз — свой экземпляр nginx из Entware на `:8090`
+(`packaging/files/nginx.conf`). Статику бэкенд не раздаёт.
 
 Факты о роутере, проверенные на железе (команды NDMS, коды ошибок RCI, лимиты, память), — в
 [`docs/keenetic-findings.md`](../../docs/keenetic-findings.md). Перед работой с NDMS читай его.
@@ -53,7 +54,8 @@ ssh -p 222 root@192.168.1.1 'cd /tmp/fgtest && chmod +x flowgate && start-stop-d
 # остановка (FlowGate сам остановит xray): start-stop-daemon -K -s TERM -p /tmp/fgtest/pid
 ```
 
-Локальный запуск (`dotnet run`, профиль `http`, `http://localhost:6000`) ходит в RCI через SSH-туннель:
+Локальный запуск (`dotnet run`, профиль `http`, `http://localhost:6000`; фронт — `npm run dev` в `src/frontend`, Vite
+проксирует `/api` сюда) ходит в RCI через SSH-туннель:
 `ssh -p 222 -L 7979:127.0.0.1:79 root@192.168.1.1` (см. `appsettings.Development.json`).
 
 ## Архитектура
@@ -204,8 +206,13 @@ JSON-файлы в `FlowGate:DataDirectory` (на роутере `/opt/etc/flowg
 - Пакет `flowgate_<версия>_aarch64-3.10.ipk` (tar.gz, как в Entware) собирает `packaging/build-ipk.sh` через
   `packaging/ipk.py` (режимы и владелец задаются явно, сборка воспроизводима); `packaging/check-feed.sh` проверяет
   результат. Скрипты пакета — только LF (`.gitattributes`), сборщик отклоняет CRLF.
-- Раскладка: `/opt/bin/flowgate`, `/opt/share/flowgate/{appsettings.json,www/,upgrade.sh}` (рабочий каталог службы),
-  `/opt/etc/init.d/S99flowgate`. Данные `/opt/etc/flowgate` и Xray `/opt/sbin/flowgate-xray` в пакет не входят и
+- Раскладка: `/opt/bin/flowgate`, `/opt/share/flowgate/{appsettings.json,nginx.conf,www/,upgrade.sh}` (рабочий каталог
+  службы), `/opt/etc/init.d/S99flowgate`. `Depends: busybox, nginx-ssl`.
+- Шлюз: `S99flowgate` запускает бэкенд, затем `nginx -p /tmp/flowgate/nginx/ -c /opt/share/flowgate/nginx.conf`
+  (останавливает в обратном порядке, `status` — по обоим). Штатные `/opt/etc/nginx` и `S80nginx` не используются
+  (`S80nginx` падает на занятом `:80` Keenetic без вреда). В конфиге обязательно `user nobody nobody;` — группы `nogroup` на
+  роутере нет. Статика сжата при сборке (`gzip_static`), `try_files $uri /200.html` для клиентской маршрутизации.
+  Гейт `auth_request /_auth` → `/api/auth/check` заготовлен и включится вместе с авторизацией (этап 7). Данные `/opt/etc/flowgate` и Xray `/opt/sbin/flowgate-xray` в пакет не входят и
   при `upgrade`/`remove` не трогаются. Журнал службы — `/tmp/flowgate/flowgate.log`.
 - opkg вызывает `prerm remove` и при `--force-reinstall`, поэтому `flowgate cleanup` (`ICleanupService`) не теряет
   настройки: удаляет из Keenetic свои интерфейсы, группы `fg-*` и правила, а маршрутам ставит `Provisioned=false` с
@@ -213,8 +220,12 @@ JSON-файлы в `FlowGate:DataDirectory` (на роутере `/opt/etc/flowg
 - Самообновление (`ISystemService.RequestUpgrade`, задача `system-upgrade`): `start-stop-daemon -S -b` запускает
   `upgrade.sh` отвязанным процессом (переживает остановку службы), тот копирует себя в `/tmp` и выполняет
   `opkg update && opkg upgrade flowgate`; итог — последняя строка `ok …`/`failed …` в `System:UpgradeLogPath`. Отката нет.
-- Релиз: тег `vX.Y.Z` → `.github/workflows/release.yml` (тесты, `Dockerfile.router` с `VERSION`, фронт при наличии
-  `src/frontend/package.json`, ipk, GitHub Release, feed `gh-pages/aarch64-3.10` с тремя последними версиями).
+- Релиз: тег `vX.Y.Z` → `.github/workflows/release.yml` (тесты, `Dockerfile.router` с `VERSION`, фронт
+  `npm ci && npm run build` → `src/frontend/dist`, ipk, GitHub Release, feed `gh-pages/aarch64-3.10` с тремя последними
+  версиями).
+- Контракт с фронтом: `OpenApiSnapshotTests` сверяет `/openapi/v1.json` со снимком `src/frontend/api/openapi.json`.
+  Изменил DTO или эндпоинты → снимок обновляется тем же тестом с `FLOWGATE_UPDATE_OPENAPI=1`
+  (`--filter-class "*OpenApiSnapshotTests"`), затем `npm run gen:api` в `src/frontend`.
 
 ## Code Conventions
 

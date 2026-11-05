@@ -1,6 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using FlowGate.SharedContracts.Dto.Connections;
+using FlowGate.SharedContracts.Dto.DnsRoutes;
+using FlowGate.SharedContracts.Dto.DomainSources;
 using FlowGate.SharedContracts.Dto.Health;
 using FlowGate.SharedContracts.Dto.Jobs;
 using FlowGate.SharedContracts.Dto.Keenetic;
@@ -34,6 +37,22 @@ namespace FlowGate.WebApi.Serialization;
 [JsonSerializable(typeof(IReadOnlyList<SubscriptionDto>))]
 [JsonSerializable(typeof(SubscriptionDto))]
 [JsonSerializable(typeof(SubscriptionSaveRequest))]
+[JsonSerializable(typeof(IReadOnlyList<ConnectionDto>))]
+[JsonSerializable(typeof(ConnectionDto))]
+[JsonSerializable(typeof(ConnectionCreateRequest))]
+[JsonSerializable(typeof(ConnectionUpdateRequest))]
+[JsonSerializable(typeof(IReadOnlyList<DomainSourceDto>))]
+[JsonSerializable(typeof(DomainSourceDto))]
+[JsonSerializable(typeof(DomainSourceSaveRequest))]
+[JsonSerializable(typeof(IReadOnlyList<DomainListSummaryDto>))]
+[JsonSerializable(typeof(DomainListPreviewDto))]
+[JsonSerializable(typeof(IReadOnlyList<LocalListDto>))]
+[JsonSerializable(typeof(LocalListDto))]
+[JsonSerializable(typeof(LocalListSaveRequest))]
+[JsonSerializable(typeof(IReadOnlyList<DnsRouteDto>))]
+[JsonSerializable(typeof(DnsRouteDto))]
+[JsonSerializable(typeof(DnsRouteCreateRequest))]
+[JsonSerializable(typeof(DnsRouteUpdateRequest))]
 public sealed partial class AppJsonSerializerContext : JsonSerializerContext
 {
 }

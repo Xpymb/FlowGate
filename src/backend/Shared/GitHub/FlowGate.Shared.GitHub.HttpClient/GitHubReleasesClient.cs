@@ -16,6 +16,7 @@ namespace FlowGate.Shared.GitHub;
 public sealed class GitHubReleasesClient : IGitHubReleasesClient
 {
     private const int CopyBufferSize = 81920;
+    private const string ShaMediaType = "application/vnd.github.sha";
 
     private readonly HttpClient _httpClient;
     private readonly TimeSpan _requestTimeout;
@@ -107,16 +108,49 @@ public sealed class GitHubReleasesClient : IGitHubReleasesClient
         }
     }
 
+    /// <inheritdoc />
+    public async Task<string> GetCommitShaAsync(string repository, string reference, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference);
+
+        var uri = new Uri($"repos/{repository.Trim('/')}/commits/{Uri.EscapeDataString(reference)}", UriKind.Relative);
+        using var timeout = CreateTimeout(_requestTimeout, cancellationToken);
+        using var response = await SendAsync(uri, $"коммит {repository}@{reference}", timeout.Token, cancellationToken, ShaMediaType);
+
+        var sha = (await response.Content.ReadAsStringAsync(timeout.Token)).Trim();
+        return sha.Length == 40 && sha.All(char.IsAsciiHexDigit)
+            ? sha.ToLowerInvariant()
+            : throw new ExternalServiceUnavailableException($"GitHub вернул некорректный sha коммита {repository}@{reference}");
+    }
+
+    /// <inheritdoc />
+    public Uri GetTarballUrl(string repository, string sha)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
+        var relative = new Uri($"repos/{repository.Trim('/')}/tarball/{sha}", UriKind.Relative);
+        return _httpClient.BaseAddress is { } baseAddress ? new Uri(baseAddress, relative) : relative;
+    }
+
     private async Task<HttpResponseMessage> SendAsync(
         Uri uri,
         string description,
         CancellationToken timeoutToken,
-        CancellationToken callerToken)
+        CancellationToken callerToken,
+        string? accept = null)
     {
         HttpResponseMessage response;
         try
         {
-            response = await _httpClient.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, timeoutToken);
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            if (accept is not null)
+            {
+                request.Headers.Accept.Clear();
+                request.Headers.Accept.ParseAdd(accept);
+            }
+
+            response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutToken);
         }
         catch (HttpRequestException ex)
         {

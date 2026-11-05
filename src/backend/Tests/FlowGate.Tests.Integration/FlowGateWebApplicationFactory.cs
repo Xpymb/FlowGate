@@ -9,6 +9,7 @@ using FlowGate.Shared.GitHub;
 using FlowGate.Shared.Keenetic;
 using FlowGate.Tests.Common.Fixtures;
 using FlowGate.Tests.Common.Http;
+using FlowGate.Tests.Common.Keenetic;
 using FlowGate.Tests.Common.Processes;
 using FlowGate.Tests.Common.Xray;
 
@@ -22,9 +23,14 @@ public sealed class FlowGateWebApplicationFactory : WebApplicationFactory<Progra
     private readonly string _root = Path.Combine(Path.GetTempPath(), "flowgate-it", Guid.NewGuid().ToString("N"));
 
     /// <summary>
-    ///     Подменённый RCI; по умолчанию отвечает реальным show/version
+    ///     Подменённый Keenetic с моделью интерфейсов; show/version — реальный ответ роутера
     /// </summary>
-    public FakeHttpMessageHandler Rci { get; } = FakeHttpMessageHandler.RespondJson(RciFixtures.ShowVersion);
+    public FakeKeeneticRci Keenetic { get; } = new();
+
+    /// <summary>
+    ///     HTTP-обработчик подменённого RCI; ответы можно заменить через <see cref="FakeHttpMessageHandler.Responder"/>
+    /// </summary>
+    public FakeHttpMessageHandler Rci => Keenetic.Handler;
 
     /// <summary>
     ///     Подменённый GitHub с релизами Xray
@@ -35,6 +41,11 @@ public sealed class FlowGateWebApplicationFactory : WebApplicationFactory<Progra
     ///     Подменённый HTTP провайдеров подписок; по умолчанию отдаёт base64-список из трёх серверов
     /// </summary>
     public FakeHttpMessageHandler SubscriptionHttp { get; } = new(_ => FakeHttpMessageHandler.Json(SubscriptionFixtures.Base64List()));
+
+    /// <summary>
+    ///     Подменённый HTTP загрузок источников списков по прямой ссылке; по умолчанию 404
+    /// </summary>
+    public FakeHttpMessageHandler DomainSourceHttp { get; } = new(_ => new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
 
     /// <summary>
     ///     Подменный запуск команд (ведёт себя как Xray)
@@ -78,6 +89,7 @@ public sealed class FlowGateWebApplicationFactory : WebApplicationFactory<Progra
             services.AddKeeneticRciClient().ConfigurePrimaryHttpMessageHandler(() => Rci);
             services.AddGitHubReleasesClient().ConfigurePrimaryHttpMessageHandler(() => GitHub.Handler);
             services.AddSubscriptionHttpClient().ConfigurePrimaryHttpMessageHandler(() => SubscriptionHttp);
+            services.AddDomainSourceHttpClient().ConfigurePrimaryHttpMessageHandler(() => DomainSourceHttp);
             services.AddSingleton<IProcessRunner>(ProcessRunner);
             services.AddSingleton<IProcessLauncher>(ProcessLauncher);
         });

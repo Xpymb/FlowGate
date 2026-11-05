@@ -28,4 +28,22 @@ public interface IGitHubReleasesClient
     /// <returns>Размер скачанного файла, байты</returns>
     /// <exception cref="ExternalServiceUnavailableException">Если скачивание не удалось или файл больше предела</exception>
     Task<long> DownloadAsync(Uri url, string destinationPath, long maxBytes, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Возвращает sha последнего коммита ветки
+    /// </summary>
+    /// <param name="repository">Репозиторий <c>owner/repo</c></param>
+    /// <param name="reference">Ветка, тег или <c>HEAD</c> — ветка по умолчанию</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    /// <returns>Sha коммита (40 hex-символов)</returns>
+    /// <exception cref="ExternalServiceUnavailableException">Если GitHub недоступен, репозитория или ветки нет, исчерпан лимит API</exception>
+    Task<string> GetCommitShaAsync(string repository, string reference, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Возвращает адрес tarball репозитория на коммите для <see cref="DownloadAsync"/> (от базового адреса API)
+    /// </summary>
+    /// <param name="repository">Репозиторий <c>owner/repo</c></param>
+    /// <param name="sha">Коммит</param>
+    /// <returns>Абсолютный адрес</returns>
+    Uri GetTarballUrl(string repository, string sha);
 }

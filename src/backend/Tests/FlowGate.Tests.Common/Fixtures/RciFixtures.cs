@@ -33,6 +33,28 @@ public static class RciFixtures
     public static string ParseTooManyElements => Load("parse-too-many-elements.json");
 
     /// <summary>
+    ///     Объект интерфейса Proxy9 из <c>GET /rci/show/interface</c>: socks5 на 127.0.0.1:10899, xray не слушает
+    /// </summary>
+    public static string ShowInterfaceProxy => Load("show-interface-proxy.json");
+
+    /// <summary>
+    ///     Объект интерфейса Wireguard9 из <c>GET /rci/show/interface</c>: peer на 127.0.0.1:10898 без рукопожатия
+    ///     (<c>last-handshake</c> = 2147483647)
+    /// </summary>
+    public static string ShowInterfaceWireguard => Load("show-interface-wireguard.json");
+
+    /// <summary>
+    ///     <c>GET /rci/object-group/fqdn</c> с группой fgspike: домены, IPv4/IPv6-адреса и подсети, в том числе
+    ///     ненормализованная <c>91.108.56.1/22</c> (Keenetic хранит как есть)
+    /// </summary>
+    public static string ObjectGroupFqdn => Load("object-group-fqdn.json");
+
+    /// <summary>
+    ///     <c>GET /rci/dns-proxy/route</c>: выключенное правило fgspike и включённое fgspike2 на Proxy9
+    /// </summary>
+    public static string DnsProxyRoute => Load("dns-proxy-route.json");
+
+    /// <summary>
     ///     Разбирает фикстуру в <see cref="JsonElement"/>
     /// </summary>
     /// <param name="json">Текст фикстуры</param>

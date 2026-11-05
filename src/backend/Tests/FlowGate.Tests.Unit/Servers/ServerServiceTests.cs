@@ -6,7 +6,9 @@ using NSubstitute;
 
 using FlowGate.Bll.Implementations.Servers;
 using FlowGate.Bll.Interfaces.Servers;
+using FlowGate.Contracts.Connections;
 using FlowGate.Contracts.Servers;
+using FlowGate.Dal.Implementations.Connections;
 using FlowGate.Dal.Implementations.Servers;
 using FlowGate.Exceptions;
 using FlowGate.Shared.Dal.Json;
@@ -25,6 +27,7 @@ public sealed class ServerServiceTests : IDisposable
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "flowgate-tests", Guid.NewGuid().ToString("N"));
     private readonly IOutboundValidator _validator = Substitute.For<IOutboundValidator>();
     private readonly ServerProvider _servers;
+    private readonly ConnectionProvider _connections;
     private readonly ServerService _sut;
 
     /// <summary>
@@ -32,9 +35,11 @@ public sealed class ServerServiceTests : IDisposable
     /// </summary>
     public ServerServiceTests()
     {
-        _servers = new ServerProvider(new JsonFileStoreFactory(Microsoft.Extensions.Options.Options.Create(new FlowGateOptions { DataDirectory = _directory })));
+        var storeFactory = new JsonFileStoreFactory(Microsoft.Extensions.Options.Options.Create(new FlowGateOptions { DataDirectory = _directory }));
+        _servers = new ServerProvider(storeFactory);
+        _connections = new ConnectionProvider(storeFactory);
         _validator.ValidateAsync(Arg.Any<JsonObject>(), Arg.Any<CancellationToken>()).Returns(new OutboundValidationResult([], CheckedByXray: true));
-        _sut = new ServerService(_servers, new ServerImportParser(), _validator, TimeProvider.System, NullLogger<ServerService>.Instance);
+        _sut = new ServerService(_servers, _connections, new ServerImportParser(), _validator, TimeProvider.System, NullLogger<ServerService>.Instance);
     }
 
     /// <summary>
@@ -134,6 +139,24 @@ public sealed class ServerServiceTests : IDisposable
         Assert.Empty(second.Added);
         Assert.Equal(2, second.Skipped);
         Assert.Equal(2, (await _servers.GetAllAsync(TestContext.Current.CancellationToken)).Count);
+    }
+
+    /// <summary>
+    ///     Сервер, выбранный в соединении, удалить нельзя — 409 с именем соединения
+    /// </summary>
+    [Fact]
+    public async Task DeleteAsync_ServerUsedByConnection_ThrowsConflict()
+    {
+        var created = await _sut.CreateAsync(new ServerSaveRequest("Германия", _sut.Parse(new ServerParseRequest(TrojanLink)).Outbound), TestContext.Current.CancellationToken);
+        var now = DateTimeOffset.UnixEpoch;
+        await _connections.AddAsync(
+            new Connection("con-1", "YouTube", ConnectionKind.Socks, created.Server.Id, 10800, "Proxy0", null, now, now),
+            TestContext.Current.CancellationToken);
+
+        var exception = await Assert.ThrowsAsync<ConflictException>(() => _sut.DeleteAsync(created.Server.Id, TestContext.Current.CancellationToken));
+
+        Assert.Contains("«YouTube»", exception.Message);
+        Assert.NotNull(await _servers.GetAsync(created.Server.Id, TestContext.Current.CancellationToken));
     }
 
     /// <inheritdoc />

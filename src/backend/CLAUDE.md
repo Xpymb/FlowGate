@@ -130,6 +130,34 @@ Shared.* ──► Exceptions, Shared.Options (не на Services/*)
   `Failed`, каталог не трогается.
 - URL подписки содержит токен: в логи и ошибки — только хост, в репозиторий и фикстуры — никогда.
 
+### Соединения
+
+- Соединение = inbound Xray `in-<id>` на `Connections:ListenAddress:<порт>` + outbound `out-<id>` (копия сервера) +
+  интерфейс Keenetic (`ProxyN` для socks/http, `WireguardN` для wg). Модель Xray собирает `ConnectionXrayModel`;
+  сервера нет (ушёл из подписки) — правило на `block`, трафик напрямую не уходит.
+- Команды NDMS — только из `KeeneticInterfaceCommands`, через `IKeeneticInterfaceService.ExecuteAsync` (очередь + save).
+  Свой интерфейс узнаётся по описанию `FlowGate: <имя>`; чужие не трогаем.
+- `up` отправляется только при создании интерфейса. Выключенный пользователем интерфейс сверка не включает: чинит только
+  пропавшие (создаёт заново) и разошедшиеся поля (`FindDrift`).
+- Ключи WG — `xray wg` (нужен установленный Xray). Порт, имя интерфейса и адрес WG выбирает `ConnectionAllocator`.
+- Создание откатывается целиком: Xray отклонил — соединение не сохраняется; Keenetic отклонил — `no interface`, удаление
+  записи, пересборка Xray. Сервер, выбранный в соединении, удалить нельзя (409).
+
+### Источники списков и DNS-маршруты
+
+- Источник (`DomainSource`): GitHub-репозиторий v2fly (`data/`, tarball коммита), geosite.dat / geoip.dat (релиз или
+  прямая ссылка), локальный. Все виды читаются через `IListSourceReader` и дают одно и то же: каталог и `ListContent`
+  (домены, IPv4, IPv6 вперемешку — Keenetic держит их в одной группе). Формат для пользователя —
+  [`docs/domain-source-format.md`](../../docs/domain-source-format.md).
+- Файлы источников — `<DataDirectory>/sources/<id>.data` и кеш каталога `<id>.catalog.json`; новая версия качается в
+  кандидата, проверяется построением каталога и только потом заменяет файл.
+- Маршрут = один список → одно соединение. Применение в Keenetic — одна фоновая задача `dns-routes-apply`, план строит
+  чистая функция `DnsRoutePlanner` по состоянию из `GET /rci/object-group/fqdn` и `/rci/dns-proxy/route`.
+- Правила пользователя (не нарушать): правило включается только при создании; выключенное пользователем не включаем;
+  удалённое пользователем правило возвращаем выключенным; удалённая основная группа — маршрут удаляется и из FlowGate;
+  правила на пересозданный сверкой интерфейс возвращаются с прежним флагом. Состав групп меняется только по разнице.
+- На KeeneticOS 5.2 удаление группы **не** удаляет её правила (снимаем явно), удаление интерфейса — удаляет.
+
 ### Фоновые задачи
 
 Долгие операции — через `IJobRunner` (в памяти, одна задача вида одновременно, иначе `ConflictException`, история из 20).
@@ -205,6 +233,10 @@ JSON-файлы в `FlowGate:DataDirectory` (на роутере `/opt/etc/flowg
 - Фикстуры — embedded resources в `Tests.Common/Fixtures/` (ответы RCI сняты с реального роутера).
 - HTTP к Keenetic и GitHub подменяется `FakeHttpMessageHandler` (`FakeXrayGitHub` — релизы Xray с генерируемыми zip/.dgst),
   а не моком `HttpClient`.
+- Keenetic в тестах — `FakeKeeneticRci` (`Tests.Common/Keenetic`): модель интерфейсов, групп и DNS-правил с поведением
+  роутера, запоминает CLI-команды, `FailWhen` для ошибок; в интеграционных тестах доступен как `factory.Keenetic`.
+- Источники в тестах: `DatFileBuilder` собирает geosite/geoip.dat, `RepositoryArchive` — tarball GitHub;
+  `FakeXrayGitHub.Extra` отвечает на коммиты и tarball, `factory.DomainSourceHttp` — на прямые ссылки.
 - Процессы подменяются `FakeProcessRunner`/`FakeProcessLauncher`: версия фейкового xray записана в сам файл (`FakeXrayBinary`),
   поэтому установка, подмена и откат проверяются на настоящих файлах во временном каталоге.
 - Таймеры и паузы — через внедрённый `TimeProvider`; в тестах `FakeTimeProvider`.

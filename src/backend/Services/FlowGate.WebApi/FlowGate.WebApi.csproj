@@ -13,6 +13,12 @@
         <StaticExecutable>true</StaticExecutable>
     </PropertyGroup>
 
+    <!-- Роутер: пик при разборе geoip.dat (23 МиБ) без лимита доходил до 216 МиБ, с лимитом кучи — ~110 МиБ -->
+    <ItemGroup Condition="'$(RuntimeIdentifier)' == 'linux-musl-arm64'">
+        <RuntimeHostConfigurationOption Include="System.GC.HeapHardLimit" Value="134217728" />
+        <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
+    </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
     </ItemGroup>

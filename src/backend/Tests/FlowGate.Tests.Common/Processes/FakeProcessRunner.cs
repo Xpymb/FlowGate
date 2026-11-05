@@ -5,7 +5,7 @@ namespace FlowGate.Tests.Common.Processes;
 
 /// <summary>
 ///     Подменный запуск команд. По умолчанию ведёт себя как Xray: <c>version</c> печатает версию из
-///     <see cref="FakeXrayBinary"/>, <c>run -test</c> успешен
+///     <see cref="FakeXrayBinary"/>, <c>wg</c> печатает новую пару ключей, <c>run -test</c> успешен
 /// </summary>
 public sealed class FakeProcessRunner : IProcessRunner
 {
@@ -47,7 +47,27 @@ public sealed class FakeProcessRunner : IProcessRunner
                 : new ProcessResult(0, FakeXrayBinary.VersionOutput(version), string.Empty);
         }
 
+        if (arguments is ["wg"])
+        {
+            return new ProcessResult(0, WireguardKeysOutput(), string.Empty);
+        }
+
         return new ProcessResult(0, "Configuration OK.", string.Empty);
+    }
+
+    /// <summary>
+    ///     Вывод <c>xray wg</c> со случайными ключами в формате Xray 26
+    /// </summary>
+    /// <returns>Вывод команды</returns>
+    public static string WireguardKeysOutput()
+    {
+        var privateKey = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+        var publicKey = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+        return string.Join(
+            '\n',
+            $"PrivateKey: {privateKey}",
+            $"Password (PublicKey): {publicKey}",
+            $"Hash32: {Convert.ToBase64String(new byte[32])}");
     }
 
     /// <inheritdoc />

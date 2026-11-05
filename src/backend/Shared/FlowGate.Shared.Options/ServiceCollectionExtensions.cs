@@ -26,6 +26,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidateOptions<XrayOptions>, XrayOptionsValidator>();
         services.AddSingleton<IValidateOptions<GitHubOptions>, GitHubOptionsValidator>();
         services.AddSingleton<IValidateOptions<SubscriptionOptions>, SubscriptionOptionsValidator>();
+        services.AddSingleton<IValidateOptions<ConnectionOptions>, ConnectionOptionsValidator>();
+        services.AddSingleton<IValidateOptions<ConnectionOptions>, ConnectionOptionsRangeValidator>();
+        services.AddSingleton<IValidateOptions<DomainSourceOptions>, DomainSourceOptionsValidator>();
 
         services.AddOptionsWithValidateOnStart<FlowGateOptions>()
             .Bind(configuration.GetSection(FlowGateOptions.SectionName));
@@ -41,6 +44,12 @@ public static class ServiceCollectionExtensions
 
         services.AddOptionsWithValidateOnStart<SubscriptionOptions>()
             .Bind(configuration.GetSection(SubscriptionOptions.SectionName));
+
+        services.AddOptionsWithValidateOnStart<ConnectionOptions>()
+            .Bind(configuration.GetSection(ConnectionOptions.SectionName));
+
+        services.AddOptionsWithValidateOnStart<DomainSourceOptions>()
+            .Bind(configuration.GetSection(DomainSourceOptions.SectionName));
 
         return services;
     }

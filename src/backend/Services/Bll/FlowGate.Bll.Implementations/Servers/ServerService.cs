@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 
 using FlowGate.Bll.Interfaces.Servers;
 using FlowGate.Contracts.Servers;
+using FlowGate.Dal.Interfaces.Connections;
 using FlowGate.Dal.Interfaces.Servers;
 using FlowGate.Exceptions;
 using FlowGate.SharedContracts.Dto.Servers;
@@ -19,6 +20,7 @@ public sealed class ServerService : IServerService
     private const string EntityName = "Сервер";
 
     private readonly IServerProvider _servers;
+    private readonly IConnectionProvider _connections;
     private readonly IServerImportParser _parser;
     private readonly IOutboundValidator _validator;
     private readonly TimeProvider _timeProvider;
@@ -28,6 +30,7 @@ public sealed class ServerService : IServerService
     ///     Инициализирует новый экземпляр класса <see cref="ServerService"/>
     /// </summary>
     /// <param name="servers">Хранилище серверов</param>
+    /// <param name="connections">Хранилище соединений: выбранный в соединении сервер удалить нельзя</param>
     /// <param name="parser">Разбор ссылок и Xray-JSON</param>
     /// <param name="validator">Проверка outbound</param>
     /// <param name="timeProvider">Источник времени</param>
@@ -35,12 +38,14 @@ public sealed class ServerService : IServerService
     /// <exception cref="ArgumentNullException">Если любой аргумент равен null</exception>
     public ServerService(
         IServerProvider servers,
+        IConnectionProvider connections,
         IServerImportParser parser,
         IOutboundValidator validator,
         TimeProvider timeProvider,
         ILogger<ServerService> logger)
     {
         _servers = servers ?? throw new ArgumentNullException(nameof(servers));
+        _connections = connections ?? throw new ArgumentNullException(nameof(connections));
         _parser = parser ?? throw new ArgumentNullException(nameof(parser));
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
@@ -139,6 +144,15 @@ public sealed class ServerService : IServerService
     {
         var existing = await GetExistingAsync(id, cancellationToken);
         EnsureManual(existing, "удалить");
+
+        var users = (await _connections.GetAllAsync(cancellationToken))
+            .Where(connection => connection.ServerId == id)
+            .Select(connection => $"«{connection.Name}»")
+            .ToList();
+        if (users.Count > 0)
+        {
+            throw new ConflictException($"Сервер выбран в соединениях {string.Join(", ", users)}: сначала выберите в них другой сервер");
+        }
 
         await _servers.DeleteAsync(id, cancellationToken);
         _logger.LogInformation("Сервер {ServerId} «{Name}» удалён", existing.Id, existing.Name);

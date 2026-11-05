@@ -78,7 +78,10 @@ public sealed class FakeHttpMessageHandler : HttpMessageHandler
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
-        var recorded = new RecordedRequest(request.Method, request.RequestUri, body);
+        var recorded = new RecordedRequest(request.Method, request.RequestUri, body)
+        {
+            Headers = request.Headers.ToDictionary(header => header.Key, header => string.Join(", ", header.Value), StringComparer.OrdinalIgnoreCase),
+        };
 
         lock (_sync)
         {

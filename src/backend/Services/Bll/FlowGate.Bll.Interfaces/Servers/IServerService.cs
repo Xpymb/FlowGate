@@ -67,6 +67,7 @@ public interface IServerService
     /// <param name="cancellationToken">Токен отмены</param>
     /// <exception cref="EntityNotFoundException">Если сервера нет</exception>
     /// <exception cref="RequestValidationException">Если сервер из подписки</exception>
+    /// <exception cref="ConflictException">Если сервер выбран в соединении</exception>
     Task DeleteAsync(string id, CancellationToken cancellationToken);
 
     /// <summary>

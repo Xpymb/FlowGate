@@ -38,6 +38,20 @@ public static class ApiJson
     }
 
     /// <summary>
+    ///     DELETE с проверкой статуса
+    /// </summary>
+    /// <param name="client">Клиент</param>
+    /// <param name="url">Адрес</param>
+    /// <param name="expected">Ожидаемый статус</param>
+    /// <returns>Тело ответа или пустой объект</returns>
+    public static async Task<JsonElement> DeleteAsync(HttpClient client, string url, HttpStatusCode expected)
+    {
+        using var response = await client.DeleteAsync(url, TestContext.Current.CancellationToken);
+        Assert.Equal(expected, response.StatusCode);
+        return await ReadAsync(response);
+    }
+
+    /// <summary>
     ///     Читает тело ответа как JSON
     /// </summary>
     /// <param name="response">Ответ</param>
@@ -47,6 +61,31 @@ public static class ApiJson
         var text = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         using var document = JsonDocument.Parse(text.Length == 0 ? "{}" : text);
         return document.RootElement.Clone();
+    }
+
+    /// <summary>
+    ///     Ждёт завершения всех идущих фоновых задач (включая запущенные ими следом)
+    /// </summary>
+    /// <param name="client">Клиент</param>
+    /// <returns>Задача ожидания</returns>
+    public static async Task WaitForAllJobsAsync(HttpClient client)
+    {
+        for (var round = 0; round < 5; round++)
+        {
+            var running = (await GetAsync(client, "/api/jobs")).EnumerateArray()
+                .Where(job => job.GetProperty("status").GetString() == "Running")
+                .Select(job => job.GetProperty("id").GetString()!)
+                .ToList();
+            if (running.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var id in running)
+            {
+                await WaitForJobAsync(client, id);
+            }
+        }
     }
 
     /// <summary>

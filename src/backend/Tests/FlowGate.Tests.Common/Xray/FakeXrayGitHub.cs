@@ -74,8 +74,18 @@ public sealed partial class FakeXrayGitHub
     public static string CreateDigest(byte[] archive) =>
         $"MD5= {Convert.ToHexStringLower(MD5.HashData(archive))}\nSHA2-256= {Convert.ToHexStringLower(SHA256.HashData(archive))}\n";
 
+    /// <summary>
+    ///     Дополнительные ответы (например, коммиты, tarball и релизы источников списков); null — обычная обработка
+    /// </summary>
+    public Func<RecordedRequest, HttpResponseMessage?> Extra { get; set; } = _ => null;
+
     private HttpResponseMessage Respond(RecordedRequest request)
     {
+        if (Extra(request) is { } extra)
+        {
+            return extra;
+        }
+
         var path = request.Uri?.AbsolutePath ?? string.Empty;
 
         if (path.EndsWith("/releases", StringComparison.Ordinal))

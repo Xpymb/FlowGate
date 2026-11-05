@@ -1,0 +1,56 @@
+{
+  "id": "Wireguard9",
+  "index": 9,
+  "interface-name": "Wireguard9",
+  "type": "Wireguard",
+  "description": "FlowGate: fixture-wg",
+  "traits": [
+    "Ip",
+    "Ip6",
+    "Wireguard"
+  ],
+  "link": "down",
+  "connected": "no",
+  "state": "up",
+  "mtu": 1420,
+  "tx-queue-length": 50,
+  "admin-only": false,
+  "address": "10.255.0.99",
+  "mask": "255.255.255.255",
+  "uptime": 0,
+  "global": false,
+  "security-level": "public",
+  "ipv6": {
+  },
+  "wireguard": {
+    "public-key": "QnvGuETbIKeG8ZP2t05Yj1mPWm+/UB31KdavwJKihWo=",
+    "listen-port": 45168,
+    "status": "up",
+    "peer": [
+      {
+        "public-key": "Kp5mU8LXHf4mVJ2EgkG+K2B9eFdDJzSpOIU6bMgItXo=",
+        "description": "",
+        "local-port": 45168,
+        "remote-port": 10898,
+        "via": "GigabitEthernet1",
+        "local-endpoint-address": "172.25.246.35",
+        "remote-endpoint-address": "127.0.0.1",
+        "rxbytes": 0,
+        "txbytes": 148,
+        "last-handshake": 2147483647,
+        "online": false,
+        "enabled": true,
+        "fwmark": 268434090
+      }
+    ]
+  },
+  "summary": {
+    "layer": {
+      "conf": "running",
+      "link": "pending",
+      "ipv4": "pending",
+      "ipv6": "disabled",
+      "ctrl": "pending"
+    }
+  }
+}

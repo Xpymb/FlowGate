@@ -7,6 +7,9 @@ using FlowGate.Shared.Keenetic;
 using FlowGate.Shared.Options;
 using FlowGate.Shared.WebApi;
 using FlowGate.Shared.WebApi.Errors;
+using FlowGate.WebApi.Endpoints.Connections;
+using FlowGate.WebApi.Endpoints.DnsRoutes;
+using FlowGate.WebApi.Endpoints.DomainSources;
 using FlowGate.WebApi.Endpoints.Health;
 using FlowGate.WebApi.Endpoints.Jobs;
 using FlowGate.WebApi.Endpoints.Keenetic;
@@ -44,6 +47,8 @@ builder.Services.AddGitHubReleasesClient();
 builder.Services.AddHostedService<XrayLifecycleJob>();
 builder.Services.AddHostedService<XrayUpdateCheckJob>();
 builder.Services.AddHostedService<SubscriptionRefreshJob>();
+builder.Services.AddHostedService<KeeneticReconcileJob>();
+builder.Services.AddHostedService<DomainSourceRefreshJob>();
 
 var app = builder.Build();
 
@@ -60,6 +65,9 @@ api.MapXrayEndpoints();
 api.MapJobEndpoints();
 api.MapServerEndpoints();
 api.MapSubscriptionEndpoints();
+api.MapConnectionEndpoints();
+api.MapDomainSourceEndpoints();
+api.MapDnsRouteEndpoints();
 
 app.MapFlowGateFrontendFallback();
 

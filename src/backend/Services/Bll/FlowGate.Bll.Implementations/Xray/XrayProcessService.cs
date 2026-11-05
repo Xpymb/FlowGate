@@ -1,6 +1,4 @@
 using System.ComponentModel;
-using System.Diagnostics;
-using System.Globalization;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -28,14 +26,12 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Lock _sync = new();
     private readonly CancellationTokenSource _lifetime = new();
-    private readonly IProcessLauncher _launcher;
+    private readonly IXrayProcessManager _processes;
     private readonly IXrayLogBuffer _logs;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<XrayProcessService> _logger;
     private readonly string _binaryPath;
     private readonly string _configPath;
-    private readonly string _workDirectory;
-    private readonly string _pidFile;
     private readonly TimeSpan _startTimeout;
     private readonly Control _control;
 
@@ -53,7 +49,7 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
     /// </summary>
     /// <param name="options">Настройки Xray</param>
     /// <param name="configFile">Файл конфигурации Xray</param>
-    /// <param name="launcher">Запуск процессов</param>
+    /// <param name="processes">Менеджер процессов Xray</param>
     /// <param name="logs">Буфер вывода Xray</param>
     /// <param name="timeProvider">Источник времени</param>
     /// <param name="logger">Логгер</param>
@@ -61,22 +57,20 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
     public XrayProcessService(
         IOptions<XrayOptions> options,
         IXrayConfigFileProvider configFile,
-        IProcessLauncher launcher,
+        IXrayProcessManager processes,
         IXrayLogBuffer logs,
         TimeProvider timeProvider,
         ILogger<XrayProcessService> logger)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(configFile);
-        _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
+        _processes = processes ?? throw new ArgumentNullException(nameof(processes));
         _logs = logs ?? throw new ArgumentNullException(nameof(logs));
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         _binaryPath = Path.GetFullPath(options.Value.BinaryPath);
         _configPath = configFile.ConfigPath;
-        _workDirectory = Path.GetFullPath(options.Value.WorkDirectory);
-        _pidFile = Path.Combine(_workDirectory, "xray.pid");
         _startTimeout = TimeSpan.FromSeconds(options.Value.StartTimeoutSeconds);
         _control = new Control(this);
     }
@@ -144,36 +138,6 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
     }
 
     /// <inheritdoc />
-    public Task KillOrphanAsync(CancellationToken cancellationToken)
-    {
-        if (!File.Exists(_pidFile))
-        {
-            return Task.CompletedTask;
-        }
-
-        try
-        {
-            var text = File.ReadAllText(_pidFile).Trim();
-            if (int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var pid) && IsOurXray(pid))
-            {
-                using var orphan = Process.GetProcessById(pid);
-                orphan.Kill();
-                _logger.LogWarning("Остановлен Xray, оставшийся от прошлого запуска FlowGate (pid {Pid})", pid);
-            }
-        }
-        catch (Exception ex) when (ex is IOException or ArgumentException or InvalidOperationException or Win32Exception)
-        {
-            _logger.LogDebug(ex, "Не удалось проверить pid-файл {PidFile}", _pidFile);
-        }
-        finally
-        {
-            DeletePidFile();
-        }
-
-        return Task.CompletedTask;
-    }
-
-    /// <inheritdoc />
     public void Dispose()
     {
         _lifetime.Cancel();
@@ -225,7 +189,7 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
         IManagedProcess process;
         try
         {
-            process = _launcher.Start(new ProcessStartRequest(_binaryPath, ["run", "-c", _configPath], _workDirectory), OnOutput);
+            process = _processes.Start(["run", "-c", _configPath], OnOutput);
         }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or IOException)
         {
@@ -271,7 +235,6 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
             _lastError = null;
         }
 
-        WritePidFile(process.Id);
         _logger.LogInformation("Xray запущен (pid {Pid})", process.Id);
         _ = SuperviseAsync(process, startedAt);
     }
@@ -303,7 +266,6 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
             _logger.LogInformation("Xray остановлен");
         }
 
-        DeletePidFile();
         SetState(XrayProcessState.Stopped, null);
     }
 
@@ -411,42 +373,6 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
         {
             _state = state;
             _lastError = error;
-        }
-    }
-
-    private bool IsOurXray(int pid)
-    {
-        if (!OperatingSystem.IsLinux())
-        {
-            return false;
-        }
-
-        var target = File.ResolveLinkTarget($"/proc/{pid}/exe", returnFinalTarget: false)?.FullName;
-        return target is not null && target.StartsWith(_binaryPath, StringComparison.Ordinal);
-    }
-
-    private void WritePidFile(int pid)
-    {
-        try
-        {
-            Directory.CreateDirectory(_workDirectory);
-            File.WriteAllText(_pidFile, pid.ToString(CultureInfo.InvariantCulture));
-        }
-        catch (IOException ex)
-        {
-            _logger.LogWarning(ex, "Не удалось записать pid-файл {PidFile}", _pidFile);
-        }
-    }
-
-    private void DeletePidFile()
-    {
-        try
-        {
-            File.Delete(_pidFile);
-        }
-        catch (IOException ex)
-        {
-            _logger.LogDebug(ex, "Не удалось удалить pid-файл {PidFile}", _pidFile);
         }
     }
 

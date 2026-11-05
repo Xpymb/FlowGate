@@ -1,6 +1,7 @@
 using FlowGate.Exceptions;
 using FlowGate.SharedContracts.Dto.DomainSources;
 using FlowGate.SharedContracts.Dto.Jobs;
+using FlowGate.SharedContracts.Dto.Settings;
 
 namespace FlowGate.Bll.Interfaces.DomainSources;
 
@@ -59,11 +60,12 @@ public interface IDomainSourceService
     ///     Запускает обновление источника; после изменения применяются маршруты, которые его используют
     /// </summary>
     /// <param name="id">Идентификатор</param>
+    /// <param name="via">Как загружать: по настройкам, только через прокси обновлений или напрямую</param>
     /// <param name="cancellationToken">Токен отмены</param>
     /// <returns>Фоновая задача</returns>
     /// <exception cref="EntityNotFoundException">Если источника нет</exception>
     /// <exception cref="ConflictException">Если обновление этого источника уже идёт</exception>
-    Task<JobDto> RefreshAsync(string id, CancellationToken cancellationToken);
+    Task<JobDto> RefreshAsync(string id, UpdateVia via, CancellationToken cancellationToken);
 
     /// <summary>
     ///     Обновляет по очереди источники, которым пора: с автообновлением, используемые маршрутами, старше интервала

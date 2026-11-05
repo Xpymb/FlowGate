@@ -66,13 +66,22 @@ public sealed class XrayConfigBuilder : IXrayConfigBuilder
         }
     }
 
-    private static JsonObject BuildRule(XrayRoutingRule rule) =>
-        new()
+    private static JsonObject BuildRule(XrayRoutingRule rule)
+    {
+        var node = new JsonObject
         {
             ["type"] = "field",
             ["inboundTag"] = new JsonArray(rule.InboundTags.Select(tag => (JsonNode?)tag).ToArray()),
-            ["outboundTag"] = rule.OutboundTag,
         };
+
+        if (rule.Domains is { Count: > 0 } domains)
+        {
+            node["domain"] = new JsonArray(domains.Select(domain => (JsonNode?)domain).ToArray());
+        }
+
+        node["outboundTag"] = rule.OutboundTag;
+        return node;
+    }
 
     private static void Validate(XrayConfigModel model)
     {

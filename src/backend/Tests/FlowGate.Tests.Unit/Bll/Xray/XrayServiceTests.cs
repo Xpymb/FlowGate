@@ -1,4 +1,5 @@
 using FlowGate.Exceptions;
+using FlowGate.SharedContracts.Dto.Settings;
 using FlowGate.SharedContracts.Dto.Xray;
 
 namespace FlowGate.Tests.Unit.Bll.Xray;
@@ -85,7 +86,7 @@ public sealed class XrayServiceTests : IDisposable
     public async Task InstallAsync_InvalidVersion_ThrowsValidation()
     {
         await Assert.ThrowsAsync<RequestValidationException>(
-            () => _env.Service.InstallAsync(new XrayInstallRequest("latest-and-greatest"), TestContext.Current.CancellationToken));
+            () => _env.Service.InstallAsync(new XrayInstallRequest("latest-and-greatest"), UpdateVia.Auto, TestContext.Current.CancellationToken));
     }
 
     /// <inheritdoc />

@@ -1,6 +1,7 @@
 using FlowGate.Contracts.Xray;
 using FlowGate.Exceptions;
 using FlowGate.Shared.Bll.Jobs;
+using FlowGate.SharedContracts.Dto.Settings;
 using FlowGate.Tests.Common.Xray;
 
 namespace FlowGate.Tests.Unit.Bll.Xray;
@@ -119,7 +120,7 @@ public sealed class XrayInstallerTests : IDisposable
     public async Task StartInstallAsync_UnknownVersion_ThrowsEntityNotFound()
     {
         await Assert.ThrowsAsync<EntityNotFoundException>(
-            () => _env.Installer.StartInstallAsync(XrayVersion.Parse("1.0.0"), TestContext.Current.CancellationToken));
+            () => _env.Installer.StartInstallAsync(XrayVersion.Parse("1.0.0"), UpdateVia.Auto, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -130,10 +131,10 @@ public sealed class XrayInstallerTests : IDisposable
     {
         using var gate = new ManualResetEventSlim(false);
         _env.GitHub.DownloadGate = gate;
-        var first = await _env.Installer.StartInstallAsync(null, TestContext.Current.CancellationToken);
+        var first = await _env.Installer.StartInstallAsync(null, UpdateVia.Auto, TestContext.Current.CancellationToken);
 
         await Assert.ThrowsAsync<ConflictException>(
-            () => _env.Installer.StartInstallAsync(null, TestContext.Current.CancellationToken));
+            () => _env.Installer.StartInstallAsync(null, UpdateVia.Auto, TestContext.Current.CancellationToken));
 
         gate.Set();
         var finished = await _env.Jobs.WaitAsync(first.Id, TestContext.Current.CancellationToken);
@@ -147,6 +148,7 @@ public sealed class XrayInstallerTests : IDisposable
     {
         var started = await _env.Installer.StartInstallAsync(
             version is null ? null : XrayVersion.Parse(version),
+            UpdateVia.Auto,
             TestContext.Current.CancellationToken);
 
         return (await _env.Jobs.WaitAsync(started.Id, TestContext.Current.CancellationToken))!;

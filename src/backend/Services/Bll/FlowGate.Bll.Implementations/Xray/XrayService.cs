@@ -2,12 +2,14 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using FlowGate.Bll.Implementations.Jobs;
+using FlowGate.Bll.Implementations.Settings;
 using FlowGate.Bll.Interfaces.Xray;
 using FlowGate.Contracts.Xray;
 using FlowGate.Dal.Interfaces.Settings;
 using FlowGate.Exceptions;
 using FlowGate.Shared.Options;
 using FlowGate.SharedContracts.Dto.Jobs;
+using FlowGate.SharedContracts.Dto.Settings;
 using FlowGate.SharedContracts.Dto.Xray;
 
 namespace FlowGate.Bll.Implementations.Xray;
@@ -18,12 +20,14 @@ namespace FlowGate.Bll.Implementations.Xray;
 public sealed class XrayService : IXrayService
 {
     private readonly IXrayProcessService _process;
+    private readonly IXrayProcessManager _processes;
     private readonly IXrayVersionProvider _versionProvider;
     private readonly IXrayReleaseService _releases;
     private readonly IXrayInstaller _installer;
     private readonly IXrayConfigService _configService;
     private readonly ISettingsProvider _settings;
     private readonly IXrayLogBuffer _logs;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<XrayService> _logger;
     private readonly XrayOptions _options;
 
@@ -31,6 +35,7 @@ public sealed class XrayService : IXrayService
     ///     Инициализирует новый экземпляр класса <see cref="XrayService"/>
     /// </summary>
     /// <param name="process">Процесс Xray</param>
+    /// <param name="processes">Менеджер процессов Xray (чужие процессы при старте)</param>
     /// <param name="versionProvider">Установленная версия</param>
     /// <param name="releases">Релизы</param>
     /// <param name="installer">Установщик</param>
@@ -38,10 +43,12 @@ public sealed class XrayService : IXrayService
     /// <param name="settings">Пользовательские настройки</param>
     /// <param name="logs">Вывод Xray</param>
     /// <param name="options">Настройки Xray</param>
+    /// <param name="timeProvider">Источник времени</param>
     /// <param name="logger">Логгер</param>
     /// <exception cref="ArgumentNullException">Если любой аргумент равен null</exception>
     public XrayService(
         IXrayProcessService process,
+        IXrayProcessManager processes,
         IXrayVersionProvider versionProvider,
         IXrayReleaseService releases,
         IXrayInstaller installer,
@@ -49,9 +56,11 @@ public sealed class XrayService : IXrayService
         ISettingsProvider settings,
         IXrayLogBuffer logs,
         IOptions<XrayOptions> options,
+        TimeProvider timeProvider,
         ILogger<XrayService> logger)
     {
         _process = process ?? throw new ArgumentNullException(nameof(process));
+        _processes = processes ?? throw new ArgumentNullException(nameof(processes));
         _versionProvider = versionProvider ?? throw new ArgumentNullException(nameof(versionProvider));
         _releases = releases ?? throw new ArgumentNullException(nameof(releases));
         _installer = installer ?? throw new ArgumentNullException(nameof(installer));
@@ -60,6 +69,7 @@ public sealed class XrayService : IXrayService
         _logs = logs ?? throw new ArgumentNullException(nameof(logs));
         ArgumentNullException.ThrowIfNull(options);
         _options = options.Value;
+        _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -88,7 +98,7 @@ public sealed class XrayService : IXrayService
     }
 
     /// <inheritdoc />
-    public async Task<JobDto> InstallAsync(XrayInstallRequest request, CancellationToken cancellationToken)
+    public async Task<JobDto> InstallAsync(XrayInstallRequest request, UpdateVia via, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -98,7 +108,7 @@ public sealed class XrayService : IXrayService
             throw new RequestValidationException($"Неверная версия Xray: «{request.Version}»");
         }
 
-        var job = await _installer.StartInstallAsync(version, cancellationToken);
+        var job = await _installer.StartInstallAsync(version, via, cancellationToken);
         return job.ToDto();
     }
 
@@ -137,7 +147,7 @@ public sealed class XrayService : IXrayService
     /// <inheritdoc />
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
-        await _process.KillOrphanAsync(cancellationToken);
+        await _processes.KillStrangersAsync(cancellationToken);
 
         if (!_versionProvider.IsInstalled)
         {
@@ -174,6 +184,19 @@ public sealed class XrayService : IXrayService
         {
             _logger.LogInformation("Доступна новая версия Xray {Latest} (установлена {Installed})", latest, installed);
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> CheckForUpdatesIfDueAsync(CancellationToken cancellationToken)
+    {
+        var interval = UpdateIntervals.XrayUpdateCheck(await _settings.GetAsync(cancellationToken), _options);
+        if (!UpdateIntervals.IsDue(_releases.LastCheck?.CheckedAt, interval, _timeProvider.GetUtcNow()))
+        {
+            return false;
+        }
+
+        await CheckForUpdatesAsync(cancellationToken);
+        return true;
     }
 
     private string? InstalledBinaryOrNull() => _versionProvider.IsInstalled ? Path.GetFullPath(_options.BinaryPath) : null;

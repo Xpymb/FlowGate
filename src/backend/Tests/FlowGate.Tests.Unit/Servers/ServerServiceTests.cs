@@ -8,8 +8,10 @@ using FlowGate.Bll.Implementations.Servers;
 using FlowGate.Bll.Interfaces.Servers;
 using FlowGate.Contracts.Connections;
 using FlowGate.Contracts.Servers;
+using FlowGate.Contracts.Settings;
 using FlowGate.Dal.Implementations.Connections;
 using FlowGate.Dal.Implementations.Servers;
+using FlowGate.Dal.Implementations.Settings;
 using FlowGate.Exceptions;
 using FlowGate.Shared.Dal.Json;
 using FlowGate.Shared.Options;
@@ -28,6 +30,7 @@ public sealed class ServerServiceTests : IDisposable
     private readonly IOutboundValidator _validator = Substitute.For<IOutboundValidator>();
     private readonly ServerProvider _servers;
     private readonly ConnectionProvider _connections;
+    private readonly SettingsProvider _settings;
     private readonly ServerService _sut;
 
     /// <summary>
@@ -38,8 +41,9 @@ public sealed class ServerServiceTests : IDisposable
         var storeFactory = new JsonFileStoreFactory(Microsoft.Extensions.Options.Options.Create(new FlowGateOptions { DataDirectory = _directory }));
         _servers = new ServerProvider(storeFactory);
         _connections = new ConnectionProvider(storeFactory);
+        _settings = new SettingsProvider(storeFactory);
         _validator.ValidateAsync(Arg.Any<JsonObject>(), Arg.Any<CancellationToken>()).Returns(new OutboundValidationResult([], CheckedByXray: true));
-        _sut = new ServerService(_servers, _connections, new ServerImportParser(), _validator, TimeProvider.System, NullLogger<ServerService>.Instance);
+        _sut = new ServerService(_servers, _connections, _settings, new ServerImportParser(), _validator, TimeProvider.System, NullLogger<ServerService>.Instance);
     }
 
     /// <summary>
@@ -156,6 +160,23 @@ public sealed class ServerServiceTests : IDisposable
         var exception = await Assert.ThrowsAsync<ConflictException>(() => _sut.DeleteAsync(created.Server.Id, TestContext.Current.CancellationToken));
 
         Assert.Contains("«YouTube»", exception.Message);
+        Assert.NotNull(await _servers.GetAsync(created.Server.Id, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Сервер, выбранный для прокси обновлений, удалить нельзя — 409
+    /// </summary>
+    [Fact]
+    public async Task DeleteAsync_ServerUsedByUpdateProxy_ThrowsConflict()
+    {
+        var created = await _sut.CreateAsync(new ServerSaveRequest("Германия", _sut.Parse(new ServerParseRequest(TrojanLink)).Outbound), TestContext.Current.CancellationToken);
+        await _settings.UpdateAsync(
+            settings => settings with { UpdateProxy = new UpdateProxySettings { Enabled = true, ServerId = created.Server.Id } },
+            TestContext.Current.CancellationToken);
+
+        var exception = await Assert.ThrowsAsync<ConflictException>(() => _sut.DeleteAsync(created.Server.Id, TestContext.Current.CancellationToken));
+
+        Assert.Contains("прокси обновлений", exception.Message);
         Assert.NotNull(await _servers.GetAsync(created.Server.Id, TestContext.Current.CancellationToken));
     }
 

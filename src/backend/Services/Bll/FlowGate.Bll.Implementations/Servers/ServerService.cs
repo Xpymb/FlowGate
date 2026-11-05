@@ -6,6 +6,7 @@ using FlowGate.Bll.Interfaces.Servers;
 using FlowGate.Contracts.Servers;
 using FlowGate.Dal.Interfaces.Connections;
 using FlowGate.Dal.Interfaces.Servers;
+using FlowGate.Dal.Interfaces.Settings;
 using FlowGate.Exceptions;
 using FlowGate.SharedContracts.Dto.Servers;
 
@@ -21,6 +22,7 @@ public sealed class ServerService : IServerService
 
     private readonly IServerProvider _servers;
     private readonly IConnectionProvider _connections;
+    private readonly ISettingsProvider _settings;
     private readonly IServerImportParser _parser;
     private readonly IOutboundValidator _validator;
     private readonly TimeProvider _timeProvider;
@@ -31,6 +33,7 @@ public sealed class ServerService : IServerService
     /// </summary>
     /// <param name="servers">Хранилище серверов</param>
     /// <param name="connections">Хранилище соединений: выбранный в соединении сервер удалить нельзя</param>
+    /// <param name="settings">Пользовательские настройки: сервер прокси обновлений удалить нельзя</param>
     /// <param name="parser">Разбор ссылок и Xray-JSON</param>
     /// <param name="validator">Проверка outbound</param>
     /// <param name="timeProvider">Источник времени</param>
@@ -39,6 +42,7 @@ public sealed class ServerService : IServerService
     public ServerService(
         IServerProvider servers,
         IConnectionProvider connections,
+        ISettingsProvider settings,
         IServerImportParser parser,
         IOutboundValidator validator,
         TimeProvider timeProvider,
@@ -46,6 +50,7 @@ public sealed class ServerService : IServerService
     {
         _servers = servers ?? throw new ArgumentNullException(nameof(servers));
         _connections = connections ?? throw new ArgumentNullException(nameof(connections));
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _parser = parser ?? throw new ArgumentNullException(nameof(parser));
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
@@ -152,6 +157,12 @@ public sealed class ServerService : IServerService
         if (users.Count > 0)
         {
             throw new ConflictException($"Сервер выбран в соединениях {string.Join(", ", users)}: сначала выберите в них другой сервер");
+        }
+
+        var settings = await _settings.GetAsync(cancellationToken);
+        if (string.Equals(settings.UpdateProxy.ServerId, id, StringComparison.Ordinal))
+        {
+            throw new ConflictException("Сервер выбран для прокси обновлений: сначала выберите в настройках другой сервер");
         }
 
         await _servers.DeleteAsync(id, cancellationToken);

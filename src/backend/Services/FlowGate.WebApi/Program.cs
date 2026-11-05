@@ -15,6 +15,7 @@ using FlowGate.WebApi.Endpoints.Jobs;
 using FlowGate.WebApi.Endpoints.Keenetic;
 using FlowGate.WebApi.Endpoints.Maintenance;
 using FlowGate.WebApi.Endpoints.Servers;
+using FlowGate.WebApi.Endpoints.Settings;
 using FlowGate.WebApi.Endpoints.Subscriptions;
 using FlowGate.WebApi.Endpoints.Xray;
 using FlowGate.WebApi.Hosting;
@@ -59,9 +60,11 @@ builder.Services
     .AddFlowGateDal()
     .AddFlowGateBll();
 builder.Services.AddKeeneticRciClient();
-builder.Services.AddGitHubReleasesClient();
+builder.Services.AddGitHubReleasesClient()
+    .UseUpdateProxy(() => new SocketsHttpHandler { AllowAutoRedirect = true, PooledConnectionLifetime = TimeSpan.FromMinutes(5) });
 
 builder.Services.AddHostedService<XrayLifecycleJob>();
+builder.Services.AddHostedService<UpdateProxyLifecycleJob>();
 builder.Services.AddHostedService<XrayUpdateCheckJob>();
 builder.Services.AddHostedService<SubscriptionRefreshJob>();
 builder.Services.AddHostedService<KeeneticReconcileJob>();
@@ -91,6 +94,7 @@ api.MapConnectionEndpoints();
 api.MapDomainSourceEndpoints();
 api.MapDnsRouteEndpoints();
 api.MapSystemEndpoints();
+api.MapSettingsEndpoints();
 
 await app.RunAsync();
 return 0;

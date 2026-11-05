@@ -81,7 +81,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Запустить установку версии (по умолчанию последней стабильной) */
+        /** Запустить установку версии (по умолчанию последней стабильной); via — Auto, Proxy или Direct */
         post: operations["InstallXray"];
         delete?: never;
         options?: never;
@@ -325,7 +325,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Запустить обновление подписки */
+        /** Запустить обновление подписки; via — Auto (по настройкам), Proxy или Direct */
         post: operations["RefreshSubscription"];
         delete?: never;
         options?: never;
@@ -609,6 +609,41 @@ export interface paths {
         put?: never;
         /** Обновить FlowGate через opkg; служба перезапустится */
         post: operations["UpdateFlowGate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Настройки: уровень логов Xray, прокси обновлений, интервалы */
+        get: operations["GetSettings"];
+        /** Сохранить настройки целиком */
+        put: operations["UpdateSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/update-proxy/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Состояние прокси обновлений: выключен, ждёт запроса, работает или недоступен */
+        get: operations["GetUpdateProxyStatus"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1166,6 +1201,26 @@ export interface components {
             /** @description Ошибки проверки */
             errors: string[];
         };
+        /** @description Настройки FlowGate, которые меняются из интерфейса */
+        SettingsDto: {
+            /** @description Уровень логирования Xray */
+            xrayLogLevel: string;
+            /** @description Допустимые уровни логирования */
+            xrayLogLevels: string[];
+            /** @description Загрузка обновлений через прокси */
+            updateProxy: components["schemas"]["UpdateProxySettingsDto"];
+            /** @description Интервалы обновлений */
+            intervals: components["schemas"]["UpdateIntervalsDto"];
+        };
+        /** @description Сохранение настроек целиком */
+        SettingsSaveRequest: {
+            /** @description Уровень логирования Xray */
+            xrayLogLevel: string;
+            /** @description Загрузка обновлений через прокси */
+            updateProxy: components["schemas"]["UpdateProxySaveRequest"];
+            /** @description Интервалы обновлений */
+            intervals: components["schemas"]["UpdateIntervalsSaveRequest"];
+        };
         /** @description Подписка */
         SubscriptionDto: {
             /** @description Идентификатор */
@@ -1281,7 +1336,7 @@ export interface components {
             autoUpdate: boolean;
             /**
              * Format: int32
-             * @description Свой интервал 1–168 ч или null — интервал провайдера или 24 ч
+             * @description Свой интервал 1–168 ч или null — интервал провайдера, иначе 12 ч
              */
             updateIntervalHours?: null | number | string;
             /** @description Свой User-Agent или null — `FlowGate/&lt;версия&gt;` */
@@ -1335,6 +1390,115 @@ export interface components {
              */
             xrayMemoryRssKilobytes: null | number | string;
         };
+        /** @description Интервал в часах */
+        UpdateIntervalDto: {
+            /**
+             * Format: int32
+             * @description Заданный пользователем или null
+             */
+            hours: null | number | string;
+            /**
+             * Format: int32
+             * @description Значение из конфигурации
+             */
+            defaultHours: number | string;
+            /**
+             * Format: int32
+             * @description Действующее значение
+             */
+            effectiveHours: number | string;
+            /**
+             * Format: int32
+             * @description Наибольшее допустимое значение
+             */
+            maxHours: number | string;
+        };
+        /** @description Интервалы обновлений */
+        UpdateIntervalsDto: {
+            /** @description Подписки без своего интервала и без интервала от провайдера */
+            subscriptionDefault: components["schemas"]["UpdateIntervalDto"];
+            /** @description Источники списков */
+            domainSourceRefresh: components["schemas"]["UpdateIntervalDto"];
+            /** @description Проверка новых версий Xray */
+            xrayUpdateCheck: components["schemas"]["UpdateIntervalDto"];
+            /** @description Проверка новых версий FlowGate */
+            systemUpdateCheck: components["schemas"]["UpdateIntervalDto"];
+        };
+        /** @description Интервалы обновлений в часах; null — значение из конфигурации */
+        UpdateIntervalsSaveRequest: {
+            /**
+             * Format: int32
+             * @description Подписки без своего интервала, 1–168
+             */
+            subscriptionDefaultHours?: null | number | string;
+            /**
+             * Format: int32
+             * @description Источники списков, 1–720
+             */
+            domainSourceRefreshHours?: null | number | string;
+            /**
+             * Format: int32
+             * @description Проверка версий Xray, 1–720
+             */
+            xrayUpdateCheckHours?: null | number | string;
+            /**
+             * Format: int32
+             * @description Проверка версий FlowGate, 1–720
+             */
+            systemUpdateCheckHours?: null | number | string;
+        };
+        /** @description Настройки прокси обновлений */
+        UpdateProxySaveRequest: {
+            /** @description Включить */
+            enabled: boolean;
+            /** @description Сервер; обязателен, если прокси включён */
+            serverId?: null | string;
+            /** @description Свои домены: `example.com`, `domain:example.com` или `full:cdn.example.com` */
+            extraDomains?: null | string[];
+        };
+        /** @description Загрузка обновлений (подписки, источники, релизы Xray, пакет FlowGate) через отдельный экземпляр Xray */
+        UpdateProxySettingsDto: {
+            /** @description Включено */
+            enabled: boolean;
+            /** @description Сервер, через который идут обновления */
+            serverId: null | string;
+            /** @description Свои домены в формате Xray */
+            extraDomains: string[];
+            /** @description Встроенные домены (GitHub, feed); хосты подписок и прямых ссылок источников добавляются сами */
+            builtInDomains: string[];
+        };
+        /** @description Состояние прокси обновлений */
+        UpdateProxyStatusDto: {
+            /** @description `Disabled`, `Idle` (запустится по запросу), `Running`, `Unavailable` (обновления идут напрямую) */
+            state: string;
+            /**
+             * Format: int32
+             * @description Порт HTTP-inbound на 127.0.0.1
+             */
+            port: number | string;
+            /**
+             * Format: int32
+             * @description Pid экземпляра Xray
+             */
+            processId: null | number | string;
+            /**
+             * Format: date-time
+             * @description Когда запущен
+             */
+            startedAt: null | string;
+            /**
+             * Format: int32
+             * @description Запросов через прокси сейчас
+             */
+            activeRequests: number | string;
+            /** @description Почему недоступен или последний сбой */
+            reason: null | string;
+        };
+        /**
+         * @description Как загружать обновление
+         * @enum {unknown}
+         */
+        UpdateVia: "Auto" | "Proxy" | "Direct";
         /** @description Запрос установки Xray */
         XrayInstallRequest: {
             /** @description Версия из списка релизов; null — последняя стабильная */
@@ -1532,7 +1696,9 @@ export interface operations {
     };
     InstallXray: {
         parameters: {
-            query?: never;
+            query?: {
+                via?: components["schemas"]["UpdateVia"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2156,7 +2322,9 @@ export interface operations {
     };
     RefreshSubscription: {
         parameters: {
-            query?: never;
+            query?: {
+                via?: components["schemas"]["UpdateVia"];
+            };
             header?: never;
             path: {
                 id: string;
@@ -2555,7 +2723,9 @@ export interface operations {
     };
     RefreshDomainSource: {
         parameters: {
-            query?: never;
+            query?: {
+                via?: components["schemas"]["UpdateVia"];
+            };
             header?: never;
             path: {
                 id: string;
@@ -3086,6 +3256,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    GetSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsDto"];
+                };
+            };
+        };
+    };
+    UpdateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    GetUpdateProxyStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateProxyStatusDto"];
                 };
             };
         };

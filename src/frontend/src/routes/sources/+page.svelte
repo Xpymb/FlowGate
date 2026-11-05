@@ -6,6 +6,7 @@
 	import Dialog from '#lib/components/Dialog.svelte';
 	import ListFormatHelp from '#lib/components/ListFormatHelp.svelte';
 	import Loadable from '#lib/components/Loadable.svelte';
+	import UpdateButton from '#lib/components/UpdateButton.svelte';
 	import SourceFormFields from '#lib/components/SourceForm.svelte';
 	import { formatDateTime } from '#lib/format.js';
 	import { trackJob } from '#lib/jobs.svelte.js';
@@ -16,6 +17,7 @@
 	import type { components } from '#lib/api/schema.js';
 
 	type Source = components['schemas']['DomainSourceDto'];
+	type UpdateVia = components['schemas']['UpdateVia'];
 
 	const sources = new Resource(() => unwrap(api.GET('/api/domain-sources')));
 
@@ -41,9 +43,11 @@
 		void sources.reload();
 	}
 
-	async function refresh(id: string) {
+	async function refresh(id: string, via: UpdateVia) {
 		refreshing[id] = true;
-		await trackJob(api.POST('/api/domain-sources/{id}/refresh', { params: { path: { id } } }));
+		await trackJob(
+			api.POST('/api/domain-sources/{id}/refresh', { params: { path: { id }, query: { via } } })
+		);
 		refreshing[id] = false;
 		void sources.reload();
 	}
@@ -108,13 +112,12 @@
 							</td>
 							<td class="actions">
 								{#if source.kind !== 'Local'}
-									<button
-										class="small"
-										disabled={refreshing[source.id]}
-										onclick={() => refresh(source.id)}
-									>
-										{refreshing[source.id] ? 'Обновляется…' : 'Обновить'}
-									</button>
+									<UpdateButton
+										small
+										label="Обновить"
+										busy={refreshing[source.id]}
+										onrun={(via) => refresh(source.id, via)}
+									/>
 								{/if}
 								{#if !source.builtIn}
 									<button class="danger small" onclick={() => remove(source)}>Удалить</button>

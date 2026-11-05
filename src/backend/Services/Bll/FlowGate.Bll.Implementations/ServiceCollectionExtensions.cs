@@ -10,7 +10,9 @@ using FlowGate.Bll.Implementations.Jobs;
 using FlowGate.Bll.Implementations.Keenetic;
 using FlowGate.Bll.Implementations.Maintenance;
 using FlowGate.Bll.Implementations.Servers;
+using FlowGate.Bll.Implementations.Settings;
 using FlowGate.Bll.Implementations.Subscriptions;
+using FlowGate.Bll.Implementations.UpdateProxy;
 using FlowGate.Bll.Implementations.Xray;
 using FlowGate.Bll.Interfaces.Connections;
 using FlowGate.Bll.Interfaces.DnsRoutes;
@@ -19,7 +21,9 @@ using FlowGate.Bll.Interfaces.Jobs;
 using FlowGate.Bll.Interfaces.Keenetic;
 using FlowGate.Bll.Interfaces.Maintenance;
 using FlowGate.Bll.Interfaces.Servers;
+using FlowGate.Bll.Interfaces.Settings;
 using FlowGate.Bll.Interfaces.Subscriptions;
+using FlowGate.Bll.Interfaces.UpdateProxy;
 using FlowGate.Bll.Interfaces.Xray;
 
 namespace FlowGate.Bll.Implementations;
@@ -42,6 +46,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IXrayLogBuffer, XrayLogBuffer>();
         services.AddSingleton<IXrayVersionProvider, XrayVersionProvider>();
+        services.AddSingleton<IXrayProcessManager, XrayProcessManager>();
         services.AddSingleton<IXrayProcessService, XrayProcessService>();
         services.AddSingleton<IXrayConfigBuilder, XrayConfigBuilder>();
         services.AddSingleton<IXrayConfigSource, ConnectionXrayConfigSource>();
@@ -74,6 +79,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IKeeneticDnsService, KeeneticDnsService>();
         services.AddSingleton<IDnsRouteService, DnsRouteService>();
 
+        services.AddSingleton<IUpdateProxyService, UpdateProxyService>();
+        services.AddSingleton<ISettingsService, SettingsService>();
+
         services.AddSingleton<ICleanupService, CleanupService>();
         services.AddSingleton<ISystemService, SystemService>();
 
@@ -88,7 +96,7 @@ public static class ServiceCollectionExtensions
     /// <returns>Построитель HTTP-клиента, например для подмены обработчика в тестах</returns>
     public static IHttpClientBuilder AddDomainSourceHttpClient(this IServiceCollection services) =>
         services.AddHttpClient(DomainSourceDownloader.HttpClientName, client => client.Timeout = Timeout.InfiniteTimeSpan)
-            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            .UseUpdateProxy(() => new SocketsHttpHandler
             {
                 AllowAutoRedirect = true,
                 MaxAutomaticRedirections = 5,
@@ -104,10 +112,24 @@ public static class ServiceCollectionExtensions
     /// <returns>Построитель HTTP-клиента, например для подмены обработчика в тестах</returns>
     public static IHttpClientBuilder AddSubscriptionHttpClient(this IServiceCollection services) =>
         services.AddHttpClient(SubscriptionFetcher.HttpClientName, client => client.Timeout = Timeout.InfiniteTimeSpan)
-            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            .UseUpdateProxy(() => new SocketsHttpHandler
             {
                 AllowAutoRedirect = false,
                 AutomaticDecompression = DecompressionMethods.All,
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5),
             });
+
+    /// <summary>
+    ///     Делает первичным обработчиком клиента <see cref="UpdateProxyHttpHandler"/>: запросы идут через прокси обновлений,
+    ///     если он включён, иначе напрямую
+    /// </summary>
+    /// <param name="builder">Построитель HTTP-клиента</param>
+    /// <param name="createHandler">Создаёт настроенный обработчик клиента</param>
+    /// <returns>Тот же построитель</returns>
+    public static IHttpClientBuilder UseUpdateProxy(this IHttpClientBuilder builder, Func<SocketsHttpHandler> createHandler)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(createHandler);
+        return builder.ConfigurePrimaryHttpMessageHandler(services => UpdateProxyHttpHandler.Create(services, createHandler));
+    }
 }

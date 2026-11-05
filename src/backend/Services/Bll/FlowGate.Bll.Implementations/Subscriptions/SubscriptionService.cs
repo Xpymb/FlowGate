@@ -2,16 +2,21 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using FlowGate.Bll.Implementations.Jobs;
+using FlowGate.Bll.Implementations.Settings;
+using FlowGate.Bll.Implementations.UpdateProxy;
 using FlowGate.Bll.Interfaces.Servers;
 using FlowGate.Bll.Interfaces.Subscriptions;
+using FlowGate.Bll.Interfaces.UpdateProxy;
 using FlowGate.Bll.Interfaces.Xray;
 using FlowGate.Contracts.Subscriptions;
 using FlowGate.Dal.Interfaces.Servers;
+using FlowGate.Dal.Interfaces.Settings;
 using FlowGate.Dal.Interfaces.Subscriptions;
 using FlowGate.Exceptions;
 using FlowGate.Shared.Bll.Jobs;
 using FlowGate.Shared.Options;
 using FlowGate.SharedContracts.Dto.Jobs;
+using FlowGate.SharedContracts.Dto.Settings;
 using FlowGate.SharedContracts.Dto.Subscriptions;
 
 namespace FlowGate.Bll.Implementations.Subscriptions;
@@ -37,6 +42,8 @@ public sealed class SubscriptionService : ISubscriptionService
     private readonly IServerImportParser _parser;
     private readonly IJobRunner _jobs;
     private readonly IXrayConfigService _xrayConfig;
+    private readonly ISettingsProvider _settings;
+    private readonly IUpdateProxyService _updateProxy;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<SubscriptionService> _logger;
     private readonly SubscriptionOptions _options;
@@ -50,6 +57,8 @@ public sealed class SubscriptionService : ISubscriptionService
     /// <param name="parser">Разбор содержимого</param>
     /// <param name="jobs">Фоновые задачи</param>
     /// <param name="xrayConfig">Применение конфигурации Xray после изменения серверов</param>
+    /// <param name="settings">Пользовательские настройки (интервал по умолчанию)</param>
+    /// <param name="updateProxy">Прокси обновлений</param>
     /// <param name="options">Настройки подписок</param>
     /// <param name="timeProvider">Источник времени</param>
     /// <param name="logger">Логгер</param>
@@ -61,6 +70,8 @@ public sealed class SubscriptionService : ISubscriptionService
         IServerImportParser parser,
         IJobRunner jobs,
         IXrayConfigService xrayConfig,
+        ISettingsProvider settings,
+        IUpdateProxyService updateProxy,
         IOptions<SubscriptionOptions> options,
         TimeProvider timeProvider,
         ILogger<SubscriptionService> logger)
@@ -71,13 +82,16 @@ public sealed class SubscriptionService : ISubscriptionService
         _parser = parser ?? throw new ArgumentNullException(nameof(parser));
         _jobs = jobs ?? throw new ArgumentNullException(nameof(jobs));
         _xrayConfig = xrayConfig ?? throw new ArgumentNullException(nameof(xrayConfig));
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _updateProxy = updateProxy ?? throw new ArgumentNullException(nameof(updateProxy));
         ArgumentNullException.ThrowIfNull(options);
         _options = options.Value;
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    private TimeSpan DefaultInterval => TimeSpan.FromHours(_options.DefaultUpdateIntervalHours);
+    private async Task<TimeSpan> DefaultIntervalAsync(CancellationToken cancellationToken) =>
+        UpdateIntervals.SubscriptionDefault(await _settings.GetAsync(cancellationToken), _options);
 
     private TimeSpan RetryAfterFailure => TimeSpan.FromMinutes(_options.RetryAfterFailureMinutes);
 
@@ -85,15 +99,16 @@ public sealed class SubscriptionService : ISubscriptionService
     public async Task<IReadOnlyList<SubscriptionDto>> GetAllAsync(CancellationToken cancellationToken)
     {
         var counts = await CountServersAsync(cancellationToken);
+        var interval = await DefaultIntervalAsync(cancellationToken);
         var subscriptions = await _subscriptions.GetAllAsync(cancellationToken);
-        return subscriptions.Select(subscription => ToDto(subscription, counts)).ToList();
+        return subscriptions.Select(subscription => ToDto(subscription, counts, interval)).ToList();
     }
 
     /// <inheritdoc />
     public async Task<SubscriptionDto> GetAsync(string id, CancellationToken cancellationToken)
     {
         var subscription = await GetExistingAsync(id, cancellationToken);
-        return ToDto(subscription, await CountServersAsync(cancellationToken));
+        return ToDto(subscription, await CountServersAsync(cancellationToken), await DefaultIntervalAsync(cancellationToken));
     }
 
     /// <inheritdoc />
@@ -118,7 +133,7 @@ public sealed class SubscriptionService : ISubscriptionService
         _logger.LogInformation("Подписка {SubscriptionId} ({Host}) добавлена", subscription.Id, subscription.DisplayName);
 
         var job = StartRefresh(subscription);
-        return subscription.ToDto(0, DefaultInterval, RetryAfterFailure, job.Id);
+        return subscription.ToDto(0, await DefaultIntervalAsync(cancellationToken), RetryAfterFailure, job.Id);
     }
 
     /// <inheritdoc />
@@ -140,7 +155,7 @@ public sealed class SubscriptionService : ISubscriptionService
             },
             cancellationToken) ?? throw new EntityNotFoundException(EntityName, id);
 
-        return ToDto(updated, await CountServersAsync(cancellationToken));
+        return ToDto(updated, await CountServersAsync(cancellationToken), await DefaultIntervalAsync(cancellationToken));
     }
 
     /// <inheritdoc />
@@ -156,18 +171,19 @@ public sealed class SubscriptionService : ISubscriptionService
     }
 
     /// <inheritdoc />
-    public async Task<JobDto> RefreshAsync(string id, CancellationToken cancellationToken)
+    public async Task<JobDto> RefreshAsync(string id, UpdateVia via, CancellationToken cancellationToken)
     {
         var subscription = await GetExistingAsync(id, cancellationToken);
-        return StartRefresh(subscription).ToDto();
+        return StartRefresh(subscription, via).ToDto();
     }
 
     /// <inheritdoc />
     public async Task<int> RefreshDueAsync(CancellationToken cancellationToken)
     {
         var now = _timeProvider.GetUtcNow();
+        var interval = await DefaultIntervalAsync(cancellationToken);
         var due = (await _subscriptions.GetAllAsync(cancellationToken))
-            .Where(subscription => subscription.NextRefreshAt(DefaultInterval, RetryAfterFailure) <= now)
+            .Where(subscription => subscription.NextRefreshAt(interval, RetryAfterFailure) <= now)
             .ToList();
 
         var refreshed = 0;
@@ -190,11 +206,11 @@ public sealed class SubscriptionService : ISubscriptionService
         return refreshed;
     }
 
-    private JobSnapshot StartRefresh(Subscription subscription) =>
+    private JobSnapshot StartRefresh(Subscription subscription, UpdateVia via = UpdateVia.Auto) =>
         _jobs.Start(
             JobKindPrefix + subscription.Id,
             $"Обновление подписки «{subscription.DisplayName}»",
-            (context, token) => RefreshCoreAsync(subscription.Id, context, token));
+            (context, token) => UpdateRoute.RunAsync(_updateProxy, via, context, () => RefreshCoreAsync(subscription.Id, context, token), token));
 
     private async Task RefreshCoreAsync(string id, IJobContext context, CancellationToken cancellationToken)
     {
@@ -270,8 +286,8 @@ public sealed class SubscriptionService : ISubscriptionService
             .GroupBy(server => server.SubscriptionId!)
             .ToDictionary(group => group.Key, group => group.Count());
 
-    private SubscriptionDto ToDto(Subscription subscription, Dictionary<string, int> counts) =>
-        subscription.ToDto(counts.GetValueOrDefault(subscription.Id), DefaultInterval, RetryAfterFailure);
+    private SubscriptionDto ToDto(Subscription subscription, Dictionary<string, int> counts, TimeSpan defaultInterval) =>
+        subscription.ToDto(counts.GetValueOrDefault(subscription.Id), defaultInterval, RetryAfterFailure);
 
     private static (string Url, string? Name, string? UserAgent) Validate(SubscriptionSaveRequest request)
     {

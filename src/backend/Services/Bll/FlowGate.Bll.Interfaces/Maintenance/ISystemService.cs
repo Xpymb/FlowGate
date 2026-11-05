@@ -26,6 +26,14 @@ public interface ISystemService
     Task<AppUpdateCheck> CheckForUpdatesAsync(CancellationToken cancellationToken);
 
     /// <summary>
+    ///     Проверяет релизы FlowGate, если с последней проверки прошёл интервал из настроек
+    /// </summary>
+    /// <param name="cancellationToken">Токен отмены</param>
+    /// <returns>true, если проверка выполнялась</returns>
+    /// <exception cref="ExternalServiceUnavailableException">Если GitHub недоступен</exception>
+    Task<bool> CheckForUpdatesIfDueAsync(CancellationToken cancellationToken);
+
+    /// <summary>
     ///     Запускает задачу <c>system-upgrade</c>: скрипт пакета отвязанным процессом выполняет
     ///     <c>opkg update &amp;&amp; opkg upgrade flowgate</c>, opkg перезапускает службу. Итог виден в
     ///     <see cref="SystemStatusDto.LastUpgradeResult"/> после перезапуска

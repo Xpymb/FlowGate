@@ -140,8 +140,18 @@
         "tags": [
           "Xray"
         ],
-        "summary": "Запустить установку версии (по умолчанию последней стабильной)",
+        "summary": "Запустить установку версии (по умолчанию последней стабильной); via — Auto, Proxy или Direct",
         "operationId": "InstallXray",
+        "parameters": [
+          {
+            "name": "via",
+            "in": "query",
+            "schema": {
+              "default": "Auto",
+              "$ref": "#/components/schemas/UpdateVia"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -915,7 +925,7 @@
         "tags": [
           "Subscriptions"
         ],
-        "summary": "Запустить обновление подписки",
+        "summary": "Запустить обновление подписки; via — Auto (по настройкам), Proxy или Direct",
         "operationId": "RefreshSubscription",
         "parameters": [
           {
@@ -924,6 +934,14 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "via",
+            "in": "query",
+            "schema": {
+              "default": "Auto",
+              "$ref": "#/components/schemas/UpdateVia"
             }
           }
         ],
@@ -1415,6 +1433,14 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "via",
+            "in": "query",
+            "schema": {
+              "default": "Auto",
+              "$ref": "#/components/schemas/UpdateVia"
             }
           }
         ],
@@ -2095,6 +2121,87 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Настройки: уровень логов Xray, прокси обновлений, интервалы",
+        "operationId": "GetSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Сохранить настройки целиком",
+        "operationId": "UpdateSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/update-proxy/status": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Состояние прокси обновлений: выключен, ждёт запроса, работает или недоступен",
+        "operationId": "GetUpdateProxyStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateProxyStatusDto"
                 }
               }
             }
@@ -3512,6 +3619,60 @@
         },
         "description": "Результат проверки outbound"
       },
+      "SettingsDto": {
+        "required": [
+          "xrayLogLevel",
+          "xrayLogLevels",
+          "updateProxy",
+          "intervals"
+        ],
+        "type": "object",
+        "properties": {
+          "xrayLogLevel": {
+            "type": "string",
+            "description": "Уровень логирования Xray"
+          },
+          "xrayLogLevels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Допустимые уровни логирования"
+          },
+          "updateProxy": {
+            "description": "Загрузка обновлений через прокси",
+            "$ref": "#/components/schemas/UpdateProxySettingsDto"
+          },
+          "intervals": {
+            "description": "Интервалы обновлений",
+            "$ref": "#/components/schemas/UpdateIntervalsDto"
+          }
+        },
+        "description": "Настройки FlowGate, которые меняются из интерфейса"
+      },
+      "SettingsSaveRequest": {
+        "required": [
+          "xrayLogLevel",
+          "updateProxy",
+          "intervals"
+        ],
+        "type": "object",
+        "properties": {
+          "xrayLogLevel": {
+            "type": "string",
+            "description": "Уровень логирования Xray"
+          },
+          "updateProxy": {
+            "description": "Загрузка обновлений через прокси",
+            "$ref": "#/components/schemas/UpdateProxySaveRequest"
+          },
+          "intervals": {
+            "description": "Интервалы обновлений",
+            "$ref": "#/components/schemas/UpdateIntervalsSaveRequest"
+          }
+        },
+        "description": "Сохранение настроек целиком"
+      },
       "SubscriptionDto": {
         "required": [
           "id",
@@ -3784,7 +3945,7 @@
               "integer",
               "string"
             ],
-            "description": "Свой интервал 1–168 ч или null — интервал провайдера или 24 ч",
+            "description": "Свой интервал 1–168 ч или null — интервал провайдера, иначе 12 ч",
             "format": "int32"
           },
           "userAgent": {
@@ -3892,6 +4053,265 @@
           }
         },
         "description": "Состояние FlowGate: версия, обновления, память"
+      },
+      "UpdateIntervalDto": {
+        "required": [
+          "hours",
+          "defaultHours",
+          "effectiveHours",
+          "maxHours"
+        ],
+        "type": "object",
+        "properties": {
+          "hours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Заданный пользователем или null",
+            "format": "int32"
+          },
+          "defaultHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Значение из конфигурации",
+            "format": "int32"
+          },
+          "effectiveHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Действующее значение",
+            "format": "int32"
+          },
+          "maxHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Наибольшее допустимое значение",
+            "format": "int32"
+          }
+        },
+        "description": "Интервал в часах"
+      },
+      "UpdateIntervalsDto": {
+        "required": [
+          "subscriptionDefault",
+          "domainSourceRefresh",
+          "xrayUpdateCheck",
+          "systemUpdateCheck"
+        ],
+        "type": "object",
+        "properties": {
+          "subscriptionDefault": {
+            "description": "Подписки без своего интервала и без интервала от провайдера",
+            "$ref": "#/components/schemas/UpdateIntervalDto"
+          },
+          "domainSourceRefresh": {
+            "description": "Источники списков",
+            "$ref": "#/components/schemas/UpdateIntervalDto"
+          },
+          "xrayUpdateCheck": {
+            "description": "Проверка новых версий Xray",
+            "$ref": "#/components/schemas/UpdateIntervalDto"
+          },
+          "systemUpdateCheck": {
+            "description": "Проверка новых версий FlowGate",
+            "$ref": "#/components/schemas/UpdateIntervalDto"
+          }
+        },
+        "description": "Интервалы обновлений"
+      },
+      "UpdateIntervalsSaveRequest": {
+        "type": "object",
+        "properties": {
+          "subscriptionDefaultHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Подписки без своего интервала, 1–168",
+            "format": "int32"
+          },
+          "domainSourceRefreshHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Источники списков, 1–720",
+            "format": "int32"
+          },
+          "xrayUpdateCheckHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Проверка версий Xray, 1–720",
+            "format": "int32"
+          },
+          "systemUpdateCheckHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Проверка версий FlowGate, 1–720",
+            "format": "int32"
+          }
+        },
+        "description": "Интервалы обновлений в часах; null — значение из конфигурации"
+      },
+      "UpdateProxySaveRequest": {
+        "required": [
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Включить"
+          },
+          "serverId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Сервер; обязателен, если прокси включён"
+          },
+          "extraDomains": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Свои домены: `example.com`, `domain:example.com` или `full:cdn.example.com`"
+          }
+        },
+        "description": "Настройки прокси обновлений"
+      },
+      "UpdateProxySettingsDto": {
+        "required": [
+          "enabled",
+          "serverId",
+          "extraDomains",
+          "builtInDomains"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Включено"
+          },
+          "serverId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Сервер, через который идут обновления"
+          },
+          "extraDomains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Свои домены в формате Xray"
+          },
+          "builtInDomains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Встроенные домены (GitHub, feed); хосты подписок и прямых ссылок источников добавляются сами"
+          }
+        },
+        "description": "Загрузка обновлений (подписки, источники, релизы Xray, пакет FlowGate) через отдельный экземпляр Xray"
+      },
+      "UpdateProxyStatusDto": {
+        "required": [
+          "state",
+          "port",
+          "processId",
+          "startedAt",
+          "activeRequests",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "description": "`Disabled`, `Idle` (запустится по запросу), `Running`, `Unavailable` (обновления идут напрямую)"
+          },
+          "port": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Порт HTTP-inbound на 127.0.0.1",
+            "format": "int32"
+          },
+          "processId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Pid экземпляра Xray",
+            "format": "int32"
+          },
+          "startedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Когда запущен",
+            "format": "date-time"
+          },
+          "activeRequests": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Запросов через прокси сейчас",
+            "format": "int32"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Почему недоступен или последний сбой"
+          }
+        },
+        "description": "Состояние прокси обновлений"
+      },
+      "UpdateVia": {
+        "enum": [
+          "Auto",
+          "Proxy",
+          "Direct"
+        ],
+        "description": "Как загружать обновление"
       },
       "XrayInstallRequest": {
         "required": [
@@ -4127,6 +4547,9 @@
     },
     {
       "name": "DnsRoutes"
+    },
+    {
+      "name": "Settings"
     }
   ]
 }

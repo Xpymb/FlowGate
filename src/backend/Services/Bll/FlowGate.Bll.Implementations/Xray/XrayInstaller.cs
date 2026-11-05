@@ -5,6 +5,8 @@ using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using FlowGate.Bll.Implementations.UpdateProxy;
+using FlowGate.Bll.Interfaces.UpdateProxy;
 using FlowGate.Bll.Interfaces.Xray;
 using FlowGate.Contracts.Xray;
 using FlowGate.Dal.Interfaces.Settings;
@@ -13,6 +15,7 @@ using FlowGate.Shared.Bll.Jobs;
 using FlowGate.Shared.Bll.Processes;
 using FlowGate.Shared.GitHub;
 using FlowGate.Shared.Options;
+using FlowGate.SharedContracts.Dto.Settings;
 
 namespace FlowGate.Bll.Implementations.Xray;
 
@@ -40,6 +43,7 @@ public sealed class XrayInstaller : IXrayInstaller
     private readonly IXrayConfigService _configService;
     private readonly ISettingsProvider _settings;
     private readonly IJobRunner _jobs;
+    private readonly IUpdateProxyService _updateProxy;
     private readonly ILogger<XrayInstaller> _logger;
     private readonly XrayOptions _options;
     private readonly string _binaryPath;
@@ -55,6 +59,7 @@ public sealed class XrayInstaller : IXrayInstaller
     /// <param name="configService">Конфигурация Xray</param>
     /// <param name="settings">Пользовательские настройки (автозапуск)</param>
     /// <param name="jobs">Фоновые задачи</param>
+    /// <param name="updateProxy">Прокси обновлений (загрузка архива)</param>
     /// <param name="options">Настройки Xray</param>
     /// <param name="logger">Логгер</param>
     /// <exception cref="ArgumentNullException">Если любой аргумент равен null</exception>
@@ -67,6 +72,7 @@ public sealed class XrayInstaller : IXrayInstaller
         IXrayConfigService configService,
         ISettingsProvider settings,
         IJobRunner jobs,
+        IUpdateProxyService updateProxy,
         IOptions<XrayOptions> options,
         ILogger<XrayInstaller> logger)
     {
@@ -78,6 +84,7 @@ public sealed class XrayInstaller : IXrayInstaller
         _configService = configService ?? throw new ArgumentNullException(nameof(configService));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _jobs = jobs ?? throw new ArgumentNullException(nameof(jobs));
+        _updateProxy = updateProxy ?? throw new ArgumentNullException(nameof(updateProxy));
         ArgumentNullException.ThrowIfNull(options);
         _options = options.Value;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -85,12 +92,12 @@ public sealed class XrayInstaller : IXrayInstaller
     }
 
     /// <inheritdoc />
-    public async Task<JobSnapshot> StartInstallAsync(XrayVersion? version, CancellationToken cancellationToken)
+    public async Task<JobSnapshot> StartInstallAsync(XrayVersion? version, UpdateVia via, CancellationToken cancellationToken)
     {
         var release = await _releases.FindAsync(version, cancellationToken)
             ?? throw new EntityNotFoundException("Релиз Xray", version?.ToString() ?? "последний стабильный");
 
-        return _jobs.Start(JobKind, $"Установка Xray {release.Version}", (context, token) => InstallAsync(release, context, token));
+        return _jobs.Start(JobKind, $"Установка Xray {release.Version}", (context, token) => UpdateRoute.RunAsync(_updateProxy, via, context, () => InstallAsync(release, context, token), token));
     }
 
     private async Task InstallAsync(XrayRelease release, IJobContext context, CancellationToken cancellationToken)

@@ -27,7 +27,7 @@ public sealed class CleanupServiceTests : IDisposable
 {
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "flowgate-tests", Guid.NewGuid().ToString("N"));
     private readonly FakeKeeneticRci _keenetic = new();
-    private readonly IXrayProcessService _xray = Substitute.For<IXrayProcessService>();
+    private readonly IXrayProcessManager _xray = Substitute.For<IXrayProcessManager>();
     private readonly NdmsOperationQueue _queue;
     private readonly KeeneticDnsService _dns;
     private readonly KeeneticInterfaceService _interfaces;
@@ -78,7 +78,7 @@ public sealed class CleanupServiceTests : IDisposable
         Assert.True(
             _keenetic.Commands.ToList().FindLastIndex(command => command.StartsWith("no dns-proxy route", StringComparison.Ordinal))
             < _keenetic.Commands.ToList().FindIndex(command => command.StartsWith("no object-group", StringComparison.Ordinal)));
-        await _xray.Received(1).KillOrphanAsync(Arg.Any<CancellationToken>());
+        await _xray.Received(1).KillStrangersAsync(Arg.Any<CancellationToken>());
     }
 
     /// <summary>
@@ -109,7 +109,7 @@ public sealed class CleanupServiceTests : IDisposable
             report.Commands);
         Assert.Empty(_keenetic.Commands);
         Assert.Equal(4, _keenetic.Groups.Count);
-        await _xray.DidNotReceive().KillOrphanAsync(Arg.Any<CancellationToken>());
+        await _xray.DidNotReceive().KillStrangersAsync(Arg.Any<CancellationToken>());
     }
 
     /// <summary>

@@ -9,6 +9,7 @@ using FlowGate.SharedContracts.Dto.Jobs;
 using FlowGate.SharedContracts.Dto.Keenetic;
 using FlowGate.SharedContracts.Dto.Maintenance;
 using FlowGate.SharedContracts.Dto.Servers;
+using FlowGate.SharedContracts.Dto.Settings;
 using FlowGate.SharedContracts.Dto.Subscriptions;
 using FlowGate.SharedContracts.Dto.Xray;
 
@@ -19,6 +20,9 @@ namespace FlowGate.WebApi.Serialization;
 /// </summary>
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
 [JsonSerializable(typeof(HealthDto))]
+[JsonSerializable(typeof(SettingsDto))]
+[JsonSerializable(typeof(SettingsSaveRequest))]
+[JsonSerializable(typeof(UpdateProxyStatusDto))]
 [JsonSerializable(typeof(SystemStatusDto))]
 [JsonSerializable(typeof(KeeneticSystemInfoDto))]
 [JsonSerializable(typeof(XrayStatusDto))]

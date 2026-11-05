@@ -7,14 +7,17 @@ using NSubstitute.ExceptionExtensions;
 using FlowGate.Bll.Implementations.Servers;
 using FlowGate.Bll.Implementations.Subscriptions;
 using FlowGate.Bll.Interfaces.Subscriptions;
+using FlowGate.Bll.Interfaces.UpdateProxy;
 using FlowGate.Bll.Interfaces.Xray;
 using FlowGate.Contracts.Subscriptions;
 using FlowGate.Dal.Implementations.Servers;
+using FlowGate.Dal.Implementations.Settings;
 using FlowGate.Dal.Implementations.Subscriptions;
 using FlowGate.Exceptions;
 using FlowGate.Shared.Bll.Jobs;
 using FlowGate.Shared.Dal.Json;
 using FlowGate.Shared.Options;
+using FlowGate.SharedContracts.Dto.Settings;
 using FlowGate.SharedContracts.Dto.Subscriptions;
 using FlowGate.Tests.Common.Fixtures;
 
@@ -50,6 +53,8 @@ public sealed class SubscriptionServiceTests : IDisposable
             new ServerImportParser(),
             _jobs,
             _xrayConfig,
+            new SettingsProvider(storeFactory),
+            Substitute.For<IUpdateProxyService>(),
             Microsoft.Extensions.Options.Options.Create(new SubscriptionOptions()),
             _time,
             NullLogger<SubscriptionService>.Instance);
@@ -88,7 +93,7 @@ public sealed class SubscriptionServiceTests : IDisposable
         _fetcher.FetchAsync(Arg.Any<Subscription>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new ExternalServiceUnavailableException("Провайдер sub.example.com ответил HTTP 502"));
 
-        var job = await _sut.RefreshAsync(subscription.Id, TestContext.Current.CancellationToken);
+        var job = await _sut.RefreshAsync(subscription.Id, UpdateVia.Auto, TestContext.Current.CancellationToken);
         var finished = await _jobs.WaitAsync(job.Id, TestContext.Current.CancellationToken);
         var after = await _sut.GetAsync(subscription.Id, TestContext.Current.CancellationToken);
 
@@ -109,7 +114,7 @@ public sealed class SubscriptionServiceTests : IDisposable
         var subscription = await CreateRefreshedAsync();
         RespondWith("<html>Подписка истекла</html>");
 
-        var job = await _sut.RefreshAsync(subscription.Id, TestContext.Current.CancellationToken);
+        var job = await _sut.RefreshAsync(subscription.Id, UpdateVia.Auto, TestContext.Current.CancellationToken);
         await _jobs.WaitAsync(job.Id, TestContext.Current.CancellationToken);
         var after = await _sut.GetAsync(subscription.Id, TestContext.Current.CancellationToken);
 

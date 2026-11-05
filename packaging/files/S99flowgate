@@ -2,6 +2,8 @@
 # Служба FlowGate для Entware: бэкенд (127.0.0.1:8091, сам запускает xray) и шлюз nginx (:8090, статика и /api).
 
 PATH=/opt/sbin:/opt/bin:/opt/usr/sbin:/opt/usr/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# Скрипт самообновления качает пакет через прокси и задаёт http_proxy для opkg; служба его наследовать не должна.
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY no_proxy NO_PROXY
 BIN=/opt/bin/flowgate
 SHARE=/opt/share/flowgate
 DATA=/opt/etc/flowgate

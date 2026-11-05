@@ -43,10 +43,4 @@ public interface IXrayProcessService
     /// <param name="cancellationToken">Токен отмены</param>
     /// <returns>Результат действия</returns>
     Task<T> RunExclusiveAsync<T>(Func<IXrayProcessControl, CancellationToken, Task<T>> action, CancellationToken cancellationToken);
-
-    /// <summary>
-    ///     Убивает Xray, оставшийся от прошлого запуска FlowGate (по pid-файлу, только если это наш бинарник)
-    /// </summary>
-    /// <param name="cancellationToken">Токен отмены</param>
-    Task KillOrphanAsync(CancellationToken cancellationToken);
 }

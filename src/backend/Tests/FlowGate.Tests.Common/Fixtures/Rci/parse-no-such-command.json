@@ -1,0 +1,15 @@
+[
+  {
+    "parse": {
+      "prompt": "(config)",
+      "status": [
+        {
+          "status": "error",
+          "code": "7405600",
+          "ident": "Command::Base",
+          "message": "no such command: fgspike-nonexistent-command."
+        }
+      ]
+    }
+  }
+]

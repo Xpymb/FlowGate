@@ -1,0 +1,40 @@
+# Бинарник FlowGate для роутера: NativeAOT linux-musl-arm64, статически вместе с OpenSSL.
+# Кросс-сборка на x64: ILCompiler работает нативно, нативная часть собирается clang под aarch64
+# на sysroot из пакетов Alpine (подробности — docs/keenetic-findings.md, раздел 10).
+# Запуск из src/backend:
+#   docker buildx build -f docker/Dockerfile.router --build-arg VERSION=0.1.0 --output type=local,dest=out/router .
+FROM --platform=linux/amd64 mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+
+ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_NOLOGO=1 \
+    OPENSSL_ROOT_DIR=/sysroot/usr
+
+RUN apk add --no-cache clang lld llvm cmake make file binutils
+
+RUN mkdir -p /sysroot/etc/apk \
+    && cp -r /etc/apk/keys /sysroot/etc/apk/ \
+    && cp /etc/apk/repositories /sysroot/etc/apk/ \
+    && cp /etc/os-release /sysroot/etc/os-release \
+    && apk add --root /sysroot --arch aarch64 --initdb --no-cache --no-scripts --allow-untrusted \
+        musl-dev gcc libgcc libstdc++-dev zlib-dev zlib-static openssl-dev openssl-libs-static linux-headers
+
+RUN printf '#!/bin/sh\nexec clang --target=aarch64-alpine-linux-musl --sysroot=/sysroot -fuse-ld=lld "$@"\n' > /usr/local/bin/aarch64-clang \
+    && chmod +x /usr/local/bin/aarch64-clang
+
+ARG VERSION=0.1.0
+
+WORKDIR /src
+COPY . .
+RUN dotnet publish Services/FlowGate.WebApi/FlowGate.WebApi.csproj -c Release -r linux-musl-arm64 \
+        -p:SysRoot=/sysroot \
+        -p:LinkerFlavor=lld \
+        -p:CppCompilerAndLinker=/usr/local/bin/aarch64-clang \
+        -p:ObjCopyName=llvm-objcopy \
+        -p:Version=$VERSION \
+        -o /out \
+    && file /out/FlowGate.WebApi \
+    && ls -la /out
+
+FROM scratch
+COPY --from=build /out/FlowGate.WebApi /flowgate
+COPY --from=build /out/appsettings.json /appsettings.json

@@ -1,0 +1,38 @@
+<Solution>
+  <Folder Name="/Services/">
+    <Project Path="Services/FlowGate.Contracts/FlowGate.Contracts.csproj" />
+    <Project Path="Services/FlowGate.SharedContracts/FlowGate.SharedContracts.csproj" />
+    <Project Path="Services/FlowGate.WebApi/FlowGate.WebApi.csproj" />
+  </Folder>
+  <Folder Name="/Services/Bll/">
+    <Project Path="Services/Bll/FlowGate.Bll.Implementations/FlowGate.Bll.Implementations.csproj" />
+    <Project Path="Services/Bll/FlowGate.Bll.Interfaces/FlowGate.Bll.Interfaces.csproj" />
+  </Folder>
+  <Folder Name="/Services/Dal/">
+    <Project Path="Services/Dal/FlowGate.Dal.Implementations/FlowGate.Dal.Implementations.csproj" />
+    <Project Path="Services/Dal/FlowGate.Dal.Interfaces/FlowGate.Dal.Interfaces.csproj" />
+  </Folder>
+  <Folder Name="/Shared/">
+    <Project Path="Shared/FlowGate.Exceptions/FlowGate.Exceptions.csproj" />
+    <Project Path="Shared/FlowGate.Shared.Bll/FlowGate.Shared.Bll.csproj" />
+    <Project Path="Shared/FlowGate.Shared.Dal/FlowGate.Shared.Dal.csproj" />
+    <Project Path="Shared/FlowGate.Shared.Options/FlowGate.Shared.Options.csproj" />
+    <Project Path="Shared/FlowGate.Shared.WebApi/FlowGate.Shared.WebApi.csproj" />
+  </Folder>
+  <Folder Name="/Shared/GitHub/">
+    <Project Path="Shared/GitHub/FlowGate.Shared.GitHub.HttpClient/FlowGate.Shared.GitHub.HttpClient.csproj" />
+  </Folder>
+  <Folder Name="/Shared/Keenetic/">
+    <Project Path="Shared/Keenetic/FlowGate.Shared.Keenetic.HttpClient/FlowGate.Shared.Keenetic.HttpClient.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/FlowGate.Tests.Common/FlowGate.Tests.Common.csproj" />
+    <Project Path="Tests/FlowGate.Tests.Integration/FlowGate.Tests.Integration.csproj" />
+    <Project Path="Tests/FlowGate.Tests.Unit/FlowGate.Tests.Unit.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="CLAUDE.md" />
+    <File Path="Directory.Build.props" />
+    <File Path="global.json" />
+  </Folder>
+</Solution>

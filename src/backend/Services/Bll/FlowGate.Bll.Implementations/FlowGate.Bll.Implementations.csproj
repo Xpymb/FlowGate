@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\FlowGate.Bll.Interfaces\FlowGate.Bll.Interfaces.csproj" />
+        <ProjectReference Include="..\..\FlowGate.Contracts\FlowGate.Contracts.csproj" />
+        <ProjectReference Include="..\..\FlowGate.SharedContracts\FlowGate.SharedContracts.csproj" />
+        <ProjectReference Include="..\..\Dal\FlowGate.Dal.Interfaces\FlowGate.Dal.Interfaces.csproj" />
+        <ProjectReference Include="..\..\..\Shared\FlowGate.Shared.Bll\FlowGate.Shared.Bll.csproj" />
+        <ProjectReference Include="..\..\..\Shared\Keenetic\FlowGate.Shared.Keenetic.HttpClient\FlowGate.Shared.Keenetic.HttpClient.csproj" />
+        <ProjectReference Include="..\..\..\Shared\GitHub\FlowGate.Shared.GitHub.HttpClient\FlowGate.Shared.GitHub.HttpClient.csproj" />
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,9 @@
+Package: flowgate
+Version: @VERSION@
+Depends: busybox
+Section: net
+Architecture: @ARCHITECTURE@
+Installed-Size: @INSTALLED_SIZE@
+Maintainer: Xpymb <https://github.com/Xpymb>
+URL: https://github.com/Xpymb/FlowGate
+Description: Xray manager for Keenetic with WebUI: subscriptions, socks/http/wireguard connections, DNS routes by domain lists

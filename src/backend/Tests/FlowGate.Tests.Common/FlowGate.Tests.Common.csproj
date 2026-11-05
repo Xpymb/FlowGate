@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <EmbeddedResource Include="Fixtures\**\*.json" />
+        <EmbeddedResource Include="Fixtures\**\*.txt" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Shared\FlowGate.Shared.Bll\FlowGate.Shared.Bll.csproj" />
+    </ItemGroup>
+
+</Project>

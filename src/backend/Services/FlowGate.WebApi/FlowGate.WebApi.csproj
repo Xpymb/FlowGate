@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <PublishAot>true</PublishAot>
+        <ServerGarbageCollection>false</ServerGarbageCollection>
+        <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+        <UseSystemResourceKeys>true</UseSystemResourceKeys>
+        <OptimizationPreference>Size</OptimizationPreference>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'linux-musl-arm64'">
+        <StaticOpenSslLinking>true</StaticOpenSslLinking>
+        <StaticExecutable>true</StaticExecutable>
+    </PropertyGroup>
+
+    <!-- Роутер: пик при разборе geoip.dat (23 МиБ) без лимита доходил до 216 МиБ, с лимитом кучи — ~110 МиБ -->
+    <ItemGroup Condition="'$(RuntimeIdentifier)' == 'linux-musl-arm64'">
+        <RuntimeHostConfigurationOption Include="System.GC.HeapHardLimit" Value="134217728" />
+        <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\FlowGate.SharedContracts\FlowGate.SharedContracts.csproj" />
+        <ProjectReference Include="..\Bll\FlowGate.Bll.Interfaces\FlowGate.Bll.Interfaces.csproj" />
+        <ProjectReference Include="..\Bll\FlowGate.Bll.Implementations\FlowGate.Bll.Implementations.csproj" />
+        <ProjectReference Include="..\Dal\FlowGate.Dal.Implementations\FlowGate.Dal.Implementations.csproj" />
+        <ProjectReference Include="..\..\Shared\FlowGate.Shared.Options\FlowGate.Shared.Options.csproj" />
+        <ProjectReference Include="..\..\Shared\FlowGate.Shared.Bll\FlowGate.Shared.Bll.csproj" />
+        <ProjectReference Include="..\..\Shared\FlowGate.Shared.Dal\FlowGate.Shared.Dal.csproj" />
+        <ProjectReference Include="..\..\Shared\FlowGate.Shared.WebApi\FlowGate.Shared.WebApi.csproj" />
+        <ProjectReference Include="..\..\Shared\Keenetic\FlowGate.Shared.Keenetic.HttpClient\FlowGate.Shared.Keenetic.HttpClient.csproj" />
+        <ProjectReference Include="..\..\Shared\GitHub\FlowGate.Shared.GitHub.HttpClient\FlowGate.Shared.GitHub.HttpClient.csproj" />
+    </ItemGroup>
+
+</Project>

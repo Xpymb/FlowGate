@@ -1,0 +1,11 @@
+#!/bin/sh
+[ -z "${IPKG_INSTROOT:-}" ] || exit 0
+
+/opt/etc/init.d/S99flowgate stop
+
+if [ "$1" = "remove" ]; then
+    echo "FlowGate: удаляю свои интерфейсы, группы и DNS-маршруты из конфигурации Keenetic"
+    cd /opt/share/flowgate && /opt/bin/flowgate cleanup --FlowGate:DataDirectory=/opt/etc/flowgate \
+        || echo "FlowGate: очистка Keenetic завершилась с ошибкой, проверьте интерфейсы и DNS-маршруты вручную"
+fi
+exit 0

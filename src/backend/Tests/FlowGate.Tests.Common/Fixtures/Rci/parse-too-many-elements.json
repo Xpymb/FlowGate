@@ -1,0 +1,15 @@
+[
+  {
+    "parse": {
+      "prompt": "(config)",
+      "status": [
+        {
+          "status": "error",
+          "code": "101583600",
+          "ident": "Network::ObjectGroup",
+          "message": "\"fgspike-limit\": too many elements: \"d1001.fgspike.example.com\"."
+        }
+      ]
+    }
+  }
+]

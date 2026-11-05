@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  FEED_DIR: aarch64-3.10
+  KEEP_PREVIOUS: 2
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Version from tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "Тег $GITHUB_REF_NAME не вида vX.Y.Z"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Tests
+        working-directory: src/backend
+        run: dotnet test --solution FlowGate.slnx
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build router binary (NativeAOT linux-musl-arm64)
+        working-directory: src/backend
+        run: docker buildx build -f docker/Dockerfile.router --build-arg VERSION="$VERSION" --output type=local,dest=out/router .
+
+      - name: Build frontend
+        run: |
+          if [ -f src/frontend/package.json ]; then
+            cd src/frontend && npm ci && npm run build
+            echo "WWW_DIR=$GITHUB_WORKSPACE/src/frontend/dist" >> "$GITHUB_ENV"
+          else
+            echo "Фронта нет: пакет без статики (режим API only)"
+            echo "WWW_DIR=-" >> "$GITHUB_ENV"
+          fi
+
+      - name: Feed from gh-pages
+        run: |
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+            git fetch origin gh-pages
+            git worktree add pages origin/gh-pages
+          else
+            mkdir pages
+          fi
+          mkdir -p feed
+          if [ -d "pages/$FEED_DIR" ]; then
+            if [ -f "pages/$FEED_DIR/flowgate_${VERSION}_aarch64-3.10.ipk" ]; then
+              echo "Версия $VERSION уже опубликована"; exit 1
+            fi
+            find "pages/$FEED_DIR" -name 'flowgate_*.ipk' -printf '%f\n' | sort -V | tail -n "$KEEP_PREVIOUS" \
+              | while read -r name; do cp "pages/$FEED_DIR/$name" feed/; done
+          fi
+
+      - name: Build package
+        run: |
+          bash packaging/build-ipk.sh "$VERSION" src/backend/out/router "$WWW_DIR" feed
+          bash packaging/check-feed.sh feed "$VERSION"
+          (cd feed && sha256sum "flowgate_${VERSION}_aarch64-3.10.ipk" > SHA256SUMS)
+
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "feed/flowgate_${VERSION}_aarch64-3.10.ipk" feed/SHA256SUMS \
+            --title "FlowGate $VERSION" --generate-notes
+
+      - name: Publish feed to gh-pages
+        run: |
+          cd pages
+          if [ ! -d .git ] && [ ! -f .git ]; then
+            git init -b gh-pages
+            git remote add origin "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git"
+          else
+            git checkout -B gh-pages
+          fi
+          rm -rf "$FEED_DIR"
+          mkdir -p "$FEED_DIR"
+          cp ../feed/*.ipk ../feed/Packages ../feed/Packages.gz "$FEED_DIR/"
+          cp ../install.sh install.sh
+          touch .nojekyll
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Feed: FlowGate $VERSION"
+          git push origin gh-pages

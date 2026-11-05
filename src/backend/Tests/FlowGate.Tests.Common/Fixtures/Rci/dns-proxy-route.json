@@ -1,0 +1,17 @@
+[
+  {
+    "group": "fgspike",
+    "interface": "Proxy9",
+    "auto": true,
+    "index": "28694696e082c259bc6e0edf316e9484",
+    "comment": "",
+    "disable": true
+  },
+  {
+    "group": "fgspike2",
+    "interface": "Proxy9",
+    "auto": true,
+    "index": "ee838d715a313f55b7b1b79c45b4d20d",
+    "comment": ""
+  }
+]

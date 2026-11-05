@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\FlowGate.Dal.Interfaces\FlowGate.Dal.Interfaces.csproj" />
+        <ProjectReference Include="..\..\..\Shared\FlowGate.Shared.Dal\FlowGate.Shared.Dal.csproj" />
+    </ItemGroup>
+
+</Project>

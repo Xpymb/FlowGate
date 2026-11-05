@@ -1,0 +1,35 @@
+{
+  "release": "5.02.B.2.0-2",
+  "sandbox": "preview",
+  "title": "5.2 Beta 2",
+  "arch": "aarch64",
+  "ndm": {
+    "exact": "0-1a9d62d4a4",
+    "cdate": "22 Oct 2026"
+  },
+  "bsp": {
+    "exact": "0-28d012321c",
+    "cdate": "26 Oct 2026"
+  },
+  "ndw": {
+    "features": "dual_image,usb_3_conf,single_usb_port,wifi_button,wifi5ghz,vht2ghz,mimo2ghz,mimo5ghz,atf2ghz,atf5ghz,wifi6,wifi_ft,wpa3,hwnat,hwnat_mib,link_agg,pro",
+    "components": "base,cloudcontrol,corewireless,ddns,dhcpd,dlna,dns-filter,dns-https,dns-tls,dot1x,easyconfig,exfat,exfat-utils,ext,ext-utils,fat,fat-utils,hfsplus,hfsplus-utils,igmp,ip6,iperf3,lang-en,lang-ru,mdns,miniupnpd,mws,nathelper-ftp,nathelper-h323,nathelper-pptp,nathelper-rtsp,nathelper-sip,ndmp,ndns,ntce,ntfs,ntfs-utils,opkg,opkg-kmod-audio,opkg-kmod-dvb-tuner,opkg-kmod-fs,opkg-kmod-netfilter,opkg-kmod-netfilter-addons,opkg-kmod-tc,opkg-kmod-usbip,opkg-kmod-video,pingcheck,ppe,proxy,ssh,storage,trafficcontrol,transmission,tsmb,usb,webdav,wireguard,zerotier"
+  },
+  "ndw3": {
+    "version": "5.2.27.4"
+  },
+  "ndw4": {
+    "version": "5.2.B.2.1"
+  },
+  "manufacturer": "Keenetic Ltd.",
+  "vendor": "Keenetic",
+  "series": "KN",
+  "model": "Hopper SE (KN-3812)",
+  "hw_version": "12388000",
+  "hw_type": "router",
+  "hw_id": "KN-3812",
+  "device": "Hopper SE",
+  "consent": "EA",
+  "region": "EA",
+  "description": "Keenetic Hopper SE (KN-3812)"
+}

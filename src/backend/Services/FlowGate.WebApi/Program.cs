@@ -76,7 +76,6 @@ if (command.Kind == FlowGateCommandKind.Cleanup)
 }
 
 app.UseFlowGateExceptionHandler();
-app.UseFlowGateFrontendFiles();
 app.UseRouting();
 
 app.MapOpenApi();
@@ -92,8 +91,6 @@ api.MapConnectionEndpoints();
 api.MapDomainSourceEndpoints();
 api.MapDnsRouteEndpoints();
 api.MapSystemEndpoints();
-
-app.MapFlowGateFrontendFallback();
 
 await app.RunAsync();
 return 0;

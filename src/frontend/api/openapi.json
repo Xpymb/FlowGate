@@ -1,0 +1,4132 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "FlowGate.WebApi | v1",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost/"
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Проверка живости приложения",
+        "operationId": "GetHealth",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/keenetic/system": {
+      "get": {
+        "tags": [
+          "Keenetic"
+        ],
+        "summary": "Модель, прошивка и совместимость роутера с FlowGate",
+        "operationId": "GetKeeneticSystemInfo",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeeneticSystemInfoDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/xray": {
+      "get": {
+        "tags": [
+          "Xray"
+        ],
+        "summary": "Состояние Xray и доступное обновление",
+        "operationId": "GetXrayStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/XrayStatusDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/xray/releases": {
+      "get": {
+        "tags": [
+          "Xray"
+        ],
+        "summary": "Релизы Xray, доступные для установки",
+        "operationId": "GetXrayReleases",
+        "parameters": [
+          {
+            "name": "includePrerelease",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "refresh",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/XrayReleaseDto"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/xray/install": {
+      "post": {
+        "tags": [
+          "Xray"
+        ],
+        "summary": "Запустить установку версии (по умолчанию последней стабильной)",
+        "operationId": "InstallXray",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/XrayInstallRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/xray/start": {
+      "post": {
+        "tags": [
+          "Xray"
+        ],
+        "summary": "Запустить Xray и включить автозапуск",
+        "operationId": "StartXray",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/XrayStatusDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/xray/stop": {
+      "post": {
+        "tags": [
+          "Xray"
+        ],
+        "summary": "Остановить Xray и выключить автозапуск",
+        "operationId": "StopXray",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/XrayStatusDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/xray/restart": {
+      "post": {
+        "tags": [
+          "Xray"
+        ],
+        "summary": "Перезапустить Xray с пересобранной конфигурацией",
+        "operationId": "RestartXray",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/XrayStatusDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/xray/logs": {
+      "get": {
+        "tags": [
+          "Xray"
+        ],
+        "summary": "Последние строки вывода Xray",
+        "operationId": "GetXrayLogs",
+        "parameters": [
+          {
+            "name": "tail",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/XrayLogDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs": {
+      "get": {
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "Выполняющиеся и последние завершённые задачи",
+        "operationId": "GetJobs",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/JobDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs/{id}": {
+      "get": {
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "Задача и её шаги",
+        "operationId": "GetJob",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/servers": {
+      "get": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Все серверы",
+        "operationId": "GetServers",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServerDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Создать ручной сервер",
+        "operationId": "CreateServer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerDetailsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/servers/{id}": {
+      "get": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Сервер с outbound для редактора",
+        "operationId": "GetServer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerDetailsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Изменить ручной сервер",
+        "operationId": "UpdateServer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerDetailsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Удалить ручной сервер",
+        "operationId": "DeleteServer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/servers/parse": {
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Разобрать ссылку или Xray-JSON в outbound без сохранения",
+        "operationId": "ParseServer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerParseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerDraftDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/servers/validate": {
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Проверить outbound установленным Xray",
+        "operationId": "ValidateServer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerValidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerValidationDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/servers/import": {
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Импортировать несколько серверов как ручные",
+        "operationId": "ImportServers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerImportResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subscriptions": {
+      "get": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Все подписки",
+        "operationId": "GetSubscriptions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SubscriptionDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Добавить подписку и запустить её обновление",
+        "operationId": "CreateSubscription",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subscriptions/{id}": {
+      "get": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Подписка",
+        "operationId": "GetSubscription",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Изменить подписку",
+        "operationId": "UpdateSubscription",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Удалить подписку вместе с её серверами",
+        "operationId": "DeleteSubscription",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subscriptions/{id}/refresh": {
+      "post": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Запустить обновление подписки",
+        "operationId": "RefreshSubscription",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/connections": {
+      "get": {
+        "tags": [
+          "Connections"
+        ],
+        "summary": "Все соединения с состоянием интерфейсов Keenetic",
+        "operationId": "GetConnections",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConnectionDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Connections"
+        ],
+        "summary": "Создать соединение: inbound Xray и интерфейс Keenetic",
+        "operationId": "CreateConnection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/connections/{id}": {
+      "get": {
+        "tags": [
+          "Connections"
+        ],
+        "summary": "Соединение с состоянием интерфейса",
+        "operationId": "GetConnection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Connections"
+        ],
+        "summary": "Изменить имя и сервер соединения",
+        "operationId": "UpdateConnection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectionUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Connections"
+        ],
+        "summary": "Удалить соединение вместе с интерфейсом Keenetic",
+        "operationId": "DeleteConnection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/domain-sources": {
+      "get": {
+        "tags": [
+          "DomainSources"
+        ],
+        "summary": "Все источники списков",
+        "operationId": "GetDomainSources",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DomainSourceDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "DomainSources"
+        ],
+        "summary": "Добавить источник; загрузка начнётся сразу",
+        "operationId": "CreateDomainSource",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainSourceSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainSourceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/domain-sources/{id}": {
+      "get": {
+        "tags": [
+          "DomainSources"
+        ],
+        "summary": "Источник",
+        "operationId": "GetDomainSource",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainSourceDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "DomainSources"
+        ],
+        "summary": "Изменить источник",
+        "operationId": "UpdateDomainSource",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainSourceSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainSourceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "DomainSources"
+        ],
+        "summary": "Удалить источник",
+        "operationId": "DeleteDomainSource",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/domain-sources/{id}/refresh": {
+      "post": {
+        "tags": [
+          "DomainSources"
+        ],
+        "summary": "Обновить источник (фоновая задача)",
+        "operationId": "RefreshDomainSource",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/domain-sources/{id}/lists": {
+      "get": {
+        "tags": [
+          "DomainSources"
+        ],
+        "summary": "Каталог списков источника",
+        "operationId": "GetDomainLists",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DomainListSummaryDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/domain-sources/{id}/lists/{name}": {
+      "get": {
+        "tags": [
+          "DomainSources"
+        ],
+        "summary": "Что уйдёт в Keenetic для списка с фильтром",
+        "operationId": "PreviewDomainList",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attrs",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainListPreviewDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/domain-sources/{id}/local-lists": {
+      "get": {
+        "tags": [
+          "DomainSources"
+        ],
+        "summary": "Тексты списков локального источника",
+        "operationId": "GetLocalLists",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LocalListDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/domain-sources/{id}/local-lists/{name}": {
+      "put": {
+        "tags": [
+          "DomainSources"
+        ],
+        "summary": "Создать или заменить список локального источника",
+        "operationId": "SaveLocalList",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocalListSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "DomainSources"
+        ],
+        "summary": "Удалить список локального источника",
+        "operationId": "DeleteLocalList",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dns-routes": {
+      "get": {
+        "tags": [
+          "DnsRoutes"
+        ],
+        "summary": "Все DNS-маршруты",
+        "operationId": "GetDnsRoutes",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DnsRouteDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "DnsRoutes"
+        ],
+        "summary": "Направить список в соединение",
+        "operationId": "CreateDnsRoute",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DnsRouteCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DnsRouteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dns-routes/{id}": {
+      "get": {
+        "tags": [
+          "DnsRoutes"
+        ],
+        "summary": "DNS-маршрут",
+        "operationId": "GetDnsRoute",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DnsRouteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "DnsRoutes"
+        ],
+        "summary": "Сменить соединение или фильтр",
+        "operationId": "UpdateDnsRoute",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DnsRouteUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DnsRouteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "DnsRoutes"
+        ],
+        "summary": "Удалить маршрут вместе с группами в Keenetic",
+        "operationId": "DeleteDnsRoute",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dns-routes/{id}/enable": {
+      "post": {
+        "tags": [
+          "DnsRoutes"
+        ],
+        "summary": "Включить правило в Keenetic",
+        "operationId": "EnableDnsRoute",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DnsRouteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dns-routes/{id}/disable": {
+      "post": {
+        "tags": [
+          "DnsRoutes"
+        ],
+        "summary": "Выключить правило в Keenetic",
+        "operationId": "DisableDnsRoute",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DnsRouteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dns-routes/apply": {
+      "post": {
+        "tags": [
+          "DnsRoutes"
+        ],
+        "summary": "Применить все маршруты (фоновая задача)",
+        "operationId": "ApplyDnsRoutes",
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Версия FlowGate, доступное обновление, время работы и память",
+        "operationId": "GetSystemStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStatusDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/update": {
+      "post": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Обновить FlowGate через opkg; служба перезапустится",
+        "operationId": "UpdateFlowGate",
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ConnectionCreateRequest": {
+        "required": [
+          "name",
+          "kind",
+          "serverId"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Имя, до 64 символов, без кавычек"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`Socks`, `Http` или `Wireguard`"
+          },
+          "serverId": {
+            "type": "string",
+            "description": "Сервер, через который пойдёт трафик"
+          }
+        },
+        "description": "Создание соединения"
+      },
+      "ConnectionDto": {
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "serverId",
+          "serverName",
+          "port",
+          "interfaceName",
+          "supportsUdp",
+          "interface",
+          "problems",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Идентификатор"
+          },
+          "name": {
+            "type": "string",
+            "description": "Имя"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`Socks`, `Http` или `Wireguard`"
+          },
+          "serverId": {
+            "type": "string",
+            "description": "Сервер"
+          },
+          "serverName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Имя сервера или null, если сервер удалён"
+          },
+          "port": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Порт inbound Xray",
+            "format": "int32"
+          },
+          "interfaceName": {
+            "type": "string",
+            "description": "Интерфейс Keenetic"
+          },
+          "supportsUdp": {
+            "type": "boolean",
+            "description": "Переносит UDP (QUIC, звонки); socks и http через Keenetic — только TCP"
+          },
+          "interface": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "Состояние интерфейса или null, если Keenetic не ответил",
+                "$ref": "#/components/schemas/ConnectionInterfaceDto"
+              }
+            ]
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Что мешает соединению работать, для показа пользователю"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Когда создано",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Когда последний раз изменено",
+            "format": "date-time"
+          }
+        },
+        "description": "Соединение с состоянием интерфейса Keenetic"
+      },
+      "ConnectionInterfaceDto": {
+        "required": [
+          "exists",
+          "owned",
+          "state",
+          "link",
+          "connected",
+          "wireguardOnline",
+          "lastHandshakeSecondsAgo"
+        ],
+        "type": "object",
+        "properties": {
+          "exists": {
+            "type": "boolean",
+            "description": "Интерфейс есть в Keenetic"
+          },
+          "owned": {
+            "type": "boolean",
+            "description": "Интерфейс принадлежит FlowGate (описание начинается с `FlowGate:`)"
+          },
+          "state": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Административное состояние: `up` или `down`"
+          },
+          "link": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Состояние канала: `up` или `down`"
+          },
+          "connected": {
+            "type": "boolean",
+            "description": "Интерфейс подключён"
+          },
+          "wireguardOnline": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Для WireGuard: рукопожатие с Xray было недавно"
+          },
+          "lastHandshakeSecondsAgo": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Для WireGuard: сколько секунд назад было рукопожатие, null — ни разу",
+            "format": "int64"
+          }
+        },
+        "description": "Состояние интерфейса Keenetic соединения"
+      },
+      "ConnectionUpdateRequest": {
+        "required": [
+          "name",
+          "serverId"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Имя, до 64 символов, без кавычек"
+          },
+          "serverId": {
+            "type": "string",
+            "description": "Сервер, через который пойдёт трафик"
+          }
+        },
+        "description": "Изменение соединения. Вид соединения не меняется: для этого создайте новое"
+      },
+      "DnsRouteApplyDto": {
+        "required": [
+          "at",
+          "status",
+          "error",
+          "entries",
+          "skipped",
+          "parts",
+          "warnings"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "description": "Когда",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "description": "`Ok`, `Waiting` (источник не загружен) или `Failed`"
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Ошибка или null"
+          },
+          "entries": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Элементов в Keenetic",
+            "format": "int32"
+          },
+          "skipped": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Пропущено правил списка",
+            "format": "int32"
+          },
+          "parts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Частей группы (по 1000 элементов)",
+            "format": "int32"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Предупреждения"
+          }
+        },
+        "description": "Итог применения маршрута"
+      },
+      "DnsRouteCreateRequest": {
+        "required": [
+          "sourceId",
+          "listName",
+          "connectionId"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string",
+            "description": "Источник"
+          },
+          "listName": {
+            "type": "string",
+            "description": "Список источника"
+          },
+          "connectionId": {
+            "type": "string",
+            "description": "Соединение, через которое пойдёт трафик списка"
+          },
+          "attributeFilter": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Фильтр `attr` / `!attr` или null"
+          }
+        },
+        "description": "Создание маршрута"
+      },
+      "DnsRouteDto": {
+        "required": [
+          "id",
+          "sourceId",
+          "sourceName",
+          "listName",
+          "attributeFilter",
+          "connectionId",
+          "connectionName",
+          "interfaceName",
+          "groupName",
+          "state",
+          "lastApply",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Идентификатор"
+          },
+          "sourceId": {
+            "type": "string",
+            "description": "Источник"
+          },
+          "sourceName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Имя источника или null, если источник удалён"
+          },
+          "listName": {
+            "type": "string",
+            "description": "Список"
+          },
+          "attributeFilter": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Фильтр `attr` / `!attr` или null"
+          },
+          "connectionId": {
+            "type": "string",
+            "description": "Соединение"
+          },
+          "connectionName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Имя соединения или null, если удалено"
+          },
+          "interfaceName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Интерфейс Keenetic соединения"
+          },
+          "groupName": {
+            "type": "string",
+            "description": "Основная группа в Keenetic"
+          },
+          "state": {
+            "type": "string",
+            "description": "`Pending` — ещё не создан в Keenetic, `Enabled`, `Disabled`"
+          },
+          "lastApply": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "Итог последнего применения или null",
+                "$ref": "#/components/schemas/DnsRouteApplyDto"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Когда создан",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Когда последний раз изменён",
+            "format": "date-time"
+          }
+        },
+        "description": "DNS-маршрут: список источника → соединение"
+      },
+      "DnsRouteUpdateRequest": {
+        "required": [
+          "connectionId"
+        ],
+        "type": "object",
+        "properties": {
+          "connectionId": {
+            "type": "string",
+            "description": "Соединение"
+          },
+          "attributeFilter": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Фильтр или null"
+          }
+        },
+        "description": "Изменение маршрута: соединение и фильтр. Список и источник не меняются — для этого создайте новый маршрут"
+      },
+      "DomainListPreviewDto": {
+        "required": [
+          "name",
+          "attributeFilter",
+          "total",
+          "domains",
+          "ipv4",
+          "ipv6",
+          "skippedKeyword",
+          "skippedRegexp",
+          "skippedInvalid",
+          "entries",
+          "truncated"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Имя списка"
+          },
+          "attributeFilter": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Фильтр или null"
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Всего элементов",
+            "format": "int32"
+          },
+          "domains": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Доменов",
+            "format": "int32"
+          },
+          "ipv4": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "IPv4-адресов и подсетей",
+            "format": "int32"
+          },
+          "ipv6": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "IPv6-адресов и подсетей",
+            "format": "int32"
+          },
+          "skippedKeyword": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Пропущено `keyword:`",
+            "format": "int32"
+          },
+          "skippedRegexp": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Пропущено `regexp:`",
+            "format": "int32"
+          },
+          "skippedInvalid": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Отброшено некорректных значений",
+            "format": "int32"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Элементы (не больше Total, при обрезке — первые)"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "Список элементов обрезан"
+          }
+        },
+        "description": "Предпросмотр списка с фильтром: что уйдёт в Keenetic"
+      },
+      "DomainListSummaryDto": {
+        "required": [
+          "name",
+          "domains",
+          "ipv4",
+          "ipv6",
+          "skipped",
+          "attributes"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Имя"
+          },
+          "domains": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Доменов",
+            "format": "int32"
+          },
+          "ipv4": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "IPv4-адресов и подсетей",
+            "format": "int32"
+          },
+          "ipv6": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "IPv6-адресов и подсетей",
+            "format": "int32"
+          },
+          "skipped": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Пропущено правил (Keenetic их не поддерживает)",
+            "format": "int32"
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Атрибуты для фильтра"
+          }
+        },
+        "description": "Список в каталоге источника"
+      },
+      "DomainSourceDto": {
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "repository",
+          "branch",
+          "releaseRepository",
+          "asset",
+          "checksumAsset",
+          "url",
+          "checksumUrl",
+          "autoUpdate",
+          "builtIn",
+          "downloaded",
+          "revision",
+          "listCount",
+          "routeCount",
+          "lastRefresh"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Идентификатор"
+          },
+          "name": {
+            "type": "string",
+            "description": "Имя"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`GitHubRepository`, `GeositeDat`, `GeoipDat` или `Local`"
+          },
+          "repository": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Для репозитория: `owner/repo`"
+          },
+          "branch": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Для репозитория: ветка или null — по умолчанию"
+          },
+          "releaseRepository": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Для .dat из релиза: `owner/repo`"
+          },
+          "asset": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Для .dat из релиза: имя файла"
+          },
+          "checksumAsset": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Для .dat из релиза: файл контрольной суммы"
+          },
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Для .dat по ссылке: адрес (может содержать токен)"
+          },
+          "checksumUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Для .dat по ссылке: адрес контрольной суммы"
+          },
+          "autoUpdate": {
+            "type": "boolean",
+            "description": "Обновлять по расписанию"
+          },
+          "builtIn": {
+            "type": "boolean",
+            "description": "Встроенный, удалить нельзя"
+          },
+          "downloaded": {
+            "type": "boolean",
+            "description": "Файл загружен (для локального — всегда true)"
+          },
+          "revision": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Версия: sha коммита, тег релиза или null"
+          },
+          "listCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Списков в каталоге",
+            "format": "int32"
+          },
+          "routeCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Маршрутов, которые используют источник",
+            "format": "int32"
+          },
+          "lastRefresh": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "Итог последнего обновления или null",
+                "$ref": "#/components/schemas/DomainSourceRefreshDto"
+              }
+            ]
+          }
+        },
+        "description": "Источник списков"
+      },
+      "DomainSourceRefreshDto": {
+        "required": [
+          "at",
+          "status",
+          "error",
+          "lists",
+          "errors"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "description": "Когда",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "description": "`Ok`, `Partial` или `Failed`"
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Ошибка или null"
+          },
+          "lists": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Списков в каталоге",
+            "format": "int32"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ошибки отдельных списков, например `data/foo: строка 12: …`"
+          }
+        },
+        "description": "Итог обновления источника"
+      },
+      "DomainSourceSaveRequest": {
+        "required": [
+          "name",
+          "kind"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Имя"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`GitHubRepository`, `GeositeDat`, `GeoipDat` или `Local`"
+          },
+          "repository": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Для репозитория: `owner/repo` на GitHub"
+          },
+          "branch": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Для репозитория: ветка или null — по умолчанию"
+          },
+          "releaseRepository": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Для .dat из релиза: `owner/repo`"
+          },
+          "asset": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Для .dat из релиза: имя файла"
+          },
+          "checksumAsset": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Для .dat из релиза: файл контрольной суммы или null"
+          },
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Для .dat по ссылке: http(s)-адрес"
+          },
+          "checksumUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Для .dat по ссылке: адрес контрольной суммы SHA-256 или null"
+          },
+          "autoUpdate": {
+            "type": "boolean",
+            "description": "Обновлять по расписанию",
+            "default": true
+          }
+        },
+        "description": "Создание или изменение источника. Вид после создания не меняется; поля, которые к виду не относятся, игнорируются"
+      },
+      "ErrorResponse": {
+        "required": [
+          "errorCode",
+          "message",
+          "traceId"
+        ],
+        "type": "object",
+        "properties": {
+          "errorCode": {
+            "type": "string",
+            "description": "Код ошибки из ErrorCodes"
+          },
+          "message": {
+            "type": "string",
+            "description": "Сообщение для пользователя"
+          },
+          "traceId": {
+            "type": "string",
+            "description": "Идентификатор запроса для поиска в логах"
+          },
+          "details": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Подробности, например отдельные ошибки проверки, или null"
+          }
+        },
+        "description": "Тело ответа API при ошибке"
+      },
+      "HealthDto": {
+        "required": [
+          "status",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Всегда `ok`, если приложение отвечает"
+          },
+          "version": {
+            "type": "string",
+            "description": "Версия FlowGate"
+          }
+        },
+        "description": "Ответ проверки живости приложения"
+      },
+      "JobDto": {
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "status",
+          "steps",
+          "error",
+          "startedAt",
+          "finishedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Идентификатор",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "description": "Вид задачи, например `xray-install`"
+          },
+          "title": {
+            "type": "string",
+            "description": "Название для пользователя"
+          },
+          "status": {
+            "type": "string",
+            "description": "Состояние: `Running`, `Succeeded`, `Failed`"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobStepDto"
+            },
+            "description": "Пройденные шаги"
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Ошибка, если задача упала"
+          },
+          "startedAt": {
+            "type": "string",
+            "description": "Время запуска",
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Время завершения или null",
+            "format": "date-time"
+          }
+        },
+        "description": "Фоновая задача: долгая операция, за которой следит UI"
+      },
+      "JobStepDto": {
+        "required": [
+          "at",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "description": "Время шага",
+            "format": "date-time"
+          },
+          "message": {
+            "type": "string",
+            "description": "Описание шага"
+          }
+        },
+        "description": "Шаг фоновой задачи"
+      },
+      "JsonObject": {
+        "type": "object"
+      },
+      "KeeneticSystemInfoDto": {
+        "required": [
+          "model",
+          "hardwareId",
+          "release",
+          "title",
+          "architecture",
+          "isSupported",
+          "missingComponents",
+          "problems"
+        ],
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Модель, например `Hopper SE (KN-3812)`"
+          },
+          "hardwareId": {
+            "type": "string",
+            "description": "Индекс модели, например `KN-3812`"
+          },
+          "release": {
+            "type": "string",
+            "description": "Версия прошивки, например `5.02.B.2.0-2`"
+          },
+          "title": {
+            "type": "string",
+            "description": "Название версии, например `5.2 Beta 2`"
+          },
+          "architecture": {
+            "type": "string",
+            "description": "Архитектура, например `aarch64`"
+          },
+          "isSupported": {
+            "type": "boolean",
+            "description": "Роутер подходит для FlowGate"
+          },
+          "missingComponents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Компоненты KeeneticOS, которые нужно установить"
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Причины несовместимости для показа пользователю"
+          }
+        },
+        "description": "Сведения о роутере и его совместимости с FlowGate"
+      },
+      "LocalListDto": {
+        "required": [
+          "name",
+          "text",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Имя"
+          },
+          "text": {
+            "type": "string",
+            "description": "Текст в формате v2fly"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Когда последний раз изменён",
+            "format": "date-time"
+          }
+        },
+        "description": "Список локального источника с текстом для редактора"
+      },
+      "LocalListSaveRequest": {
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Текст в формате v2fly: домен, `full:`, адрес или подсеть на строку, `#` — комментарий"
+          }
+        },
+        "description": "Текст списка локального источника"
+      },
+      "ProviderMetadataDto": {
+        "required": [
+          "title",
+          "uploadBytes",
+          "downloadBytes",
+          "totalBytes",
+          "expireAt",
+          "updateIntervalHours",
+          "announce",
+          "announceUrl",
+          "supportUrl",
+          "webPageUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Название профиля"
+          },
+          "uploadBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Отправлено, байты",
+            "format": "int64"
+          },
+          "downloadBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Получено, байты",
+            "format": "int64"
+          },
+          "totalBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Лимит трафика, байты; null — не сообщён",
+            "format": "int64"
+          },
+          "expireAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Срок действия; null — не сообщён",
+            "format": "date-time"
+          },
+          "updateIntervalHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Рекомендуемый интервал обновления, часы",
+            "format": "int32"
+          },
+          "announce": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Объявление"
+          },
+          "announceUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Ссылка объявления"
+          },
+          "supportUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Поддержка"
+          },
+          "webPageUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Страница профиля"
+          }
+        },
+        "description": "Сведения от провайдера. Тексты и ссылки — данные провайдера, показывать как текст"
+      },
+      "ServerDetailsDto": {
+        "required": [
+          "server",
+          "outbound",
+          "editable"
+        ],
+        "type": "object",
+        "properties": {
+          "server": {
+            "description": "Сводка сервера",
+            "$ref": "#/components/schemas/ServerDto"
+          },
+          "outbound": {
+            "description": "Outbound Xray без `tag`",
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "editable": {
+            "type": "boolean",
+            "description": "Можно править: ручной сервер (серверы подписки перезаписываются при её обновлении)"
+          }
+        },
+        "description": "Сервер с outbound для JSON-редактора"
+      },
+      "ServerDraftDto": {
+        "required": [
+          "name",
+          "outbound",
+          "warnings"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Имя из ссылки"
+          },
+          "outbound": {
+            "description": "Outbound Xray без `tag`",
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Предупреждения разбора"
+          }
+        },
+        "description": "Черновик сервера после разбора ссылки: подставляется в JSON-редактор"
+      },
+      "ServerDto": {
+        "required": [
+          "id",
+          "name",
+          "protocol",
+          "address",
+          "port",
+          "network",
+          "security",
+          "serverName",
+          "source",
+          "subscriptionId",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Идентификатор"
+          },
+          "name": {
+            "type": "string",
+            "description": "Имя"
+          },
+          "protocol": {
+            "type": "string",
+            "description": "Протокол Xray"
+          },
+          "address": {
+            "type": "string",
+            "description": "Адрес"
+          },
+          "port": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Порт или null",
+            "format": "int32"
+          },
+          "network": {
+            "type": "string",
+            "description": "Транспорт"
+          },
+          "security": {
+            "type": "string",
+            "description": "Защита"
+          },
+          "serverName": {
+            "type": "string",
+            "description": "SNI"
+          },
+          "source": {
+            "type": "string",
+            "description": "`Manual` или `Subscription`"
+          },
+          "subscriptionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Подписка-источник или null"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Когда последний раз изменён",
+            "format": "date-time"
+          }
+        },
+        "description": "Сервер в списке"
+      },
+      "ServerImportRejectionDto": {
+        "required": [
+          "index",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "index": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Номер узла во входных данных, с единицы",
+            "format": "int32"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Причина"
+          }
+        },
+        "description": "Узел, который не удалось импортировать"
+      },
+      "ServerImportRequest": {
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Ссылки по одной на строку, base64 от них или Xray-JSON"
+          }
+        },
+        "description": "Пакетный импорт серверов"
+      },
+      "ServerImportResultDto": {
+        "required": [
+          "added",
+          "skipped",
+          "rejected",
+          "warnings"
+        ],
+        "type": "object",
+        "properties": {
+          "added": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServerDto"
+            },
+            "description": "Добавленные серверы"
+          },
+          "skipped": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Пропущено как уже существующие",
+            "format": "int32"
+          },
+          "rejected": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServerImportRejectionDto"
+            },
+            "description": "Отклонённые узлы"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Предупреждения"
+          }
+        },
+        "description": "Итог пакетного импорта"
+      },
+      "ServerParseRequest": {
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Ссылка (vless://, vmess://, trojan://, ss://, hysteria2://, hy2://) или Xray-JSON"
+          }
+        },
+        "description": "Запрос разбора ссылки"
+      },
+      "ServerSaveRequest": {
+        "required": [
+          "name",
+          "outbound"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Имя"
+          },
+          "outbound": {
+            "description": "Outbound Xray; поле `tag`, если есть, отбрасывается",
+            "$ref": "#/components/schemas/JsonObject"
+          }
+        },
+        "description": "Создание или изменение ручного сервера"
+      },
+      "ServerValidateRequest": {
+        "required": [
+          "outbound"
+        ],
+        "type": "object",
+        "properties": {
+          "outbound": {
+            "description": "Outbound Xray",
+            "$ref": "#/components/schemas/JsonObject"
+          }
+        },
+        "description": "Запрос проверки outbound"
+      },
+      "ServerValidationDto": {
+        "required": [
+          "valid",
+          "checkedByXray",
+          "errors"
+        ],
+        "type": "object",
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "description": "Ошибок нет"
+          },
+          "checkedByXray": {
+            "type": "boolean",
+            "description": "Проверен установленным Xray; false — Xray не установлен, проверена только структура"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ошибки проверки"
+          }
+        },
+        "description": "Результат проверки outbound"
+      },
+      "SubscriptionDto": {
+        "required": [
+          "id",
+          "displayName",
+          "name",
+          "url",
+          "autoUpdate",
+          "updateIntervalHours",
+          "effectiveIntervalHours",
+          "userAgent",
+          "sendHwid",
+          "hwid",
+          "sendDeviceInfo",
+          "serverCount",
+          "provider",
+          "lastRefresh",
+          "nextRefreshAt",
+          "createdAt",
+          "refreshJobId"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Идентификатор"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Имя для показа: своё, иначе провайдера, иначе хост"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Своё имя или null"
+          },
+          "url": {
+            "type": "string",
+            "description": "Адрес подписки (содержит токен доступа)"
+          },
+          "autoUpdate": {
+            "type": "boolean",
+            "description": "Обновлять по расписанию"
+          },
+          "updateIntervalHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Свой интервал или null",
+            "format": "int32"
+          },
+          "effectiveIntervalHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "description": "Действующий интервал, часы",
+            "format": "double"
+          },
+          "userAgent": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Свой User-Agent или null"
+          },
+          "sendHwid": {
+            "type": "boolean",
+            "description": "Отправлять `x-hwid`"
+          },
+          "hwid": {
+            "type": "string",
+            "description": "Постоянный идентификатор устройства для этой подписки"
+          },
+          "sendDeviceInfo": {
+            "type": "boolean",
+            "description": "Сообщать модель и версию роутера"
+          },
+          "serverCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Сколько серверов у подписки",
+            "format": "int32"
+          },
+          "provider": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "Сведения от провайдера или null",
+                "$ref": "#/components/schemas/ProviderMetadataDto"
+              }
+            ]
+          },
+          "lastRefresh": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "Последнее обновление или null",
+                "$ref": "#/components/schemas/SubscriptionRefreshDto"
+              }
+            ]
+          },
+          "nextRefreshAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Следующее обновление или null, если автообновление выключено",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Когда добавлена",
+            "format": "date-time"
+          },
+          "refreshJobId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Задача обновления, запущенная этим запросом, или null",
+            "format": "uuid"
+          }
+        },
+        "description": "Подписка"
+      },
+      "SubscriptionRefreshDto": {
+        "required": [
+          "at",
+          "status",
+          "error",
+          "received",
+          "accepted",
+          "rejected",
+          "added",
+          "updated",
+          "removed",
+          "retained",
+          "warnings"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "description": "Когда обновлялась",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "description": "`Ok`, `Partial` (часть узлов не разобрана, пропавшие серверы сохранены) или `Failed`"
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Ошибка"
+          },
+          "received": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Узлов в ответе",
+            "format": "int32"
+          },
+          "accepted": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Разобрано",
+            "format": "int32"
+          },
+          "rejected": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Отклонено",
+            "format": "int32"
+          },
+          "added": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Добавлено серверов",
+            "format": "int32"
+          },
+          "updated": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Изменено",
+            "format": "int32"
+          },
+          "removed": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Удалено",
+            "format": "int32"
+          },
+          "retained": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Сохранено пропавших из частичного ответа",
+            "format": "int32"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Предупреждения"
+          }
+        },
+        "description": "Результат последнего обновления подписки"
+      },
+      "SubscriptionSaveRequest": {
+        "required": [
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Адрес подписки (http или https)"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Своё имя или null — имя провайдера"
+          },
+          "autoUpdate": {
+            "type": "boolean",
+            "description": "Обновлять по расписанию",
+            "default": true
+          },
+          "updateIntervalHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Свой интервал 1–168 ч или null — интервал провайдера или 24 ч",
+            "format": "int32"
+          },
+          "userAgent": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Свой User-Agent или null — `FlowGate/&lt;версия&gt;`"
+          },
+          "sendHwid": {
+            "type": "boolean",
+            "description": "Отправлять постоянный `x-hwid`",
+            "default": true
+          },
+          "sendDeviceInfo": {
+            "type": "boolean",
+            "description": "Сообщать провайдеру модель и версию роутера",
+            "default": false
+          }
+        },
+        "description": "Создание или изменение подписки"
+      },
+      "SystemStatusDto": {
+        "required": [
+          "version",
+          "latestVersion",
+          "updateAvailable",
+          "updateCheckedAt",
+          "packageInstalled",
+          "lastUpgradeResult",
+          "startedAt",
+          "uptimeSeconds",
+          "memoryRssKilobytes",
+          "xrayMemoryRssKilobytes"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Версия FlowGate"
+          },
+          "latestVersion": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Последняя стабильная версия по данным последней проверки"
+          },
+          "updateAvailable": {
+            "type": "boolean",
+            "description": "Доступна версия новее установленной"
+          },
+          "updateCheckedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Время последней проверки обновлений",
+            "format": "date-time"
+          },
+          "packageInstalled": {
+            "type": "boolean",
+            "description": "FlowGate установлен пакетом opkg: самообновление доступно"
+          },
+          "lastUpgradeResult": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Итог последнего самообновления (`ok 0.2.0`, `failed …`) или null"
+          },
+          "startedAt": {
+            "type": "string",
+            "description": "Время запуска FlowGate",
+            "format": "date-time"
+          },
+          "uptimeSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Время работы, секунды",
+            "format": "int64"
+          },
+          "memoryRssKilobytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Резидентная память FlowGate, КиБ (null вне Linux)",
+            "format": "int64"
+          },
+          "xrayMemoryRssKilobytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Резидентная память xray, КиБ (null, если xray не запущен)",
+            "format": "int64"
+          }
+        },
+        "description": "Состояние FlowGate: версия, обновления, память"
+      },
+      "XrayInstallRequest": {
+        "required": [
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Версия из списка релизов; null — последняя стабильная"
+          }
+        },
+        "description": "Запрос установки Xray"
+      },
+      "XrayLogDto": {
+        "required": [
+          "lines"
+        ],
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/XrayLogLineDto"
+            },
+            "description": "Строки, старые первыми"
+          }
+        },
+        "description": "Последние строки вывода Xray"
+      },
+      "XrayLogLineDto": {
+        "required": [
+          "timestamp",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "description": "Когда строка получена",
+            "format": "date-time"
+          },
+          "text": {
+            "type": "string",
+            "description": "Текст строки"
+          }
+        },
+        "description": "Строка вывода Xray"
+      },
+      "XrayReleaseDto": {
+        "required": [
+          "version",
+          "tag",
+          "publishedAt",
+          "isPrerelease",
+          "sizeBytes",
+          "isInstalled",
+          "isLatest"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Версия, например `26.10.31`"
+          },
+          "tag": {
+            "type": "string",
+            "description": "Тег релиза, например `v26.10.31`"
+          },
+          "publishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Дата публикации",
+            "format": "date-time"
+          },
+          "isPrerelease": {
+            "type": "boolean",
+            "description": "Предварительный релиз"
+          },
+          "sizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Размер архива, байты",
+            "format": "int64"
+          },
+          "isInstalled": {
+            "type": "boolean",
+            "description": "Эта версия установлена сейчас"
+          },
+          "isLatest": {
+            "type": "boolean",
+            "description": "Последняя стабильная версия"
+          }
+        },
+        "description": "Релиз Xray, доступный для установки"
+      },
+      "XrayStatusDto": {
+        "required": [
+          "installed",
+          "version",
+          "state",
+          "processId",
+          "startedAt",
+          "restarts",
+          "lastExitCode",
+          "lastError",
+          "autostart",
+          "latestVersion",
+          "updateAvailable",
+          "updateCheckedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "installed": {
+            "type": "boolean",
+            "description": "Бинарник установлен"
+          },
+          "version": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Установленная версия или null"
+          },
+          "state": {
+            "type": "string",
+            "description": "Состояние процесса: `NotInstalled`, `Stopped`, `Starting`, `Running`, `Restarting`, `Failed`"
+          },
+          "processId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Идентификатор процесса или null",
+            "format": "int32"
+          },
+          "startedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Время последнего успешного запуска",
+            "format": "date-time"
+          },
+          "restarts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Сколько раз Xray перезапускали после падений",
+            "format": "int32"
+          },
+          "lastExitCode": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Код выхода последнего завершения",
+            "format": "int32"
+          },
+          "lastError": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Последняя ошибка запуска"
+          },
+          "autostart": {
+            "type": "boolean",
+            "description": "Запускать Xray при старте FlowGate"
+          },
+          "latestVersion": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Последняя стабильная версия по данным последней проверки"
+          },
+          "updateAvailable": {
+            "type": "boolean",
+            "description": "Доступна версия новее установленной"
+          },
+          "updateCheckedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Время последней проверки обновлений",
+            "format": "date-time"
+          }
+        },
+        "description": "Состояние Xray на роутере"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "System"
+    },
+    {
+      "name": "Keenetic"
+    },
+    {
+      "name": "Xray"
+    },
+    {
+      "name": "Jobs"
+    },
+    {
+      "name": "Servers"
+    },
+    {
+      "name": "Subscriptions"
+    },
+    {
+      "name": "Connections"
+    },
+    {
+      "name": "DomainSources"
+    },
+    {
+      "name": "DnsRoutes"
+    }
+  ]
+}

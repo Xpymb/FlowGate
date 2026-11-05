@@ -1,6 +1,6 @@
 Package: flowgate
 Version: @VERSION@
-Depends: busybox
+Depends: busybox, nginx-ssl
 Section: net
 Architecture: @ARCHITECTURE@
 Installed-Size: @INSTALLED_SIZE@

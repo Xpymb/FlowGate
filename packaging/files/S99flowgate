@@ -1,5 +1,5 @@
 #!/bin/sh
-# Служба FlowGate для Entware. FlowGate сам запускает и останавливает xray.
+# Служба FlowGate для Entware: бэкенд (127.0.0.1:8091, сам запускает xray) и шлюз nginx (:8090, статика и /api).
 
 PATH=/opt/sbin:/opt/bin:/opt/usr/sbin:/opt/usr/bin:/usr/sbin:/usr/bin:/sbin:/bin
 BIN=/opt/bin/flowgate
@@ -10,13 +10,29 @@ LOG_DIR=/tmp/flowgate
 LOG=$LOG_DIR/flowgate.log
 STOP_TIMEOUT=15
 
+NGINX=/opt/sbin/nginx
+NGINX_PREFIX=$LOG_DIR/nginx
+NGINX_CONF=$SHARE/nginx.conf
+NGINX_PID=$NGINX_PREFIX/nginx.pid
+NGINX_STOP_TIMEOUT=5
+
 running() {
     [ -f "$PID" ] || return 1
     pid=$(cat "$PID")
     kill -0 "$pid" 2>/dev/null && grep -q "$BIN" "/proc/$pid/cmdline" 2>/dev/null
 }
 
-start() {
+nginx_running() {
+    [ -f "$NGINX_PID" ] || return 1
+    pid=$(cat "$NGINX_PID")
+    kill -0 "$pid" 2>/dev/null && grep -q "nginx" "/proc/$pid/cmdline" 2>/dev/null
+}
+
+nginx_cmd() {
+    "$NGINX" -p "$NGINX_PREFIX/" -c "$NGINX_CONF" "$@"
+}
+
+start_backend() {
     if running; then
         echo "FlowGate уже запущен (pid $(cat "$PID"))"
         return 0
@@ -34,7 +50,42 @@ start() {
     return 1
 }
 
-stop() {
+start_nginx() {
+    if nginx_running; then
+        echo "Шлюз nginx уже запущен (pid $(cat "$NGINX_PID"))"
+        return 0
+    fi
+    if [ ! -x "$NGINX" ]; then
+        echo "Нет $NGINX: установите nginx-ssl (opkg install nginx-ssl)"
+        return 1
+    fi
+    mkdir -p "$NGINX_PREFIX/temp"
+    if nginx_cmd && sleep 1 && nginx_running; then
+        echo "Шлюз nginx запущен на :8090 (pid $(cat "$NGINX_PID"))"
+        return 0
+    fi
+    echo "Шлюз nginx не запустился, см. $NGINX_PREFIX/error.log"
+    return 1
+}
+
+stop_nginx() {
+    if ! nginx_running; then
+        rm -f "$NGINX_PID"
+        return 0
+    fi
+    pid=$(cat "$NGINX_PID")
+    nginx_cmd -s quit 2>/dev/null || kill -QUIT "$pid" 2>/dev/null
+    waited=0
+    while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt "$NGINX_STOP_TIMEOUT" ]; do
+        sleep 1
+        waited=$((waited + 1))
+    done
+    kill -0 "$pid" 2>/dev/null && kill -TERM "$pid" 2>/dev/null
+    rm -f "$NGINX_PID"
+    echo "Шлюз nginx остановлен"
+}
+
+stop_backend() {
     if ! running; then
         rm -f "$PID"
         echo "FlowGate не запущен"
@@ -56,6 +107,16 @@ stop() {
     rm -f "$PID"
 }
 
+start() {
+    start_backend || return 1
+    start_nginx
+}
+
+stop() {
+    stop_nginx
+    stop_backend
+}
+
 case "$1" in
     start)
         start
@@ -68,12 +129,20 @@ case "$1" in
         start
         ;;
     status)
+        code=0
         if running; then
             echo "FlowGate запущен (pid $(cat "$PID"))"
         else
             echo "FlowGate не запущен"
-            exit 1
+            code=1
         fi
+        if nginx_running; then
+            echo "Шлюз nginx запущен (pid $(cat "$NGINX_PID"))"
+        else
+            echo "Шлюз nginx не запущен"
+            code=1
+        fi
+        exit $code
         ;;
     *)
         echo "Использование: $0 {start|stop|restart|status}"

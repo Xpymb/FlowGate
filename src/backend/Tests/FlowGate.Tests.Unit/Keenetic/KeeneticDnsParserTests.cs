@@ -39,6 +39,19 @@ public sealed class KeeneticDnsParserTests
     }
 
     /// <summary>
+    ///     Флаг эксклюзивности <c>reject</c>; без поля — обычный маршрут
+    /// </summary>
+    [Fact]
+    public void ParseRoutes_Reject_ReadsExclusive()
+    {
+        var routes = KeeneticDnsParser.ParseRoutes(RciFixtures.ToElement(
+            """[{"group":"fg-a","interface":"Proxy0","auto":true,"reject":true},{"group":"fg-b","interface":"Proxy0","auto":true}]"""));
+
+        Assert.True(routes[0].Reject);
+        Assert.False(routes[1].Reject);
+    }
+
+    /// <summary>
     ///     Пустые ответы Keenetic: <c>{}</c> и <c>[]</c>
     /// </summary>
     [Fact]

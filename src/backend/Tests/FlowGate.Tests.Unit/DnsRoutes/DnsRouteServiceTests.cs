@@ -208,6 +208,43 @@ public sealed class DnsRouteServiceTests : IDisposable
     }
 
     /// <summary>
+    ///     Эксклюзивный маршрут создаётся с <c>reject</c>, снятие флага из FlowGate пересоздаёт правило
+    /// </summary>
+    [Fact]
+    public async Task CreateExclusiveAndUnset_UpdatesRule()
+    {
+        var sourceId = await CreateLocalSourceAsync("telegram.org\n");
+
+        var route = await _sut.CreateAsync(new DnsRouteCreateRequest(sourceId, "telegram", "con-wg", Exclusive: true), Token);
+        await WaitApplyAsync();
+        var exclusive = Assert.Single(_keenetic.Routes);
+        await _sut.UpdateAsync(route.Id, new DnsRouteUpdateRequest("con-wg", Exclusive: false), Token);
+        await WaitApplyAsync();
+
+        Assert.Equal(new FakeDnsRoute(Group, "Wireguard0", true, false, true), exclusive);
+        Assert.False(Assert.Single(_keenetic.Routes).Reject);
+        Assert.False((await _sut.GetAsync(route.Id, Token)).Exclusive);
+    }
+
+    /// <summary>
+    ///     Эксклюзивность, включённая в Keenetic, переносится в FlowGate; изменение без флага её не трогает
+    /// </summary>
+    [Fact]
+    public async Task Reconcile_RejectSetByUser_AcceptedInFlowGate()
+    {
+        var sourceId = await CreateLocalSourceAsync("telegram.org\n");
+        var route = await CreateRouteAsync(sourceId, "con-wg");
+        _keenetic.SetRouteReject(Group, "Wireguard0", reject: true);
+
+        await _sut.ReconcileAsync(new HashSet<string>(), Token);
+        await _sut.UpdateAsync(route.Id, new DnsRouteUpdateRequest("con-wg"), Token);
+        await WaitApplyAsync();
+
+        Assert.True(Assert.Single(_keenetic.Routes).Reject);
+        Assert.True((await _sut.GetAsync(route.Id, Token)).Exclusive);
+    }
+
+    /// <summary>
     ///     Удаление маршрута убирает группу и правило из Keenetic
     /// </summary>
     [Fact]

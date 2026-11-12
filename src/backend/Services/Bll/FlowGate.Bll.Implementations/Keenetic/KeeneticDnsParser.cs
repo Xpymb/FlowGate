@@ -36,7 +36,7 @@ public static class KeeneticDnsParser
     }
 
     /// <summary>
-    ///     Разбирает правила: <c>[{"group", "interface", "auto", "index", "comment", "disable"?}]</c>
+    ///     Разбирает правила: <c>[{"group", "interface", "auto", "index", "comment", "disable"?, "reject"?}]</c>
     /// </summary>
     /// <param name="routes">Ответ <c>GET /rci/dns-proxy/route</c></param>
     /// <returns>Правила в порядке Keenetic</returns>
@@ -52,7 +52,7 @@ public static class KeeneticDnsParser
             .Where(route => route.ValueKind == JsonValueKind.Object)
             .Select(route => (Group: ReadString(route, "group"), Interface: ReadString(route, "interface"), Route: route))
             .Where(item => item.Group is not null && item.Interface is not null)
-            .Select(item => new NdmsRoute(item.Group!, item.Interface!, ReadBool(item.Route, "auto"), ReadBool(item.Route, "disable")))
+            .Select(item => new NdmsRoute(item.Group!, item.Interface!, ReadBool(item.Route, "auto"), ReadBool(item.Route, "disable"), ReadBool(item.Route, "reject")))
             .ToList();
     }
 

@@ -34,6 +34,7 @@ public static class DnsRouteMapper
             connection?.InterfaceName,
             route.GroupBaseName,
             state,
+            route.RequestedExclusive ?? route.Exclusive,
             route.LastApply is { } apply
                 ? new DnsRouteApplyDto(apply.At, apply.Status.ToString(), apply.Error, apply.Entries, apply.Skipped, apply.Parts, apply.Warnings)
                 : null,

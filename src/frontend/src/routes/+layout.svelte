@@ -17,7 +17,8 @@
 		{ path: '/subscriptions', title: 'Подписки' },
 		{ path: '/connections', title: 'Соединения' },
 		{ path: '/sources', title: 'Источники' },
-		{ path: '/routes', title: 'Маршруты' }
+		{ path: '/routes', title: 'Маршруты' },
+		{ path: '/settings', title: 'Настройки' }
 	] as const;
 
 	function isActive(path: string): boolean {

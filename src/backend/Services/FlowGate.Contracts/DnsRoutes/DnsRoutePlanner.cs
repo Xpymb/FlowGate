@@ -10,6 +10,8 @@ namespace FlowGate.Contracts.DnsRoutes;
 ///         <item>основная группа удалена пользователем — маршрут удаляется и из FlowGate;</item>
 ///         <item>интерфейс пересоздан сверкой (Keenetic убрал правила вместе с ним) — правило возвращается с прежним флагом;</item>
 ///         <item>состав меняется только по разнице, элементы остаются в своих частях;</item>
+///         <item>флаг эксклюзивности (<c>reject</c>), изменённый в Keenetic, принимается; FlowGate меняет его только по
+///         явной просьбе, части группы выравниваются по основной;</item>
 ///         <item>удаление группы не удаляет её правила, поэтому правила снимаются явно.</item>
 ///     </list>
 /// </summary>
@@ -96,12 +98,12 @@ public static class DnsRoutePlanner
         if (route.Provisioned && !baseExists)
         {
             RemoveRouteGroups(baseName, state, commands);
-            return new DnsRouteOutcome(route.Id, DnsRouteOutcomeKind.RemovedByUser, route.LastKnownDisabled, 0, 0);
+            return new DnsRouteOutcome(route.Id, DnsRouteOutcomeKind.RemovedByUser, route.LastKnownDisabled, route.Exclusive, 0, 0);
         }
 
         if (target.Content is null && !baseExists)
         {
-            return new DnsRouteOutcome(route.Id, DnsRouteOutcomeKind.Waiting, route.LastKnownDisabled, 0, 0);
+            return new DnsRouteOutcome(route.Id, DnsRouteOutcomeKind.Waiting, route.LastKnownDisabled, route.Exclusive, 0, 0);
         }
 
         var parts = target.Content is null
@@ -119,8 +121,8 @@ public static class DnsRoutePlanner
             }
         }
 
-        var disabled = PlanRules(target, parts, state, recreatedInterfaces, commands);
-        return new DnsRouteOutcome(route.Id, DnsRouteOutcomeKind.Applied, disabled, parts.Count, parts.Sum(part => part.Entries.Count));
+        var (disabled, exclusive) = PlanRules(target, parts, state, recreatedInterfaces, commands);
+        return new DnsRouteOutcome(route.Id, DnsRouteOutcomeKind.Applied, disabled, exclusive, parts.Count, parts.Sum(part => part.Entries.Count));
     }
 
     private static List<PlannedPart> PlaceEntries(
@@ -200,7 +202,7 @@ public static class DnsRoutePlanner
         }
     }
 
-    private static bool PlanRules(
+    private static (bool Disabled, bool Exclusive) PlanRules(
         DnsRouteTarget target,
         List<PlannedPart> parts,
         NdmsDnsState state,
@@ -223,6 +225,11 @@ public static class DnsRoutePlanner
                 : recreatedInterfaces.Contains(interfaceName) ? route.LastKnownDisabled
                 : true);
 
+        var exclusive = route.RequestedExclusive
+            ?? baseRule?.Reject
+            ?? previousBaseRule?.Reject
+            ?? route.Exclusive;
+
         foreach (var part in parts)
         {
             if (previousInterface is not null && state.FindRoute(part.Name, previousInterface) is not null)
@@ -231,7 +238,7 @@ public static class DnsRoutePlanner
             }
 
             var rule = state.FindRoute(part.Name, interfaceName);
-            if (rule is not null && (route.RequestedDisabled is null || rule.Disabled == route.RequestedDisabled))
+            if (rule is not null && rule.Reject == exclusive && (route.RequestedDisabled is null || rule.Disabled == route.RequestedDisabled))
             {
                 continue;
             }
@@ -241,14 +248,14 @@ public static class DnsRoutePlanner
                 commands.Add(DeleteRule(part.Name, interfaceName));
             }
 
-            commands.Add($"dns-proxy route object-group {part.Name} {interfaceName} auto");
+            commands.Add($"dns-proxy route object-group {part.Name} {interfaceName} auto{(exclusive ? " reject" : string.Empty)}");
             if (disabled)
             {
                 commands.Add("dns-proxy route disable");
             }
         }
 
-        return disabled;
+        return (disabled, exclusive);
     }
 
     private static void RemoveOrphans(NdmsDnsState state, HashSet<string> claimed, List<string> commands)

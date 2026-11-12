@@ -44,6 +44,17 @@ public sealed record DnsRoute(
     public const string DescriptionPrefix = "FlowGate: ";
 
     /// <summary>
+    ///     Эксклюзивный маршрут (<c>reject</c>) при последнем применении, а до первого создания — желаемый флаг:
+    ///     трафик к доменам списка идёт только через интерфейс соединения, при его недоступности блокируется
+    /// </summary>
+    public bool Exclusive { get; init; }
+
+    /// <summary>
+    ///     Явная просьба пользователя из FlowGate сделать маршрут эксклюзивным (true) или обычным (false); null — нет
+    /// </summary>
+    public bool? RequestedExclusive { get; init; }
+
+    /// <summary>
     ///     Имя части группы: основная — <c>base</c>, дальше <c>base-2</c>, <c>base-3</c>, …
     /// </summary>
     /// <param name="baseName">Имя основной группы</param>

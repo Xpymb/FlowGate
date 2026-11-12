@@ -23,7 +23,13 @@
 
 	let editorOpen = $state(false);
 	let editing = $state<Route>();
-	let form = $state({ sourceId: '', listName: '', attributeFilter: '', connectionId: '' });
+	let form = $state({
+		sourceId: '',
+		listName: '',
+		attributeFilter: '',
+		connectionId: '',
+		exclusive: false
+	});
 	let catalog = $state<ListSummary[]>([]);
 	let saving = $state(false);
 	let applying = $state(false);
@@ -59,7 +65,8 @@
 			sourceId: prefill.sourceId ?? sources.data?.[0]?.id ?? '',
 			listName: prefill.listName ?? '',
 			attributeFilter: prefill.attributeFilter ?? '',
-			connectionId: connections.data?.[0]?.id ?? ''
+			connectionId: connections.data?.[0]?.id ?? '',
+			exclusive: prefill.exclusive ?? false
 		};
 		editorOpen = true;
 		void loadCatalog();
@@ -71,7 +78,8 @@
 			sourceId: route.sourceId,
 			listName: route.listName,
 			attributeFilter: route.attributeFilter ?? '',
-			connectionId: route.connectionId
+			connectionId: route.connectionId,
+			exclusive: route.exclusive
 		};
 		editorOpen = true;
 		void loadCatalog();
@@ -107,7 +115,11 @@
 					? unwrap(
 							api.PUT('/api/dns-routes/{id}', {
 								params: { path: { id: target.id } },
-								body: { connectionId: form.connectionId, attributeFilter }
+								body: {
+									connectionId: form.connectionId,
+									attributeFilter,
+									exclusive: form.exclusive
+								}
 							})
 						)
 					: unwrap(
@@ -116,7 +128,8 @@
 									sourceId: form.sourceId,
 									listName: form.listName.trim(),
 									connectionId: form.connectionId,
-									attributeFilter
+									attributeFilter,
+									exclusive: form.exclusive
 								}
 							})
 						),
@@ -203,6 +216,7 @@
 								<td>
 									<code>{route.listName}</code>
 									{#if route.attributeFilter}<Badge>@{route.attributeFilter}</Badge>{/if}
+									{#if route.exclusive}<Badge>эксклюзивный</Badge>{/if}
 									<div class="muted small">{route.sourceName ?? 'источник удалён'}</div>
 								</td>
 								<td>
@@ -292,6 +306,12 @@
 				{/each}
 			</select>
 		</label>
+		<label class="check">
+			<input type="checkbox" bind:checked={form.exclusive} /> Эксклюзивный маршрут
+		</label>
+		<span class="hint">
+			Трафик к доменам списка идёт только через это соединение; если оно недоступно — блокируется
+		</span>
 	</div>
 	{#snippet actions()}
 		<button class="secondary" onclick={() => (editorOpen = false)}>Отмена</button>

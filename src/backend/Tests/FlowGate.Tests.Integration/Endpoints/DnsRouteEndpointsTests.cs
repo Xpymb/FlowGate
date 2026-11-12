@@ -54,6 +54,36 @@ public sealed class DnsRouteEndpointsTests : IDisposable
     }
 
     /// <summary>
+    ///     Эксклюзивный маршрут: создаётся с <c>reject</c>, PUT с <c>exclusive: false</c> снимает флаг
+    /// </summary>
+    [Fact]
+    public async Task ExclusiveRoute_CreateAndUnset_UpdatesRule()
+    {
+        using var client = _factory.CreateClient();
+        var connectionId = await CreateConnectionAsync(client);
+        var source = await ApiJson.PostAsync(client, "/api/domain-sources", new { name = "Мои", kind = "Local" }, HttpStatusCode.Created);
+        var sourceId = source.GetProperty("id").GetString();
+        using var save = await client.PutAsJsonAsync(
+            $"/api/domain-sources/{sourceId}/local-lists/telegram",
+            new { text = "telegram.org\n" },
+            TestContext.Current.CancellationToken);
+
+        var created = await ApiJson.PostAsync(client, "/api/dns-routes", new { sourceId, listName = "telegram", connectionId, exclusive = true }, HttpStatusCode.Created);
+        await ApiJson.WaitForAllJobsAsync(client);
+        var exclusiveRule = Assert.Single(_factory.Keenetic.Routes);
+        var id = created.GetProperty("id").GetString();
+        using var update = await client.PutAsJsonAsync($"/api/dns-routes/{id}", new { connectionId, exclusive = false }, TestContext.Current.CancellationToken);
+        await ApiJson.WaitForAllJobsAsync(client);
+        var route = await ApiJson.GetAsync(client, $"/api/dns-routes/{id}");
+
+        Assert.True(created.GetProperty("exclusive").GetBoolean());
+        Assert.True(exclusiveRule.Reject);
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        Assert.False(Assert.Single(_factory.Keenetic.Routes).Reject);
+        Assert.False(route.GetProperty("exclusive").GetBoolean());
+    }
+
+    /// <summary>
     ///     GitHub-репозиторий: каталог из tarball коммита; повторное обновление при том же sha архив не качает
     /// </summary>
     [Fact]

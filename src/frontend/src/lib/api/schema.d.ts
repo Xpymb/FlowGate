@@ -764,6 +764,11 @@ export interface components {
             connectionId: string;
             /** @description Фильтр `attr` / `!attr` или null */
             attributeFilter?: null | string;
+            /**
+             * @description Эксклюзивный маршрут: трафик списка идёт только через соединение, при его недоступности блокируется
+             * @default false
+             */
+            exclusive: boolean;
         };
         /** @description DNS-маршрут: список источника → соединение */
         DnsRouteDto: {
@@ -787,6 +792,8 @@ export interface components {
             groupName: string;
             /** @description `Pending` — ещё не создан в Keenetic, `Enabled`, `Disabled` */
             state: string;
+            /** @description Эксклюзивный маршрут: трафик к доменам списка идёт только через соединение, при его недоступности блокируется */
+            exclusive: boolean;
             lastApply: null | components["schemas"]["DnsRouteApplyDto"];
             /**
              * Format: date-time
@@ -799,12 +806,14 @@ export interface components {
              */
             updatedAt: string;
         };
-        /** @description Изменение маршрута: соединение и фильтр. Список и источник не меняются — для этого создайте новый маршрут */
+        /** @description Изменение маршрута: соединение, фильтр и эксклюзивность. Список и источник не меняются — для этого создайте новый маршрут */
         DnsRouteUpdateRequest: {
             /** @description Соединение */
             connectionId: string;
             /** @description Фильтр или null */
             attributeFilter?: null | string;
+            /** @description Эксклюзивный маршрут; null — не менять */
+            exclusive?: null | boolean;
         };
         /** @description Предпросмотр списка с фильтром: что уйдёт в Keenetic */
         DomainListPreviewDto: {

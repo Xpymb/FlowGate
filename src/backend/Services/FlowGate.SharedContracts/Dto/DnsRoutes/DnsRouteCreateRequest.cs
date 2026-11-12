@@ -7,4 +7,5 @@ namespace FlowGate.SharedContracts.Dto.DnsRoutes;
 /// <param name="ListName">Список источника</param>
 /// <param name="ConnectionId">Соединение, через которое пойдёт трафик списка</param>
 /// <param name="AttributeFilter">Фильтр <c>attr</c> / <c>!attr</c> или null</param>
-public sealed record DnsRouteCreateRequest(string SourceId, string ListName, string ConnectionId, string? AttributeFilter = null);
+/// <param name="Exclusive">Эксклюзивный маршрут: трафик списка идёт только через соединение, при его недоступности блокируется</param>
+public sealed record DnsRouteCreateRequest(string SourceId, string ListName, string ConnectionId, string? AttributeFilter = null, bool Exclusive = false);

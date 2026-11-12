@@ -159,6 +159,97 @@ public sealed class DnsRoutePlannerTests
     }
 
     /// <summary>
+    ///     Новый эксклюзивный маршрут — правило с <c>reject</c>
+    /// </summary>
+    [Fact]
+    public void Plan_NewExclusiveRoute_CreatesRejectRule()
+    {
+        var plan = Plan([Target(Route() with { Exclusive = true }, "a.com")], NdmsDnsState.Empty);
+
+        Assert.Equal("dns-proxy route object-group fg-youtube Proxy0 auto reject", plan.Commands[^1]);
+        Assert.True(plan.Outcomes[0].Exclusive);
+    }
+
+    /// <summary>
+    ///     Эксклюзивность, включённая пользователем в Keenetic, принимается без команд
+    /// </summary>
+    [Fact]
+    public void Plan_RejectSetByUser_AcceptedWithoutCommands()
+    {
+        var state = State([Group(Base, Description, "a.com")], [Rule(Base, "Proxy0", reject: true)]);
+
+        var plan = Plan([Target(Provisioned(), "a.com")], state);
+
+        Assert.Empty(plan.Commands);
+        Assert.True(plan.Outcomes[0].Exclusive);
+    }
+
+    /// <summary>
+    ///     Явная просьба из FlowGate меняет флаг пересозданием правила с сохранением выключенности
+    /// </summary>
+    [Fact]
+    public void Plan_RequestedExclusive_RecreatesRuleKeepingDisabled()
+    {
+        var state = State([Group(Base, Description, "a.com")], [Rule(Base, "Proxy0", disabled: true)]);
+
+        var plan = Plan([Target(Provisioned() with { RequestedExclusive = true }, "a.com")], state);
+
+        Assert.Equal(
+            [
+                "no dns-proxy route object-group fg-youtube Proxy0",
+                "dns-proxy route object-group fg-youtube Proxy0 auto reject",
+                "dns-proxy route disable",
+            ],
+            plan.Commands);
+        Assert.True(plan.Outcomes[0].Exclusive);
+        Assert.True(plan.Outcomes[0].Disabled);
+    }
+
+    /// <summary>
+    ///     Части группы выравниваются по флагу основной
+    /// </summary>
+    [Fact]
+    public void Plan_PartRejectDiffers_AlignsWithBase()
+    {
+        var state = State(
+            [Group(Base, Description, "a.com", "b.com"), Group("fg-youtube-2", Description + " 2", "c.com")],
+            [Rule(Base, "Proxy0", reject: true), Rule("fg-youtube-2", "Proxy0")]);
+
+        var plan = DnsRoutePlanner.Plan([Target(Provisioned(), "a.com", "b.com", "c.com")], state, NoRecreated, 2);
+
+        Assert.Equal(
+            ["no dns-proxy route object-group fg-youtube-2 Proxy0", "dns-proxy route object-group fg-youtube-2 Proxy0 auto reject"],
+            plan.Commands);
+    }
+
+    /// <summary>
+    ///     Смена интерфейса переносит эксклюзивность
+    /// </summary>
+    [Fact]
+    public void Plan_InterfaceChanged_KeepsExclusive()
+    {
+        var state = State([Group(Base, Description, "a.com")], [Rule(Base, "Proxy0", reject: true)]);
+        var target = Target(Provisioned(), "a.com") with { InterfaceName = "Wireguard0" };
+
+        var plan = Plan([target], state);
+
+        Assert.Equal(
+            ["no dns-proxy route object-group fg-youtube Proxy0", "dns-proxy route object-group fg-youtube Wireguard0 auto reject"],
+            plan.Commands);
+    }
+
+    /// <summary>
+    ///     После <c>flowgate cleanup</c> маршрут создаётся с прежней эксклюзивностью
+    /// </summary>
+    [Fact]
+    public void Plan_AfterCleanup_RestoresExclusive()
+    {
+        var plan = Plan([Target(Route() with { Exclusive = true, LastKnownDisabled = true }, "a.com")], NdmsDnsState.Empty);
+
+        Assert.Equal(["dns-proxy route object-group fg-youtube Proxy0 auto reject", "dns-proxy route disable"], plan.Commands.TakeLast(2));
+    }
+
+    /// <summary>
     ///     Больше лимита — части <c>-2</c>, <c>-3</c>, у каждой правило с флагом основной
     /// </summary>
     [Fact]
@@ -302,7 +393,8 @@ public sealed class DnsRoutePlannerTests
 
     private static NdmsGroup Group(string name, string description, params string[] entries) => new(name, description, entries);
 
-    private static NdmsRoute Rule(string group, string interfaceName, bool disabled = false) => new(group, interfaceName, true, disabled);
+    private static NdmsRoute Rule(string group, string interfaceName, bool disabled = false, bool reject = false) =>
+        new(group, interfaceName, true, disabled, reject);
 
     private static NdmsDnsState State(IReadOnlyList<NdmsGroup> groups, IReadOnlyList<NdmsRoute> routes) =>
         new(groups.ToDictionary(group => group.Name, StringComparer.Ordinal), routes);

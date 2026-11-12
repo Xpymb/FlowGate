@@ -2490,6 +2490,11 @@
               "string"
             ],
             "description": "Фильтр `attr` / `!attr` или null"
+          },
+          "exclusive": {
+            "type": "boolean",
+            "description": "Эксклюзивный маршрут: трафик списка идёт только через соединение, при его недоступности блокируется",
+            "default": false
           }
         },
         "description": "Создание маршрута"
@@ -2506,6 +2511,7 @@
           "interfaceName",
           "groupName",
           "state",
+          "exclusive",
           "lastApply",
           "createdAt",
           "updatedAt"
@@ -2564,6 +2570,10 @@
             "type": "string",
             "description": "`Pending` — ещё не создан в Keenetic, `Enabled`, `Disabled`"
           },
+          "exclusive": {
+            "type": "boolean",
+            "description": "Эксклюзивный маршрут: трафик к доменам списка идёт только через соединение, при его недоступности блокируется"
+          },
           "lastApply": {
             "oneOf": [
               {
@@ -2604,9 +2614,16 @@
               "string"
             ],
             "description": "Фильтр или null"
+          },
+          "exclusive": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Эксклюзивный маршрут; null — не менять"
           }
         },
-        "description": "Изменение маршрута: соединение и фильтр. Список и источник не меняются — для этого создайте новый маршрут"
+        "description": "Изменение маршрута: соединение, фильтр и эксклюзивность. Список и источник не меняются — для этого создайте новый маршрут"
       },
       "DomainListPreviewDto": {
         "required": [

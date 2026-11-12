@@ -225,6 +225,21 @@ public sealed partial class FakeKeeneticRci
     }
 
     /// <summary>
+    ///     Ставит или снимает флаг «эксклюзивный», как пользователь галочкой в веб-интерфейсе
+    /// </summary>
+    /// <param name="group">Группа</param>
+    /// <param name="interfaceName">Интерфейс</param>
+    /// <param name="reject">Эксклюзивное</param>
+    public void SetRouteReject(string group, string interfaceName, bool reject)
+    {
+        lock (_sync)
+        {
+            var index = _routes.FindIndex(route => route.Group == group && route.Interface == interfaceName);
+            _routes[index] = _routes[index] with { Reject = reject };
+        }
+    }
+
+    /// <summary>
     ///     Забывает отправленные команды
     /// </summary>
     public void ClearCommands()
@@ -306,6 +321,11 @@ public sealed partial class FakeKeeneticRci
             if (route.Disabled)
             {
                 node["disable"] = true;
+            }
+
+            if (route.Reject)
+            {
+                node["reject"] = true;
             }
 
             all.Add(node);
@@ -452,7 +472,7 @@ public sealed partial class FakeKeeneticRci
             return false;
         }
 
-        _lastCreatedRoute = new FakeDnsRoute(groupName, interfaceName, route.Groups["auto"].Success, false);
+        _lastCreatedRoute = new FakeDnsRoute(groupName, interfaceName, route.Groups["auto"].Success, false, route.Groups["reject"].Success);
         _routes.Add(_lastCreatedRoute);
         return true;
     }
@@ -511,6 +531,6 @@ public sealed partial class FakeKeeneticRci
     [GeneratedRegex(@"^(?<no>no )?object-group fqdn (?<name>\S+)(?<rest>.*)$")]
     private static partial Regex GroupRegex();
 
-    [GeneratedRegex(@"^(?<no>no )?dns-proxy route object-group (?<group>\S+) (?<iface>\S+)(?<auto> auto)?$")]
+    [GeneratedRegex(@"^(?<no>no )?dns-proxy route object-group (?<group>\S+) (?<iface>\S+)(?<auto> auto)?(?<reject> reject)?$")]
     private static partial Regex RouteRegex();
 }

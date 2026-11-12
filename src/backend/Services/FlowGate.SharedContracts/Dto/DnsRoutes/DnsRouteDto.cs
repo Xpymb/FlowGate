@@ -13,6 +13,7 @@ namespace FlowGate.SharedContracts.Dto.DnsRoutes;
 /// <param name="InterfaceName">Интерфейс Keenetic соединения</param>
 /// <param name="GroupName">Основная группа в Keenetic</param>
 /// <param name="State"><c>Pending</c> — ещё не создан в Keenetic, <c>Enabled</c>, <c>Disabled</c></param>
+/// <param name="Exclusive">Эксклюзивный маршрут: трафик к доменам списка идёт только через соединение, при его недоступности блокируется</param>
 /// <param name="LastApply">Итог последнего применения или null</param>
 /// <param name="CreatedAt">Когда создан</param>
 /// <param name="UpdatedAt">Когда последний раз изменён</param>
@@ -27,6 +28,7 @@ public sealed record DnsRouteDto(
     string? InterfaceName,
     string GroupName,
     string State,
+    bool Exclusive,
     DnsRouteApplyDto? LastApply,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);

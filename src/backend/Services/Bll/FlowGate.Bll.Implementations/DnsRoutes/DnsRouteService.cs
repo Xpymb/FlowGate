@@ -142,7 +142,10 @@ public sealed class DnsRouteService : IDnsRouteService, IDisposable
             RequestedDisabled: null,
             LastApply: null,
             now,
-            now);
+            now)
+        {
+            Exclusive = request.Exclusive,
+        };
 
         await _routes.AddAsync(route, cancellationToken);
         _logger.LogInformation("Маршрут {RouteId}: список «{List}» ({Source}) → соединение {ConnectionId}", route.Id, listName, source.Name, route.ConnectionId);
@@ -166,7 +169,15 @@ public sealed class DnsRouteService : IDnsRouteService, IDisposable
 
         var updated = await _routes.UpdateAsync(
             id,
-            route => route with { ConnectionId = request.ConnectionId, AttributeFilter = filter, UpdatedAt = _timeProvider.GetUtcNow() },
+            route => route with
+            {
+                ConnectionId = request.ConnectionId,
+                AttributeFilter = filter,
+                RequestedExclusive = request.Exclusive is { } exclusive && exclusive != (route.RequestedExclusive ?? route.Exclusive)
+                    ? exclusive
+                    : route.RequestedExclusive,
+                UpdatedAt = _timeProvider.GetUtcNow(),
+            },
             cancellationToken) ?? throw new EntityNotFoundException(EntityName, id);
 
         RequestApply();
@@ -395,6 +406,8 @@ public sealed class DnsRouteService : IDnsRouteService, IDisposable
                             AppliedInterface = target.InterfaceName,
                             LastKnownDisabled = outcome.Disabled,
                             RequestedDisabled = null,
+                            Exclusive = outcome.Exclusive,
+                            RequestedExclusive = null,
                             LastApply = apply,
                         },
                         cancellationToken);

@@ -6,6 +6,7 @@
 	import { unwrap } from '#lib/api/errors.js';
 	import Badge from '#lib/components/Badge.svelte';
 	import Dialog from '#lib/components/Dialog.svelte';
+	import ListPreview from '#lib/components/ListPreview.svelte';
 	import Loadable from '#lib/components/Loadable.svelte';
 	import { formatDateTime } from '#lib/format.js';
 	import { trackJob } from '#lib/jobs.svelte.js';
@@ -35,6 +36,8 @@
 	let applying = $state(false);
 	let busy = $state<Record<string, boolean>>({});
 	let catalogTimer: ReturnType<typeof setTimeout> | undefined;
+	let viewOpen = $state(false);
+	let viewing = $state<Route>();
 
 	const selectedList = $derived(catalog.find((list) => list.name === form.listName));
 
@@ -83,6 +86,11 @@
 		};
 		editorOpen = true;
 		void loadCatalog();
+	}
+
+	function openView(route: Route) {
+		viewing = route;
+		viewOpen = true;
 	}
 
 	async function loadCatalog() {
@@ -251,6 +259,11 @@
 											{route.state === 'Disabled' ? 'Включить' : 'Выключить'}
 										</button>
 									{/if}
+									<button
+										class="secondary small"
+										disabled={!route.sourceName}
+										onclick={() => openView(route)}>Домены</button
+									>
 									<button class="secondary small" onclick={() => openEdit(route)}>Изменить</button>
 									<button class="danger small" onclick={() => remove(route)}>Удалить</button>
 								</td>
@@ -262,6 +275,20 @@
 		{/if}
 	{/snippet}
 </Loadable>
+
+<Dialog bind:open={viewOpen} title={`Список ${viewing?.listName ?? ''}`} wide>
+	{#if viewing}
+		<ListPreview
+			sourceId={viewing.sourceId}
+			listName={viewing.listName}
+			attrs={viewing.attributeFilter ?? ''}
+			editableFilter={false}
+		/>
+	{/if}
+	{#snippet actions()}
+		<button class="secondary" onclick={() => (viewOpen = false)}>Закрыть</button>
+	{/snippet}
+</Dialog>
 
 <Dialog bind:open={editorOpen} title={editing ? 'Маршрут' : 'Новый маршрут'}>
 	<div class="form">

@@ -40,6 +40,8 @@
 	let logFilter = $state('');
 	let checking = $state(false);
 	let logBox = $state<HTMLPreElement>();
+	/** Порядок журнала: новые строки сверху (по умолчанию) или снизу. Выбор помнит браузер. */
+	let newestFirst = $state(readOrder());
 
 	const xrayState = $derived(status.data ? label(xrayStates, status.data.state) : undefined);
 	const running = $derived(status.data?.state === 'Running' || status.data?.state === 'Starting');
@@ -47,20 +49,42 @@
 
 	// Живой журнал: перечитываем, пока вкладка открыта и включено слежение.
 	$effect(() => {
-		if (!follow || tab.value === 'releases') return;
+		if (!follow || tab.value !== 'log') return;
 		const timer = setInterval(() => void logs.reload(), 3000);
 		return () => clearInterval(timer);
 	});
 
-	// Новые строки — прокручиваем вниз, если пользователь и так внизу.
+	// Новые строки держим в поле зрения, если пользователь и так у края с новыми строками.
 	$effect(() => {
 		void logLines.length;
 		const box = logBox;
 		if (!box || !follow) return;
+		if (newestFirst) {
+			if (box.scrollTop < 80) void tick().then(() => (box.scrollTop = 0));
+			return;
+		}
 		const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
 		if (nearBottom || box.scrollTop === 0)
 			void tick().then(() => (box.scrollTop = box.scrollHeight));
 	});
+
+	function readOrder(): boolean {
+		try {
+			return localStorage.getItem('flowgate-log-order') !== 'oldest-first';
+		} catch {
+			return true;
+		}
+	}
+
+	function setOrder(value: boolean) {
+		newestFirst = value;
+		try {
+			if (value) localStorage.removeItem('flowgate-log-order');
+			else localStorage.setItem('flowgate-log-order', 'oldest-first');
+		} catch {
+			// без хранилища выбор живёт до перезагрузки
+		}
+	}
 
 	async function control(action: Action) {
 		if (action === 'stop') {
@@ -220,19 +244,27 @@
 </Loadable>
 
 <div class="tabs" role="tablist" aria-label="Разделы ядра">
-	<button role="tab" aria-selected={tab.value !== 'releases'} onclick={() => tab.set('')}>
-		<Icon name="log" size={16} />Журнал
-	</button>
-	<button role="tab" aria-selected={tab.value === 'releases'} onclick={() => tab.set('releases')}>
+	<button role="tab" aria-selected={tab.value !== 'log'} onclick={() => tab.set('')}>
 		<Icon name="download" size={16} />Версии
+	</button>
+	<button role="tab" aria-selected={tab.value === 'log'} onclick={() => tab.set('log')}>
+		<Icon name="log" size={16} />Журнал
 	</button>
 </div>
 
-{#if tab.value !== 'releases'}
+{#if tab.value === 'log'}
 	<div class="panel" role="tabpanel" aria-label="Журнал">
 		<div class="panel-head">
 			<SearchInput bind:value={logFilter} placeholder="Фильтр строк" label="Фильтр журнала" />
 			<div class="row right">
+				<div class="segmented" role="group" aria-label="Порядок строк">
+					<button aria-pressed={newestFirst} onclick={() => setOrder(true)}>
+						<Icon name="arrowUp" size={13} />Новые сверху
+					</button>
+					<button aria-pressed={!newestFirst} onclick={() => setOrder(false)}>
+						<Icon name="arrowDown" size={13} />Новые снизу
+					</button>
+				</div>
 				<label class="check small">
 					<input type="checkbox" bind:checked={follow} />
 					<span>Следить</span>
@@ -254,7 +286,8 @@
 		</div>
 		<Loadable resource={logs}>
 			{#snippet children(log)}
-				{@const lines = filterLines(log.lines)}
+				{@const filtered = filterLines(log.lines)}
+				{@const lines = newestFirst ? [...filtered].reverse() : filtered}
 				{#if lines.length === 0}
 					<EmptyState
 						bare

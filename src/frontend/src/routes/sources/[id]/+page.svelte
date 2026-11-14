@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -83,7 +84,8 @@
 	const localDirty = $derived(localIsNew ? !!localName.trim() : localText !== localOriginal);
 
 	$effect(() => {
-		void loadAll(id);
+		const current = id;
+		untrack(() => void loadAll(current));
 	});
 
 	$effect(() => onChange(['domain-sources', 'local-lists'], () => void loadAll(id)));

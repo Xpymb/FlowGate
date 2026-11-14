@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -55,8 +56,10 @@
 
 	guardUnsaved(() => dirty && !saving);
 
+	// Перезагрузка только при смене id: load() читает и пишет поля формы, их правка не должна её перезапускать.
 	$effect(() => {
-		void load(id);
+		const current = id;
+		untrack(() => void load(current));
 	});
 
 	async function load(current: string) {
@@ -196,9 +199,6 @@
 	{/snippet}
 	{#snippet actions()}
 		{#if !loading && !loadError}
-			<button class="btn" aria-busy={validating} onclick={validate}>
-				<Icon name="check" size={16} />Проверить конфигурацию
-			</button>
 			{#if server && editable}
 				<Menu
 					small={false}
@@ -279,6 +279,9 @@
 							<Badge tone="danger" dot>есть ошибки</Badge>
 						{/if}
 					{/if}
+					<button class="btn sm" aria-busy={validating} onclick={validate}>
+						<Icon name="check" size={14} />Проверить конфигурацию
+					</button>
 				</header>
 				<div class="panel-body editor-body">
 					<p class="muted small">

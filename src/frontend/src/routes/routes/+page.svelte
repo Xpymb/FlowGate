@@ -85,6 +85,8 @@
 		)
 	);
 	const visibleIds = $derived(visible.map((route) => route.id));
+	/** Источник показываем под списком, только если маршруты берут списки из разных источников. */
+	const showSources = $derived(new Set(all.map((route) => route.sourceId)).size > 1);
 	const selectedRoutes = $derived(all.filter((route) => selection.has(route.id)));
 
 	$effect(() => {
@@ -415,7 +417,8 @@
 									/>
 								</th>
 								<th class="switch-cell"><span class="visually-hidden">Правило</span></th>
-								<th>Маршрут</th>
+								<th>Список</th>
+								<th>Соединение</th>
 								<th>Группа Keenetic</th>
 								<th>Применение</th>
 								<th class="actions-cell"><span class="visually-hidden">Действия</span></th>
@@ -450,30 +453,42 @@
 										/>
 									</td>
 									<td>
-										<div class="path">
-											<button class="list" onclick={() => openEdit(route)}>
-												<span class="mono">{route.listName}</span>
-												{#if route.attributeFilter}<span class="attr">@{route.attributeFilter}</span
+										<button
+											class="list"
+											title="Источник: {route.sourceName ?? 'удалён'}"
+											onclick={() => openEdit(route)}
+										>
+											{route.listName}{#if route.attributeFilter}<span class="attr"
+													>@{route.attributeFilter}</span
+												>{/if}
+										</button>
+										{#if route.state === 'Pending' || !route.sourceName || showSources}
+											<div class="sub">
+												{#if route.state === 'Pending'}<span class="pending"
+														>{routeState.label}</span
 													>{/if}
-											</button>
-											<span class="arrow" aria-label="через"
-												><Icon name="arrowRight" size={14} /></span
-											>
-											{#if route.connectionName}
-												<span class="conn">{route.connectionName}</span>
-											{:else}
-												<Badge tone="danger">соединение удалено</Badge>
-											{/if}
-										</div>
-										<div class="sub">
-											{#if route.state === 'Pending'}<span class="pending">{routeState.label}</span> ·
-											{/if}{route.sourceName ?? 'источник удалён'}
-											{#if route.interfaceName}· <span class="mono">{route.interfaceName}</span
-												>{/if}
-											{#if route.exclusive}· <span
-													title="При недоступности соединения трафик блокируется">эксклюзивный</span
-												>{/if}
-										</div>
+												{#if !route.sourceName}<span class="error-text">источник удалён</span>
+												{:else if showSources}{route.state === 'Pending'
+														? ' · '
+														: ''}{route.sourceName}{/if}
+											</div>
+										{/if}
+									</td>
+									<td>
+										{#if route.connectionName}
+											<span class="conn" title="Интерфейс Keenetic: {route.interfaceName ?? '—'}">
+												{route.connectionName}
+												{#if route.exclusive}
+													<Badge
+														tone="accent"
+														title="При недоступности соединения трафик блокируется, а не идёт напрямую"
+														>эксклюзивный</Badge
+													>
+												{/if}
+											</span>
+										{:else}
+											<Badge tone="danger">соединение удалено</Badge>
+										{/if}
 									</td>
 									<td><Copyable value={route.groupName} /></td>
 									<td>
@@ -523,7 +538,7 @@
 								</tr>
 							{:else}
 								<tr>
-									<td colspan="6">
+									<td colspan="7">
 										<EmptyState
 											bare
 											icon="search"
@@ -692,49 +707,34 @@
 		color: var(--warn);
 	}
 
-	.path {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		flex-wrap: wrap;
-	}
-
 	.list {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		padding: 2px 8px;
-		border-radius: 5px;
-		background: var(--hover);
 		color: var(--ink);
-		font-weight: 500;
+		font-size: 14.5px;
+		font-weight: 600;
+		text-align: left;
 	}
 
 	.list:hover {
-		background: var(--accent-soft);
 		color: var(--accent-text);
 	}
 
 	.attr {
+		margin-left: 6px;
 		color: var(--muted);
 		font-family: var(--mono);
 		font-size: 12px;
-	}
-
-	.arrow {
-		display: inline-flex;
-		color: var(--accent);
+		font-weight: 400;
 	}
 
 	.conn {
-		font-weight: 500;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		color: var(--ink-2);
 	}
 
-	tr.off .path {
-		opacity: 0.6;
-	}
-
-	tr.off .arrow {
+	tr.off .list,
+	tr.off .conn {
 		color: var(--faint);
 	}
 

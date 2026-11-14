@@ -140,7 +140,7 @@
 	async function remove(item: Subscription) {
 		const ok = await ask({
 			title: `Удалить подписку «${item.displayName}»?`,
-			message: `Вместе с ней удалятся её серверы (${item.serverCount}). Соединения через них перестанут работать.`,
+			message: `Будут удалены серверы подписки (${item.serverCount}). Соединения, использующие их, перестанут работать.`,
 			action: 'Удалить',
 			danger: true
 		});
@@ -170,7 +170,7 @@
 
 <PageHeader
 	title="Подписки"
-	description="Ссылки провайдеров, из которых FlowGate сам получает и обновляет серверы."
+	description="Подписки провайдеров для автоматического получения и обновления серверов."
 >
 	{#snippet actions()}
 		<button class="btn primary" onclick={openCreate} title="Клавиша N">
@@ -184,8 +184,8 @@
 		{#if list.length === 0}
 			<EmptyState
 				icon="subscription"
-				title="Подписок пока нет"
-				text="Вставьте адрес подписки провайдера — серверы появятся сами и будут обновляться по расписанию."
+				title="Нет подписок"
+				text="Добавьте адрес подписки провайдера. Серверы будут загружены и будут обновляться по расписанию."
 			>
 				<button class="btn primary" onclick={openCreate}>Добавить подписку</button>
 			</EmptyState>
@@ -280,11 +280,11 @@
 								</div>
 							{/if}
 							<div>
-								<span class="fact-label">Обновлена</span>
+								<span class="fact-label">Последнее обновление</span>
 								<span class="fact-value">{formatDateTime(last?.at)}</span>
 							</div>
 							<div>
-								<span class="fact-label">Следующее</span>
+								<span class="fact-label">Следующее обновление</span>
 								<span class="fact-value">
 									{item.autoUpdate ? formatDateTime(item.nextRefreshAt) : 'вручную'}
 									{#if item.autoUpdate}<span class="muted small">
@@ -305,7 +305,7 @@
 						{/if}
 					</article>
 				{:else}
-					<EmptyState icon="search" title="Ничего не нашлось" text="Измените запрос поиска.">
+					<EmptyState icon="search" title="Ничего не найдено">
 						<button class="btn" onclick={() => query.set('')}>Сбросить поиск</button>
 					</EmptyState>
 				{/each}
@@ -318,27 +318,27 @@
 	bind:open={editorOpen}
 	variant="side"
 	title={editingId ? 'Подписка' : 'Новая подписка'}
-	description={editingId ? undefined : 'Серверы загрузятся сразу после сохранения.'}
+	description={editingId ? undefined : 'Загрузка серверов начнётся после сохранения.'}
 	onsubmit={save}
 >
 	<div class="form">
 		<Field
 			label="Адрес подписки"
-			hint="Содержит ваш токен доступа — не показывайте его посторонним."
+			hint="Содержит токен доступа. Не передавайте адрес третьим лицам."
 		>
 			<input bind:value={form.url} placeholder="https://…" type="url" spellcheck="false" />
 		</Field>
-		<Field label="Имя" hint="Пусто — возьмём имя, которое сообщает провайдер.">
-			<input bind:value={form.name} placeholder="Например, Мой VPN" />
+		<Field label="Имя" hint="По умолчанию используется имя, переданное провайдером.">
+			<input bind:value={form.name} placeholder="Имя провайдера" />
 		</Field>
 		<label class="check">
 			<input type="checkbox" bind:checked={form.autoUpdate} />
 			<span>Обновлять по расписанию</span>
 		</label>
 		{#if form.autoUpdate}
-			<Field label="Как часто">
+			<Field label="Интервал обновления">
 				<select bind:value={form.interval}>
-					<option value="">как советует провайдер или по умолчанию</option>
+					<option value="">по данным провайдера или по умолчанию</option>
 					{#each intervalOptions(form.interval) as hours (hours)}
 						<option value={hours.toString()}>раз в {hoursLabel(hours)}</option>
 					{/each}
@@ -348,25 +348,26 @@
 
 		<button class="disclosure" aria-expanded={advanced} onclick={() => (advanced = !advanced)}>
 			<Icon name={advanced ? 'chevronDown' : 'chevronRight'} size={16} />
-			Для требовательных провайдеров
+			Дополнительные параметры
 		</button>
 		{#if advanced}
 			<Field
 				label="User-Agent"
-				hint="Некоторые провайдеры отдают Xray-JSON только клиентам вроде Happ."
+				hint="Некоторые провайдеры возвращают Xray-JSON только определённым клиентам (например, Happ)."
 			>
 				<input bind:value={form.userAgent} placeholder="FlowGate/<версия>" />
 			</Field>
 			<label class="check">
 				<input type="checkbox" bind:checked={form.sendHwid} />
 				<span
-					>Отправлять x-hwid<span class="hint">Идентификатор устройства для лимита устройств</span
+					>Отправлять x-hwid<span class="hint"
+						>Идентификатор устройства для ограничения числа устройств</span
 					></span
 				>
 			</label>
 			<label class="check">
 				<input type="checkbox" bind:checked={form.sendDeviceInfo} />
-				<span>Сообщать модель и версию роутера</span>
+				<span>Передавать модель и версию роутера</span>
 			</label>
 		{/if}
 	</div>

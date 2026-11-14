@@ -226,7 +226,9 @@
 								}
 							})
 						),
-			target ? 'Маршрут изменён, применяем в Keenetic' : 'Маршрут создан, применяем в Keenetic'
+			target
+				? 'Маршрут сохранён. Выполняется применение в Keenetic'
+				: 'Маршрут создан. Выполняется применение в Keenetic'
 		);
 		saving = false;
 		if (!saved) return;
@@ -279,7 +281,7 @@
 		for (const route of list) pending[route.id] = enabled;
 		let done = 0;
 		for (const route of list) if (await setEnabled(route, enabled)) done++;
-		if (done > 0) notify('ok', `${enabled ? 'Включаем' : 'Выключаем'} правила: ${done}`);
+		if (done > 0) notify('ok', `${enabled ? 'Включено' : 'Выключено'} правил: ${done}`);
 		await afterChange();
 		for (const route of list) delete pending[route.id];
 		bulkBusy = false;
@@ -290,8 +292,8 @@
 		const ok = await ask({
 			title: one ? `Удалить маршрут «${list[0].listName}»?` : `Удалить маршруты: ${list.length}?`,
 			message: one
-				? `Группа ${list[0].groupName} и правило удалятся из Keenetic, сайты списка пойдут напрямую.`
-				: 'Их группы и правила удалятся из Keenetic, сайты этих списков пойдут напрямую.',
+				? `Группа ${list[0].groupName} и правило будут удалены из Keenetic. Трафик к доменам списка пойдёт напрямую.`
+				: 'Группы и правила будут удалены из Keenetic. Трафик к доменам этих списков пойдёт напрямую.',
 			action: 'Удалить',
 			danger: true
 		});
@@ -327,14 +329,14 @@
 
 <PageHeader
 	title="DNS-маршруты"
-	description="Маршрут направляет сайты одного списка в соединение: FlowGate создаёт в Keenetic группу доменов и правило на интерфейс."
+	description="Маршрут направляет трафик к доменам списка через соединение. В Keenetic создаются группа доменов и правило DNS-маршрута."
 >
 	{#snippet actions()}
 		<button
 			class="btn"
 			aria-busy={applying}
 			onclick={applyAll}
-			title="Пересоздать группы и правила в Keenetic"
+			title="Синхронизировать группы и правила с Keenetic"
 		>
 			<Icon name="refresh" size={16} />Применить все
 		</button>
@@ -355,19 +357,19 @@
 			{#if noConnections}
 				<EmptyState
 					icon="plug"
-					title="Сначала создайте соединение"
-					text="Маршрут направляет сайты в соединение. Создайте его, а затем возвращайтесь сюда."
+					title="Нет соединений"
+					text="Для создания маршрута требуется соединение."
 				>
 					<a class="btn primary" href={resolve('/connections')}>К соединениям</a>
 				</EmptyState>
 			{:else}
 				<EmptyState
 					icon="route"
-					title="Маршрутов пока нет"
-					text="Выберите список сайтов — например, youtube из источника v2fly — и соединение, через которое их пустить."
+					title="Нет маршрутов"
+					text="Маршрут связывает список доменов из источника с соединением."
 				>
 					<button class="btn primary" onclick={() => openCreate()}>Создать маршрут</button>
-					<a class="btn" href={resolve('/sources')}>Посмотреть списки</a>
+					<a class="btn" href={resolve('/sources')}>Источники списков</a>
 				</EmptyState>
 			{/if}
 		{:else}
@@ -393,7 +395,7 @@
 							aria-pressed={stateFilter.value === 'issues'}
 							onclick={() => stateFilter.set('issues')}
 						>
-							Требуют внимания <span class="num">{counts.issues}</span>
+							С ошибками <span class="num">{counts.issues}</span>
 						</button>
 					{/if}
 				</div>
@@ -412,7 +414,7 @@
 										onchange={() => selection.toggleAll(visibleIds)}
 									/>
 								</th>
-								<th>Куда идут сайты</th>
+								<th>Маршрут</th>
 								<th>Группа Keenetic</th>
 								<th>Применение</th>
 								<th>Правило</th>
@@ -454,7 +456,7 @@
 											{#if route.interfaceName}· <span class="mono">{route.interfaceName}</span
 												>{/if}
 											{#if route.exclusive}· <span
-													title="Если соединение недоступно, сайты блокируются">эксклюзивный</span
+													title="При недоступности соединения трафик блокируется">эксклюзивный</span
 												>{/if}
 										</div>
 									</td>
@@ -470,7 +472,7 @@
 												<div class="sub">{warning}</div>
 											{/each}
 										{:else}
-											<span class="faint">ещё не применялся</span>
+											<span class="faint">не применялся</span>
 										{/if}
 									</td>
 									<td>
@@ -523,8 +525,8 @@
 										<EmptyState
 											bare
 											icon="search"
-											title="Ничего не нашлось"
-											text="Под поиск и фильтр не подходит ни один маршрут."
+											title="Ничего не найдено"
+											text="Нет маршрутов, соответствующих условиям."
 										>
 											<button
 												class="btn"
@@ -542,7 +544,7 @@
 				</div>
 			</div>
 			<p class="muted small note">
-				Правило, выключенное вручную в Keenetic, FlowGate сам не включит — включите его здесь.
+				Правила, отключённые вручную в Keenetic, автоматически не включаются.
 			</p>
 		{/if}
 	{/snippet}
@@ -560,7 +562,7 @@
 <Dialog
 	bind:open={viewOpen}
 	title="Список {viewing?.listName ?? ''}"
-	description="Что уходит в Keenetic по этому маршруту"
+	description="Элементы, передаваемые в Keenetic"
 	size="lg"
 >
 	{#if viewing}
@@ -581,13 +583,13 @@
 	variant="side"
 	title={editing ? `Маршрут ${editing.listName}` : 'Новый маршрут'}
 	description={editing
-		? 'Список и источник не меняются — для другого списка создайте новый маршрут.'
-		: 'Какие сайты и через какое соединение пускать.'}
+		? 'Список и источник изменить нельзя. Для другого списка создайте новый маршрут.'
+		: 'Список доменов и соединение для маршрутизации.'}
 	onsubmit={save}
 >
 	<div class="form">
 		<div class="step">
-			<span class="step-title">Какие сайты</span>
+			<span class="step-title">Список доменов</span>
 			<Field label="Источник">
 				<select bind:value={form.sourceId} disabled={!!editing} onchange={loadCatalog}>
 					{#each sources.data ?? [] as source (source.id)}
@@ -597,7 +599,7 @@
 			</Field>
 			<Field
 				label="Список"
-				hint={editing ? undefined : 'Начните вводить — подскажем из каталога источника.'}
+				hint={editing ? undefined : 'Варианты подставляются из каталога источника.'}
 			>
 				<input
 					bind:value={form.listName}
@@ -626,20 +628,20 @@
 							{/if}
 						</div>
 					{:else if form.listName.trim() && !catalogLoading && !editing}
-						<span class="hint warn-text">Такого списка в источнике нет — проверьте имя.</span>
+						<span class="hint warn-text">Список не найден в источнике.</span>
 					{/if}
 				{/snippet}
 			</Field>
 			<Field
 				label="Фильтр атрибутов"
-				hint="Необязательно: ads — только строки с @ads, !ads — без них."
+				hint="Необязательно. ads — только строки с @ads, !ads — все, кроме них."
 			>
 				<input bind:value={form.attributeFilter} placeholder="без фильтра" spellcheck="false" />
 			</Field>
 		</div>
 
 		<div class="step">
-			<span class="step-title">Через какое соединение</span>
+			<span class="step-title">Соединение</span>
 			<div class="choices">
 				{#each connections.data ?? [] as connection (connection.id)}
 					<label class="choice" class:selected={form.connectionId === connection.id}>
@@ -657,8 +659,8 @@
 				<span>
 					Эксклюзивный маршрут
 					<span class="hint"
-						>Сайты идут только через это соединение; если оно недоступно — блокируются, а не идут
-						напрямую.</span
+						>Трафик направляется только через выбранное соединение. При его недоступности трафик
+						блокируется.</span
 					>
 				</span>
 			</label>

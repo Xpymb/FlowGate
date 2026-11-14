@@ -32,7 +32,7 @@
 		{
 			value: 'Wireguard',
 			title: 'WireGuard',
-			text: 'Переносит UDP: QUIC, звонки, игры. Лучший выбор.'
+			text: 'Поддержка TCP и UDP (QUIC, VoIP). Рекомендуется.'
 		},
 		{ value: 'Socks', title: 'SOCKS5', text: 'Интерфейс Proxy, только TCP.' },
 		{ value: 'Http', title: 'HTTP', text: 'Интерфейс Proxy, только TCP.' }
@@ -100,7 +100,7 @@
 	async function remove(item: Connection) {
 		const ok = await ask({
 			title: `Удалить соединение «${item.name}»?`,
-			message: `Интерфейс ${item.interfaceName} удалится из Keenetic, маршруты через него перестанут работать.`,
+			message: `Интерфейс ${item.interfaceName} будет удалён из Keenetic. Маршруты через это соединение перестанут работать.`,
 			action: 'Удалить',
 			danger: true
 		});
@@ -115,7 +115,7 @@
 
 <PageHeader
 	title="Соединения"
-	description="Каждое соединение — вход Xray и свой интерфейс Keenetic. На него DNS-маршруты направляют трафик выбранных сайтов."
+	description="Соединение связывает входящий порт Xray с интерфейсом Keenetic. DNS-маршруты направляют трафик на эти интерфейсы."
 >
 	{#snippet actions()}
 		<button class="btn primary" disabled={noServers} onclick={openCreate} title="Клавиша N">
@@ -130,8 +130,8 @@
 			{#if noServers}
 				<EmptyState
 					icon="server"
-					title="Сначала нужен сервер"
-					text="Соединение выпускает трафик через сервер Xray. Добавьте сервер или подписку, затем возвращайтесь."
+					title="Нет серверов"
+					text="Для создания соединения требуется сервер Xray. Добавьте сервер или подписку."
 				>
 					<a class="btn primary" href={resolve('/servers')}>К серверам</a>
 					<a class="btn" href={resolve('/subscriptions?new=1')}>Добавить подписку</a>
@@ -139,8 +139,8 @@
 			{:else}
 				<EmptyState
 					icon="plug"
-					title="Соединений пока нет"
-					text="Создайте соединение — в Keenetic появится интерфейс, на который можно направлять сайты."
+					title="Нет соединений"
+					text="Для каждого соединения в Keenetic создаётся интерфейс, на который ссылаются DNS-маршруты."
 				>
 					<button class="btn primary" onclick={openCreate}>Создать соединение</button>
 				</EmptyState>
@@ -177,7 +177,7 @@
 										<div class="sub">
 											{connectionKinds[item.kind] ?? item.kind}
 											{#if !item.supportsUdp}
-												· <span title="QUIC, звонки и игры через это соединение не пройдут"
+												· <span title="QUIC и VoIP через это соединение не поддерживаются"
 													>только TCP</span
 												>
 											{/if}
@@ -200,7 +200,7 @@
 										<Badge tone={state.tone} dot>{state.label}</Badge>
 										{#if item.kind === 'Wireguard' && item.interface?.lastHandshakeSecondsAgo != null}
 											<div class="sub">
-												рукопожатие {item.interface.lastHandshakeSecondsAgo} с назад
+												последнее рукопожатие: {item.interface.lastHandshakeSecondsAgo} с назад
 											</div>
 										{/if}
 									</td>
@@ -210,7 +210,7 @@
 											items={[
 												{ label: 'Изменить', icon: 'edit', onclick: () => openEdit(item) },
 												{
-													label: 'Маршруты через него',
+													label: 'Связанные маршруты',
 													icon: 'route',
 													href: resolve(`/routes?q=${encodeURIComponent(item.name)}`)
 												},
@@ -233,7 +233,7 @@
 							{:else}
 								<tr>
 									<td colspan="5">
-										<EmptyState bare icon="search" title="Ничего не нашлось">
+										<EmptyState bare icon="search" title="Ничего не найдено">
 											<button class="btn" onclick={() => query.set('')}>Сбросить поиск</button>
 										</EmptyState>
 									</td>
@@ -251,14 +251,14 @@
 	bind:open={editorOpen}
 	variant="side"
 	title={editingId ? 'Соединение' : 'Новое соединение'}
-	description={editingId ? undefined : 'FlowGate создаст интерфейс в Keenetic и вход в Xray.'}
+	description={editingId ? undefined : 'Будут созданы интерфейс Keenetic и входящий порт Xray.'}
 	onsubmit={save}
 >
 	<div class="form">
-		<Field label="Имя" hint="Попадёт в описание интерфейса Keenetic. Без кавычек.">
-			<input bind:value={form.name} maxlength="64" placeholder="Например, YouTube" />
+		<Field label="Имя" hint="Используется в описании интерфейса Keenetic. Кавычки не допускаются.">
+			<input bind:value={form.name} maxlength="64" placeholder="YouTube" />
 		</Field>
-		<Field label="Тип" group hint={editingId ? 'Тип после создания не меняется.' : undefined}>
+		<Field label="Тип" group hint={editingId ? 'Тип нельзя изменить после создания.' : undefined}>
 			<div class="choices">
 				{#each kinds as kind (kind.value)}
 					<label
@@ -273,10 +273,7 @@
 				{/each}
 			</div>
 		</Field>
-		<Field
-			label="Сервер"
-			hint="Через него соединение выпускает трафик. Можно сменить в любой момент."
-		>
+		<Field label="Сервер" hint="Сервер Xray для исходящего трафика. Можно изменить в любой момент.">
 			<select bind:value={form.serverId}>
 				{#each servers.data ?? [] as server (server.id)}
 					<option value={server.id}>{server.name} — {server.protocol}</option>

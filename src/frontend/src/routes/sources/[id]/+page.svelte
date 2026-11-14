@@ -167,8 +167,8 @@
 			title: `Удалить источник «${source.name}»?`,
 			message:
 				Number(source.routeCount) > 0
-					? `На его списки ссылаются маршруты (${source.routeCount}) — они перестанут обновляться.`
-					: 'Загруженные списки удалятся вместе с ним.',
+					? `Маршруты, использующие списки источника (${source.routeCount}), перестанут обновляться.`
+					: 'Загруженные списки будут удалены.',
 			action: 'Удалить',
 			danger: true
 		});
@@ -225,7 +225,7 @@
 		if (localDirty) {
 			const ok = await ask({
 				title: 'Закрыть без сохранения?',
-				message: 'Изменения в списке пропадут.',
+				message: 'Несохранённые изменения будут потеряны.',
 				action: 'Закрыть',
 				danger: true
 			});
@@ -239,7 +239,7 @@
 			title: `Удалить список «${name}»?`,
 			message: routed.has(name)
 				? 'Маршруты с этим списком перестанут обновляться.'
-				: 'Строки списка удалятся без возможности восстановления.',
+				: 'Действие необратимо.',
 			action: 'Удалить',
 			danger: true
 		});
@@ -292,12 +292,12 @@
 </PageHeader>
 
 {#if loadError}
-	<EmptyState icon="alert" title="Источник не открылся" text={errorMessage(loadError)}>
+	<EmptyState icon="alert" title="Не удалось загрузить источник" text={errorMessage(loadError)}>
 		<button class="btn" onclick={() => loadAll(id)}>Повторить</button>
 		<a class="btn" href={resolve('/sources')}>К источникам</a>
 	</EmptyState>
 {:else if !source}
-	<div class="panel loading" aria-busy="true">Загружаем источник…</div>
+	<div class="panel loading" aria-busy="true">Загрузка…</div>
 {:else}
 	{@const last = source.lastRefresh}
 	{@const status = label(refreshStatuses, last?.status)}
@@ -328,10 +328,12 @@
 				<span class="fact-value">
 					{#if last}<Badge tone={status.tone} dot>{status.label}</Badge>{/if}
 					<span class="muted small">
-						{last ? formatDateTime(last.at) : source.kind === 'Local' ? 'вручную' : 'ещё не было'}
-						{#if source.kind !== 'Local'}· {source.autoUpdate
-								? 'по расписанию'
-								: 'только вручную'}{/if}
+						{last
+							? formatDateTime(last.at)
+							: source.kind === 'Local'
+								? 'вручную'
+								: 'не выполнялось'}
+						{#if source.kind !== 'Local'}· {source.autoUpdate ? 'по расписанию' : 'вручную'}{/if}
 					</span>
 				</span>
 			</div>
@@ -344,9 +346,7 @@
 		{/if}
 		{#if last && last.errors.length > 0}
 			<details class="panel issues">
-				<summary
-					><Icon name="alert" size={16} />Ошибки в отдельных списках: {last.errors.length}</summary
-				>
+				<summary><Icon name="alert" size={16} />Ошибки в списках: {last.errors.length}</summary>
 				<ul class="error-text small">
 					{#each last.errors as error (error)}<li>{error}</li>{/each}
 				</ul>
@@ -356,7 +356,7 @@
 		{#if source.kind === 'Local'}
 			<section class="panel">
 				<div class="panel-head">
-					<h2>Свои списки</h2>
+					<h2>Локальные списки</h2>
 					<button class="btn sm primary" onclick={() => openLocal()}>
 						<Icon name="plus" size={14} />Новый список
 					</button>
@@ -365,8 +365,8 @@
 					<EmptyState
 						bare
 						icon="list"
-						title="Списков ещё нет"
-						text="Создайте список — например, telegram с адресами и доменами, которые нужно пустить через соединение."
+						title="Нет списков"
+						text="Создайте список доменов и IP-адресов для использования в маршрутах."
 					>
 						<button class="btn primary" onclick={() => openLocal()}>Создать список</button>
 					</EmptyState>
@@ -381,17 +381,17 @@
 								<span class="muted small num">{lineCount(list.text)} строк</span>
 								<span class="muted small">изменён {formatDateTime(list.updatedAt)}</span>
 								<span class="row end">
-									<button class="btn sm" onclick={() => openLocal(list)}>Править</button>
+									<button class="btn sm" onclick={() => openLocal(list)}>Изменить</button>
 									<Menu
 										ariaLabel="Действия со списком {list.name}"
 										items={[
 											{
-												label: 'Состав в Keenetic',
+												label: 'Состав',
 												icon: 'eye',
 												onclick: () => openPreview(list.name)
 											},
 											{
-												label: 'Направить в соединение',
+												label: 'Создать маршрут',
 												icon: 'route',
 												href: routeHref(list.name, '')
 											},
@@ -423,16 +423,16 @@
 				<EmptyState
 					bare
 					icon="download"
-					title="Источник ещё не загружен"
-					text="Загрузка идёт в фоне или завершилась ошибкой — смотрите состояние выше."
+					title="Источник не загружен"
+					text="Загрузка выполняется или завершилась с ошибкой. Состояние указано выше."
 				/>
 			{:else if lists === undefined}
-				<div class="panel-body muted">Загружаем каталог…</div>
+				<div class="panel-body muted">Загрузка…</div>
 			{:else if lists.length === 0}
 				<EmptyState
 					bare
 					icon="search"
-					title={query ? 'Таких списков нет' : 'В источнике нет списков'}
+					title={query ? 'Ничего не найдено' : 'В источнике нет списков'}
 				/>
 			{:else}
 				<div class="table-scroll">
@@ -486,7 +486,7 @@
 											</button>
 											<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- адрес уже собран через resolve() -->
 											<a class="btn sm" href={routeHref(list.name, '')}>
-												<Icon name="route" size={14} />В маршрут
+												<Icon name="route" size={14} />Создать маршрут
 											</a>
 										</div>
 									</td>
@@ -497,7 +497,7 @@
 				</div>
 				{#if lists.length > visibleLimit}
 					<p class="panel-body muted small">
-						Показаны первые {visibleLimit} из {lists.length}. Уточните поиск, чтобы найти нужный.
+						Показаны первые {visibleLimit} из {lists.length}. Уточните запрос.
 					</p>
 				{/if}
 			{/if}
@@ -510,7 +510,7 @@
 <Dialog
 	bind:open={previewOpen}
 	title="Список {previewName}"
-	description="Что уйдёт в Keenetic"
+	description="Элементы, передаваемые в Keenetic"
 	size="lg"
 >
 	<ListPreview sourceId={id} listName={previewName} bind:attrs={previewAttrs} />
@@ -518,7 +518,7 @@
 		<button class="btn" onclick={() => (previewOpen = false)}>Закрыть</button>
 		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- адрес уже собран через resolve() -->
 		<a class="btn primary" href={routeHref(previewName, previewAttrs)}>
-			<Icon name="route" size={16} />Направить в соединение
+			<Icon name="route" size={16} />Создать маршрут
 		</a>
 	{/snippet}
 </Dialog>

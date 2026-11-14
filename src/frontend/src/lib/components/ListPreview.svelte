@@ -67,7 +67,7 @@
 
 <div class="preview">
 	{#if editableFilter}
-		<Field label="Фильтр атрибутов" hint="Например ads — только строки с @ads, !ads — без него">
+		<Field label="Фильтр атрибутов" hint="ads — только строки с @ads, !ads — все, кроме них">
 			<input
 				value={attrs}
 				placeholder="без фильтра"
@@ -81,11 +81,11 @@
 	{#if error}
 		<p class="error-text">{errorMessage(error)}</p>
 	{:else if !preview}
-		<div class="stats loading" aria-busy="true">Считаем состав списка…</div>
+		<div class="stats loading" aria-busy="true">Загрузка состава списка…</div>
 	{:else}
 		<div class="stats">
 			<div>
-				<span class="value num">{preview.total}</span><span class="muted">всего в Keenetic</span>
+				<span class="value num">{preview.total}</span><span class="muted">всего элементов</span>
 			</div>
 			<div><span class="value num">{preview.domains}</span><span class="muted">доменов</span></div>
 			<div><span class="value num">{preview.ipv4}</span><span class="muted">IPv4</span></div>
@@ -94,7 +94,7 @@
 		{#if skipped > 0}
 			<p class="muted small">
 				Пропущено: keyword {preview.skippedKeyword}, regexp {preview.skippedRegexp}, некорректных
-				{preview.skippedInvalid} — Keenetic их не поддерживает.
+				{preview.skippedInvalid} — не поддерживаются Keenetic.
 			</p>
 		{/if}
 		<div class="row">
@@ -104,7 +104,7 @@
 				>{/if}
 		</div>
 		<pre class="entries">{found.join('\n') || 'Ничего не найдено'}</pre>
-		{#if preview.truncated}<p class="muted small">Показана часть элементов.</p>{/if}
+		{#if preview.truncated}<p class="muted small">Список отображается не полностью.</p>{/if}
 	{/if}
 </div>
 

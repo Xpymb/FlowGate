@@ -24,22 +24,22 @@
 		{
 			key: 'subscriptionDefault',
 			title: 'Обновление подписок',
-			hint: 'Если у подписки нет своего интервала и провайдер его не сообщает.'
+			hint: 'Применяется, если интервал не задан в подписке и не передан провайдером.'
 		},
 		{
 			key: 'domainSourceRefresh',
 			title: 'Обновление источников списков',
-			hint: 'Для источников с включённым обновлением по расписанию.'
+			hint: 'Для источников с включённым автообновлением.'
 		},
 		{
 			key: 'xrayUpdateCheck',
 			title: 'Проверка новых версий Xray',
-			hint: 'Только проверка — ставите вы.'
+			hint: 'Установка выполняется вручную.'
 		},
 		{
 			key: 'systemUpdateCheck',
 			title: 'Проверка новых версий FlowGate',
-			hint: 'Только проверка — обновление запускаете с обзора.'
+			hint: 'Установка выполняется вручную на странице «Обзор».'
 		}
 	];
 
@@ -134,10 +134,7 @@
 	}
 </script>
 
-<PageHeader
-	title="Настройки"
-	description="Как FlowGate загружает обновления и как часто их проверяет."
-/>
+<PageHeader title="Настройки" description="Параметры загрузки обновлений и расписание проверок." />
 
 <Loadable resource={settings} rows={6}>
 	{#snippet children(current)}
@@ -150,18 +147,23 @@
 					</header>
 					<div class="panel-body">
 						<p class="lead">
-							Подписки, источники списков, выпуски Xray и сам FlowGate скачиваются через отдельный
-							Xray с выбранным сервером — на случай, если GitHub или провайдер недоступны напрямую.
-							Он запускается при первой загрузке и гаснет после простоя, основной Xray не трогает.
-							Если прокси не отвечает, загрузка идёт напрямую.
+							Загрузка подписок, источников списков, выпусков Xray и обновлений FlowGate выполняется
+							через отдельный экземпляр Xray с выбранным сервером. Экземпляр запускается по
+							требованию и останавливается после периода простоя; основной Xray не затрагивается.
+							При недоступности прокси загрузка выполняется напрямую.
 						</p>
-						<Field label="Загружать через прокси" layout="split" group>
+						<Field label="Использовать прокси" layout="split" group>
 							<label class="check">
 								<input type="checkbox" bind:checked={form.proxyEnabled} />
 								<span>{form.proxyEnabled ? 'Включено' : 'Выключено'}</span>
 							</label>
 						</Field>
-						<Field label="Сервер" layout="split" hint="Через него пойдут загрузки." error={invalid}>
+						<Field
+							label="Сервер"
+							layout="split"
+							hint="Сервер для загрузки обновлений."
+							error={invalid}
+						>
 							<select bind:value={form.serverId} disabled={!form.proxyEnabled}>
 								<option value="">— не выбран —</option>
 								{#each servers.data ?? [] as server (server.id)}
@@ -172,9 +174,9 @@
 							</select>
 						</Field>
 						<Field
-							label="Свои домены"
+							label="Дополнительные домены"
 							layout="split"
-							hint="По одному в строке: example.com — с поддоменами, full:host — только этот хост. Хосты подписок и ссылок источников добавляются сами."
+							hint="По одному в строке: example.com — домен с поддоменами, full:host — только указанный хост. Хосты подписок и источников добавляются автоматически."
 						>
 							<textarea
 								bind:value={form.extraDomains}
@@ -198,7 +200,7 @@
 								{#if status.data.processId}
 									<span>pid <code>{status.data.processId}</code></span>
 									<span>запущен {formatDateTime(status.data.startedAt)}</span>
-									<span>загрузок сейчас: {status.data.activeRequests}</span>
+									<span>активных загрузок: {status.data.activeRequests}</span>
 								{/if}
 							</div>
 							{#if status.data.reason}<p class="error-text small">{status.data.reason}</p>{/if}
@@ -229,9 +231,9 @@
 					<header class="panel-head"><h2>Xray</h2></header>
 					<div class="panel-body">
 						<Field
-							label="Подробность журнала"
+							label="Уровень журналирования"
 							layout="split"
-							hint="При смене конфигурация пересобирается, Xray перезапускается — связь пропадёт на пару секунд."
+							hint="При изменении конфигурация пересобирается и Xray перезапускается, соединения кратковременно прерываются."
 						>
 							<select bind:value={form.xrayLogLevel}>
 								{#each current.xrayLogLevels as level (level)}

@@ -11,6 +11,7 @@ export function guardUnsaved(isDirty: () => boolean): void {
 			navigation.cancel();
 			return;
 		}
-		if (!window.confirm('Есть несохранённые изменения. Уйти без сохранения?')) navigation.cancel();
+		if (!window.confirm('Несохранённые изменения будут потеряны. Покинуть страницу?'))
+			navigation.cancel();
 	});
 }

@@ -47,7 +47,7 @@ export async function copyText(text: string, what = 'Скопировано'): P
 		await navigator.clipboard.writeText(text);
 		notify('ok', what);
 	} catch {
-		notify('error', 'Браузер не дал доступ к буферу обмена', 'Скопируйте вручную: ' + text);
+		notify('error', 'Нет доступа к буферу обмена', 'Скопируйте вручную: ' + text);
 	}
 }
 

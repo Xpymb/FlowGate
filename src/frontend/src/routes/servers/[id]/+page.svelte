@@ -150,7 +150,7 @@
 		if (!server) return;
 		const ok = await ask({
 			title: `Удалить сервер «${server.name}»?`,
-			message: 'Соединения, которые через него работают, перестанут пропускать трафик.',
+			message: 'Соединения, использующие этот сервер, перестанут работать.',
 			action: 'Удалить',
 			danger: true
 		});
@@ -186,7 +186,7 @@
 	{#snippet actions()}
 		{#if !loading && !loadError}
 			<button class="btn" aria-busy={validating} onclick={validate}>
-				<Icon name="check" size={16} />Проверить конфиг
+				<Icon name="check" size={16} />Проверить конфигурацию
 			</button>
 			{#if server && editable}
 				<Menu
@@ -200,9 +200,9 @@
 </PageHeader>
 
 {#if loading}
-	<div class="panel loading" aria-busy="true">Загружаем сервер…</div>
+	<div class="panel loading" aria-busy="true">Загрузка…</div>
 {:else if loadError}
-	<EmptyState icon="alert" title="Сервер не открылся" text={errorMessage(loadError)}>
+	<EmptyState icon="alert" title="Не удалось загрузить сервер" text={errorMessage(loadError)}>
 		<button class="btn" onclick={() => load(id)}>Повторить</button>
 		<a class="btn" href={resolve('/servers')}>К списку серверов</a>
 	</EmptyState>
@@ -213,19 +213,20 @@
 				<div class="note" role="note">
 					<Icon name="lock" size={16} />
 					<span>
-						Сервер пришёл из подписки и только для чтения: правки перезапишет следующее обновление.
+						Сервер получен из подписки и доступен только для чтения. Изменения будут перезаписаны
+						при следующем обновлении.
 					</span>
 				</div>
 			{/if}
 
 			{#if editable}
 				<section class="panel panel-body form">
-					<Field label="Имя" hint="Так сервер будет называться в списках и соединениях.">
-						<input bind:value={name} maxlength="128" placeholder="Например, Нидерланды" />
+					<Field label="Имя" hint="Отображается в списках и при выборе сервера.">
+						<input bind:value={name} maxlength="128" placeholder="Нидерланды" />
 					</Field>
 					<Field
-						label="Заполнить из ссылки"
-						hint="vless://, vmess://, trojan://, ss:// или Xray-JSON — заменит outbound ниже."
+						label="Импорт из ссылки"
+						hint="vless://, vmess://, trojan://, ss:// или Xray-JSON. Заменяет текущий outbound."
 					>
 						<div class="link">
 							<input
@@ -235,7 +236,7 @@
 								onkeydown={(event) => event.key === 'Enter' && fromLink()}
 							/>
 							<button class="btn" disabled={!link.trim()} aria-busy={parsing} onclick={fromLink}>
-								Разобрать
+								Применить
 							</button>
 						</div>
 					</Field>
@@ -256,7 +257,9 @@
 					{/if}
 				</header>
 				<div class="panel-body editor-body">
-					<p class="muted small">Без поля <code>tag</code> — его FlowGate назначает сам.</p>
+					<p class="muted small">
+						Поле <code>tag</code> не указывается: FlowGate назначает его автоматически.
+					</p>
 					<JsonEditor bind:value={text} readonly={!editable} label="Outbound Xray" />
 					{#if validation && !validation.valid}
 						<ul class="issues error-text">
@@ -265,7 +268,7 @@
 					{/if}
 					{#if validation?.valid && !validation.checkedByXray}
 						<p class="muted small">
-							Xray не установлен, поэтому проверены только поля — сам Xray конфиг не видел.
+							Xray не установлен: выполнена только проверка структуры, без проверки в Xray.
 						</p>
 					{/if}
 					{#if warnings.length > 0}
@@ -279,7 +282,7 @@
 
 		{#if server}
 			<aside class="panel panel-body side">
-				<h2>Сводка</h2>
+				<h2>Сведения</h2>
 				<dl class="props">
 					<dt>Протокол</dt>
 					<dd class="mono">{server.protocol}</dd>

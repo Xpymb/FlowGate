@@ -33,7 +33,7 @@
 		{#if invalid}
 			<span class="error-text">{invalid}</span>
 		{:else if dirty}
-			<span class="dot"></span>Есть несохранённые изменения
+			<span class="dot"></span>Несохранённые изменения
 		{:else}
 			<span class="muted">Изменений нет</span>
 		{/if}

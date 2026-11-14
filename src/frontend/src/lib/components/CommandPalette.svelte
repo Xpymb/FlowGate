@@ -38,7 +38,7 @@
 			id: 'a-apply',
 			group: 'Действия',
 			title: 'Применить все DNS-маршруты',
-			subtitle: 'Пересоздаёт группы и правила в Keenetic',
+			subtitle: 'Синхронизация групп и правил с Keenetic',
 			icon: 'route',
 			keywords: 'применить маршруты keenetic',
 			run: () => trackJob(api.POST('/api/dns-routes/apply'))
@@ -70,7 +70,7 @@
 		{
 			id: 'a-import',
 			group: 'Действия',
-			title: 'Импорт ссылок на серверы',
+			title: 'Импорт серверов',
 			icon: 'upload',
 			keywords: 'vless trojan ссылки импорт',
 			run: () => goto(resolve('/servers?import=1'))
@@ -86,8 +86,8 @@
 		{
 			id: 'a-theme',
 			group: 'Действия',
-			title: 'Сменить тему',
-			subtitle: 'Система → светлая → тёмная',
+			title: 'Переключить тему',
+			subtitle: 'Системная → светлая → тёмная',
 			icon: 'sun',
 			keywords: 'тема тёмная светлая',
 			run: cycleTheme
@@ -233,7 +233,7 @@
 			<input
 				bind:this={input}
 				bind:value={query}
-				placeholder="Раздел, сервер, маршрут или действие"
+				placeholder="Поиск разделов, объектов и команд"
 				role="combobox"
 				aria-expanded="true"
 				aria-controls="palette-results"
@@ -262,7 +262,7 @@
 					</button>
 				{/each}
 			{:else}
-				<p class="nothing">Ничего не найдено. Попробуйте другое слово.</p>
+				<p class="nothing">Ничего не найдено</p>
 			{/each}
 		</div>
 		<footer>

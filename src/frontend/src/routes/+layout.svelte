@@ -93,7 +93,7 @@
 		{#if session.unauthorized}
 			<div class="session" role="alert">
 				<Icon name="lock" size={16} />
-				<span>Сессия закончилась. Обновите страницу, чтобы войти снова.</span>
+				<span>Сессия истекла. Обновите страницу для повторного входа.</span>
 				<button class="btn sm" onclick={() => location.reload()}>Обновить</button>
 			</div>
 		{/if}

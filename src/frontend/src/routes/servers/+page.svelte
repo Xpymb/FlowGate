@@ -120,7 +120,7 @@
 	async function removeOne(server: Server) {
 		const ok = await ask({
 			title: `Удалить сервер «${server.name}»?`,
-			message: 'Соединения, которые через него работают, перестанут пропускать трафик.',
+			message: 'Соединения, использующие этот сервер, перестанут работать.',
 			action: 'Удалить',
 			danger: true
 		});
@@ -135,8 +135,8 @@
 			title: `Удалить серверы: ${list.length}?`,
 			message:
 				skipped > 0
-					? `Серверы из подписок (${skipped}) не удаляются — ими управляет подписка.`
-					: 'Соединения, которые через них работают, перестанут пропускать трафик.',
+					? `Серверы из подписок (${skipped}) будут пропущены: ими управляет подписка.`
+					: 'Соединения, использующие эти серверы, перестанут работать.',
 			action: 'Удалить',
 			danger: true
 		});
@@ -173,7 +173,7 @@
 
 <PageHeader
 	title="Серверы"
-	description="Узлы Xray, через которые соединения выпускают трафик. Добавляйте их вручную, ссылками или подпиской."
+	description="Серверы Xray для исходящего трафика соединений. Добавляются вручную, импортом ссылок или из подписок."
 >
 	{#snippet actions()}
 		<button class="btn" onclick={openImport}><Icon name="upload" size={16} />Импорт ссылок</button>
@@ -188,8 +188,8 @@
 		{#if list.length === 0}
 			<EmptyState
 				icon="server"
-				title="Серверов пока нет"
-				text="Вставьте ссылки vless://, trojan:// и другие — FlowGate разберёт их сам. Или добавьте подписку провайдера."
+				title="Нет серверов"
+				text="Импортируйте ссылки vless://, trojan:// и других протоколов или добавьте подписку провайдера."
 			>
 				<button class="btn primary" onclick={openImport}>Импортировать ссылки</button>
 				<a class="btn" href={resolve('/subscriptions?new=1')}>Добавить подписку</a>
@@ -267,7 +267,7 @@
 											ariaLabel="Действия с {server.name}"
 											items={[
 												{
-													label: manual ? 'Открыть и изменить' : 'Открыть',
+													label: manual ? 'Изменить' : 'Открыть',
 													icon: manual ? 'edit' : 'eye',
 													href: resolve('/servers/[id]', { id: server.id })
 												},
@@ -278,7 +278,7 @@
 												},
 												'separator',
 												{
-													label: manual ? 'Удалить' : 'Удаляется вместе с подпиской',
+													label: manual ? 'Удалить' : 'Управляется подпиской',
 													icon: 'trash',
 													danger: true,
 													disabled: !manual,
@@ -294,8 +294,8 @@
 										<EmptyState
 											bare
 											icon="search"
-											title="Ничего не нашлось"
-											text="Под поиск и фильтр не подходит ни один сервер."
+											title="Ничего не найдено"
+											text="Нет серверов, соответствующих условиям."
 										>
 											<button
 												class="btn"
@@ -335,12 +335,12 @@
 <Dialog
 	bind:open={importOpen}
 	title="Импорт серверов"
-	description="Ссылки по одной на строку, base64 от них или Xray-JSON с outbounds."
+	description="Ссылки по одной на строку, base64 или Xray-JSON с outbounds."
 	size="lg"
 	onsubmit={runImport}
 >
 	<div class="form">
-		<Field label="Ссылки" hint="Повторы пропускаются, ошибочные строки покажем ниже.">
+		<Field label="Ссылки" hint="Дубликаты пропускаются. Строки с ошибками отображаются ниже.">
 			<textarea
 				bind:value={importText}
 				placeholder="vless://…&#10;trojan://…&#10;ss://…"
@@ -351,7 +351,7 @@
 			<div class="result" role="status">
 				<div class="stats">
 					<span><b class="num">{importResult.added.length}</b> добавлено</span>
-					<span><b class="num">{importResult.skipped}</b> уже были</span>
+					<span><b class="num">{importResult.skipped}</b> дубликатов</span>
 					<span class:bad={importResult.rejected.length > 0}>
 						<b class="num">{importResult.rejected.length}</b> отклонено
 					</span>

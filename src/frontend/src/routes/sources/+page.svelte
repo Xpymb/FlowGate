@@ -56,7 +56,7 @@
 		saving = true;
 		const created = await attempt(
 			() => unwrap(api.POST('/api/domain-sources', { body: formToRequest(form) })),
-			'Источник добавлен, загрузка началась'
+			'Источник добавлен. Загрузка списков запущена'
 		);
 		saving = false;
 		if (!created) return;
@@ -78,8 +78,8 @@
 			title: `Удалить источник «${source.name}»?`,
 			message:
 				Number(source.routeCount) > 0
-					? `На его списки ссылаются маршруты (${source.routeCount}) — они перестанут обновляться.`
-					: 'Загруженные списки удалятся вместе с ним.',
+					? `Маршруты, использующие списки источника (${source.routeCount}), перестанут обновляться.`
+					: 'Загруженные списки будут удалены.',
 			action: 'Удалить',
 			danger: true
 		});
@@ -94,7 +94,7 @@
 
 <PageHeader
 	title="Источники списков"
-	description="Откуда берутся списки доменов и адресов для маршрутов: репозитории GitHub, файлы geosite/geoip или ваши собственные."
+	description="Источники списков доменов и IP-адресов для маршрутов: репозитории GitHub, файлы geosite/geoip и локальные списки."
 >
 	{#snippet actions()}
 		<button class="btn primary" onclick={openCreate} title="Клавиша N">
@@ -164,8 +164,8 @@
 										<div class="sub">{formatDateTime(last.at)}</div>
 										{#if last.error}<div class="error-text small">{last.error}</div>{/if}
 									{:else if source.kind === 'Local'}
-										<span class="faint">правится вручную</span>
-									{:else}<span class="faint">ещё не было</span>{/if}
+										<span class="faint">вручную</span>
+									{:else}<span class="faint">не выполнялось</span>{/if}
 								</td>
 								<td class="actions-cell">
 									<div class="row nowrap">
@@ -181,16 +181,13 @@
 											ariaLabel="Действия с {source.name}"
 											items={[
 												{
-													label:
-														source.kind === 'Local'
-															? 'Открыть и править списки'
-															: 'Открыть каталог',
+													label: source.kind === 'Local' ? 'Открыть' : 'Открыть каталог',
 													icon: 'list',
 													href: resolve('/sources/[id]', { id: source.id })
 												},
 												'separator',
 												{
-													label: source.builtIn ? 'Встроенный, не удаляется' : 'Удалить',
+													label: source.builtIn ? 'Встроенный источник' : 'Удалить',
 													icon: 'trash',
 													danger: true,
 													disabled: source.builtIn,
@@ -204,7 +201,7 @@
 						{:else}
 							<tr>
 								<td colspan="6">
-									<EmptyState bare icon="search" title="Ничего не нашлось">
+									<EmptyState bare icon="search" title="Ничего не найдено">
 										<button class="btn" onclick={() => query.set('')}>Сбросить поиск</button>
 									</EmptyState>
 								</td>
@@ -223,7 +220,7 @@
 	bind:open={createOpen}
 	variant="side"
 	title="Новый источник"
-	description="После сохранения FlowGate сразу загрузит списки."
+	description="Загрузка списков начнётся после сохранения."
 	onsubmit={create}
 >
 	<SourceFormFields bind:form editing={false} />

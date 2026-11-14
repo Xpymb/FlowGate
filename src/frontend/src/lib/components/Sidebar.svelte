@@ -29,10 +29,10 @@
 	const xrayState = $derived(xray.data ? label(xrayStates, xray.data.state) : undefined);
 	const themeTitle = $derived(
 		theme.mode === 'system'
-			? 'Тема как в системе'
+			? 'Тема: системная'
 			: theme.mode === 'light'
-				? 'Светлая тема'
-				: 'Тёмная тема'
+				? 'Тема: светлая'
+				: 'Тема: тёмная'
 	);
 
 	function readCollapsed(): Record<string, boolean> {
@@ -101,7 +101,7 @@
 					aria-expanded={expanded}
 					aria-controls="nav-{group.id}"
 					disabled={active}
-					title={active ? 'Раздел открыт: в нём текущая страница' : undefined}
+					title={active ? 'Содержит текущую страницу' : undefined}
 					onclick={() => toggleGroup(group.id)}
 				>
 					<Icon name={group.icon} />

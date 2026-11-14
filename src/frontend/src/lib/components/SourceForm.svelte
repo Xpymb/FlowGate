@@ -14,16 +14,20 @@
 		{ value: 'GitHubRepository', title: 'GitHub-репозиторий', text: 'Списки в формате v2fly' },
 		{ value: 'GeositeDat', title: 'geosite.dat', text: 'Файл доменов Xray' },
 		{ value: 'GeoipDat', title: 'geoip.dat', text: 'Файл адресов Xray' },
-		{ value: 'Local', title: 'Свои списки', text: 'Правятся прямо здесь' }
+		{ value: 'Local', title: 'Локальные списки', text: 'Редактируются в FlowGate' }
 	];
 </script>
 
 <div class="form">
 	<Field label="Имя">
-		<input bind:value={form.name} maxlength="64" placeholder="Например, v2fly community" />
+		<input bind:value={form.name} maxlength="64" placeholder="v2fly community" />
 	</Field>
 
-	<Field label="Вид" group hint={editing ? 'Вид источника после создания не меняется.' : undefined}>
+	<Field
+		label="Тип"
+		group
+		hint={editing ? 'Тип источника нельзя изменить после создания.' : undefined}
+	>
 		<div class="choices two">
 			{#each kinds as kind (kind.value)}
 				<label class="choice" class:selected={form.kind === kind.value} class:disabled={editing}>
@@ -42,17 +46,17 @@
 				placeholder="owner/repo или https://github.com/owner/repo"
 			/>
 		</Field>
-		<Field label="Ветка" hint="Пусто — ветка по умолчанию">
+		<Field label="Ветка" hint="По умолчанию — основная ветка репозитория">
 			<input bind:value={form.branch} placeholder="main" />
 		</Field>
 	{:else if isDat}
-		<Field label="Откуда брать файл" group>
+		<Field label="Расположение файла" group>
 			<div class="segmented">
 				<label class:selected={form.datMode === 'release'}>
-					<input type="radio" bind:group={form.datMode} value="release" /> Из релиза GitHub
+					<input type="radio" bind:group={form.datMode} value="release" /> Релиз GitHub
 				</label>
 				<label class:selected={form.datMode === 'url'}>
-					<input type="radio" bind:group={form.datMode} value="url" /> По прямой ссылке
+					<input type="radio" bind:group={form.datMode} value="url" /> Прямая ссылка
 				</label>
 			</div>
 		</Field>
@@ -78,7 +82,7 @@
 			</Field>
 		{/if}
 	{:else}
-		<p class="muted small">Списки создаются и правятся на странице источника после создания.</p>
+		<p class="muted small">Списки редактируются на странице источника после его создания.</p>
 	{/if}
 
 	{#if form.kind !== 'Local'}

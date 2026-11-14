@@ -90,7 +90,7 @@
 		if (action === 'stop') {
 			const ok = await ask({
 				title: 'Остановить Xray?',
-				message: 'Все соединения перестанут пропускать трафик, пока Xray не запустят снова.',
+				message: 'Трафик через все соединения будет прерван до запуска Xray.',
 				action: 'Остановить',
 				danger: true
 			});
@@ -137,7 +137,7 @@
 	}
 </script>
 
-<PageHeader title="Ядро Xray" description="Процесс, через который идёт весь трафик соединений.">
+<PageHeader title="Ядро Xray" description="Управление процессом Xray, версиями и журналом.">
 	{#snippet meta()}
 		{#if xrayState}<Badge tone={xrayState.tone} dot>{xrayState.label}</Badge>{/if}
 	{/snippet}
@@ -180,7 +180,7 @@
 			<EmptyState
 				icon="download"
 				title="Xray не установлен"
-				text="Без него соединения не работают. FlowGate скачает последнюю версию с GitHub и запустит её."
+				text="Для работы соединений требуется Xray. Последняя версия будет загружена с GitHub и запущена."
 			>
 				<UpdateButton
 					primary
@@ -194,8 +194,8 @@
 				<div class="banner" role="status">
 					<Icon name="download" size={18} />
 					<span>
-						Доступна версия <b>{xray.latestVersion}</b>. При обновлении Xray перезапустится — связь
-						пропадёт на несколько секунд.
+						Доступна версия <b>{xray.latestVersion}</b>. При обновлении Xray будет перезапущен,
+						соединения прервутся на несколько секунд.
 					</span>
 					<UpdateButton
 						small
@@ -267,7 +267,7 @@
 				</div>
 				<label class="check small">
 					<input type="checkbox" bind:checked={follow} />
-					<span>Следить</span>
+					<span>Автообновление</span>
 				</label>
 				<select
 					bind:value={logTail}
@@ -292,8 +292,8 @@
 					<EmptyState
 						bare
 						icon="log"
-						title={logFilter ? 'Нет строк под фильтр' : 'Журнал пуст'}
-						text={logFilter ? undefined : 'Строки появятся, когда Xray начнёт работать.'}
+						title={logFilter ? 'Нет записей, соответствующих фильтру' : 'Журнал пуст'}
+						text={logFilter ? undefined : 'Записи появятся после запуска Xray.'}
 					/>
 				{:else}
 					<pre class="log" bind:this={logBox}>{#each lines as line, index (index)}<span
@@ -314,10 +314,10 @@
 					bind:checked={includePrerelease}
 					onchange={() => releases.reload()}
 				/>
-				<span>Предварительные</span>
+				<span>Показывать предварительные</span>
 			</label>
 			<button class="btn sm" aria-busy={checking} onclick={checkGitHub}>
-				<Icon name="refresh" size={14} />Проверить сейчас
+				<Icon name="refresh" size={14} />Проверить обновления
 			</button>
 		</div>
 		<Loadable resource={releases}>
@@ -326,8 +326,8 @@
 					<EmptyState
 						bare
 						icon="download"
-						title="Выпусков не нашлось"
-						text="Проверьте доступ к GitHub или включите прокси обновлений в настройках."
+						title="Выпуски не найдены"
+						text="Проверьте доступ к GitHub или настройте прокси обновлений."
 					/>
 				{:else}
 					<div class="table-scroll">
@@ -375,8 +375,8 @@
 {/if}
 
 <p class="muted small footnote">
-	Аптайм FlowGate: {formatDuration(system.data?.uptimeSeconds)}. Проверка новых версий Xray — по
-	расписанию из настроек.
+	Время работы FlowGate: {formatDuration(system.data?.uptimeSeconds)}. Проверка новых версий Xray
+	выполняется по расписанию, заданному в настройках.
 </p>
 
 <style>

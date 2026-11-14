@@ -33,7 +33,7 @@
 		class:primary
 		{disabled}
 		aria-busy={busy}
-		title="По настройкам: через прокси обновлений, если он включён"
+		title="Загрузка согласно настройкам прокси обновлений"
 		onclick={() => onrun('Auto')}
 	>
 		<Icon name="refresh" size={small ? 14 : 16} />
@@ -41,13 +41,13 @@
 	</button>
 	<Menu
 		{small}
-		ariaLabel="Как загружать"
+		ariaLabel="Способ загрузки"
 		icon="chevronDown"
 		buttonClass="toggle {primary ? 'primary' : ''}"
 		disabled={busy || disabled}
 		items={[
-			{ label: 'Принудительно через прокси', icon: 'lock', onclick: () => onrun('Proxy') },
-			{ label: 'Принудительно без прокси', icon: 'arrowRight', onclick: () => onrun('Direct') }
+			{ label: 'Через прокси обновлений', icon: 'lock', onclick: () => onrun('Proxy') },
+			{ label: 'Напрямую', icon: 'arrowRight', onclick: () => onrun('Direct') }
 		]}
 	/>
 </span>

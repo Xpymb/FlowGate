@@ -27,7 +27,7 @@
 	<div class="failed panel" role="alert">
 		<Icon name="alert" size={20} />
 		<div>
-			<h2>Не удалось загрузить</h2>
+			<h2>Ошибка загрузки</h2>
 			<p class="muted">{errorMessage(resource.error)}</p>
 		</div>
 		<button class="btn" aria-busy={resource.loading} onclick={() => resource.reload()}>

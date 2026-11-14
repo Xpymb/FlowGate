@@ -78,7 +78,7 @@
 			icon: 'route',
 			title: 'DNS-маршруты',
 			value: routes.data ? `${routeStats.enabled} из ${routeStats.total}` : '…',
-			detail: routeStats.total === 0 ? 'ещё не созданы' : 'правил включено',
+			detail: routeStats.total === 0 ? 'не настроены' : 'правил активно',
 			tone:
 				routeStats.total === 0
 					? 'muted'
@@ -94,7 +94,7 @@
 			icon: 'plug',
 			title: 'Соединения',
 			value: connections.data ? `${connectionStats.online} из ${connectionStats.total}` : '…',
-			detail: connectionStats.total === 0 ? 'ещё не созданы' : 'на связи',
+			detail: connectionStats.total === 0 ? 'не настроены' : 'активны',
 			tone:
 				connectionStats.total === 0
 					? 'muted'
@@ -130,14 +130,14 @@
 		if (xray.data && !xray.data.installed)
 			list.push({
 				tone: 'danger',
-				text: 'Xray не установлен — трафик не идёт',
+				text: 'Xray не установлен. Маршрутизация трафика недоступна',
 				href: resolve('/xray'),
 				action: 'Установить'
 			});
 		else if (xray.data && xray.data.state === 'Failed')
 			list.push({
 				tone: 'danger',
-				text: `Xray упал: ${xray.data.lastError ?? 'без подробностей'}`,
+				text: `Сбой Xray: ${xray.data.lastError ?? 'причина не указана'}`,
 				href: resolve('/xray'),
 				action: 'Журнал'
 			});
@@ -159,9 +159,9 @@
 				text:
 					down.length === 1
 						? `Соединение «${down[0].name}»: ${interfaceState(down[0]).label}`
-						: `Соединений не на связи: ${down.length}`,
+						: `Неактивных соединений: ${down.length}`,
 				href: resolve('/connections'),
-				action: 'Проверить'
+				action: 'Открыть'
 			});
 
 		const brokenRoutes = (routes.data ?? []).filter(
@@ -173,7 +173,7 @@
 		if (brokenRoutes.length > 0)
 			list.push({
 				tone: 'danger',
-				text: `Маршруты с ошибкой применения или без соединения: ${brokenRoutes.length}`,
+				text: `Маршрутов с ошибками: ${brokenRoutes.length}`,
 				href: resolve('/routes?state=issues'),
 				action: 'Открыть'
 			});
@@ -182,7 +182,7 @@
 			if (item.lastRefresh?.status === 'Failed')
 				list.push({
 					tone: 'warn',
-					text: `Подписка «${item.displayName}» не обновилась`,
+					text: `Ошибка обновления подписки «${item.displayName}»`,
 					href: resolve(`/subscriptions?q=${encodeURIComponent(item.displayName)}`),
 					action: 'Открыть'
 				});
@@ -193,8 +193,8 @@
 					tone: days <= 0 ? 'danger' : 'warn',
 					text:
 						days <= 0
-							? `Подписка «${item.displayName}» истекла`
-							: `Подписка «${item.displayName}» истекает через ${Math.ceil(days)} дн.`,
+							? `Срок действия подписки «${item.displayName}» истёк`
+							: `Срок действия подписки «${item.displayName}» истекает через ${Math.ceil(days)} дн.`,
 					href: resolve(`/subscriptions?q=${encodeURIComponent(item.displayName)}`),
 					action: 'Открыть'
 				});
@@ -206,7 +206,7 @@
 		if (failedSources.length > 0)
 			list.push({
 				tone: 'warn',
-				text: `Источники не обновились: ${failedSources.map((s) => s.name).join(', ')}`,
+				text: `Ошибка обновления источников:  ${failedSources.map((s) => s.name).join(', ')}`,
 				href: resolve('/sources'),
 				action: 'Открыть'
 			});
@@ -229,18 +229,18 @@
 		const ok = await ask({
 			title: `Обновить FlowGate до ${version ?? 'новой версии'}?`,
 			message:
-				'Служба перезапустится, интерфейс будет недоступен около минуты. Трафик через Xray не прервётся.',
+				'Служба FlowGate будет перезапущена, веб-интерфейс будет недоступен около минуты. Работа Xray не прерывается.',
 			action: 'Обновить'
 		});
 		if (!ok) return;
 		upgrading = true;
 		const done = await trackJob(api.POST('/api/system/update'));
-		if (done) notify('info', 'Обновление идёт через opkg. Обновите страницу через минуту.');
+		if (done) notify('info', 'Обновление запущено. Обновите страницу через минуту.');
 		else upgrading = false;
 	}
 </script>
 
-<PageHeader title="Обзор" description="Как сейчас идёт трафик и что требует вашего внимания." />
+<PageHeader title="Обзор" description="Состояние маршрутизации и компонентов системы." />
 
 <section class="flow" aria-label="Путь трафика">
 	{#each nodes as node, index (node.key)}
@@ -267,7 +267,8 @@
 	{/each}
 </section>
 <p class="flow-caption muted small">
-	Сайты из списков → правило DNS-маршрута в Keenetic → интерфейс соединения → Xray → сервер.
+	Путь трафика: список доменов → правило DNS-маршрута Keenetic → интерфейс соединения → Xray →
+	сервер.
 </p>
 
 <div class="columns">
@@ -277,13 +278,13 @@
 			{#if loaded && issues.length > 0}<Badge tone="warn">{issues.length}</Badge>{/if}
 		</header>
 		{#if !loaded}
-			<p class="panel-body muted">Собираем состояние…</p>
+			<p class="panel-body muted">Загрузка…</p>
 		{:else if issues.length === 0}
 			<div class="all-good">
 				<span class="ok-mark"><Icon name="check" size={20} /></span>
 				<div>
-					<h3>Всё работает</h3>
-					<p class="muted">Xray запущен, соединения на связи, маршруты применены без ошибок.</p>
+					<h3>Проблем не обнаружено</h3>
+					<p class="muted">Xray запущен, соединения активны, маршруты применены без ошибок.</p>
 				</div>
 			</div>
 		{:else}
@@ -311,20 +312,20 @@
 					<dt>Версия</dt>
 					<dd>
 						<span class="mono">{status.version}</span>
-						{#if status.updateAvailable}<Badge tone="accent">есть {status.latestVersion}</Badge
+						{#if status.updateAvailable}<Badge tone="accent">доступна {status.latestVersion}</Badge
 							>{/if}
 					</dd>
-					<dt>Работает</dt>
+					<dt>Время работы</dt>
 					<dd>{formatDuration(status.uptimeSeconds)}</dd>
 					<dt>Память</dt>
 					<dd>
 						{formatKilobytes(status.memoryRssKilobytes)}
 						<span class="muted small">+ Xray {formatKilobytes(status.xrayMemoryRssKilobytes)}</span>
 					</dd>
-					<dt>Проверено</dt>
+					<dt>Проверка обновлений</dt>
 					<dd>{formatDateTime(status.updateCheckedAt)}</dd>
 					{#if status.lastUpgradeResult}
-						<dt>Обновление</dt>
+						<dt>Последнее обновление</dt>
 						<dd class="small">{status.lastUpgradeResult}</dd>
 					{/if}
 				</dl>
@@ -340,12 +341,12 @@
 				{#each updates as update (update.title)}
 					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- адрес уже собран через resolve() -->
 					<a class="update" href={update.href}>
-						<Icon name="download" size={15} />Доступен {update.title}
+						<Icon name="download" size={15} />Доступно обновление {update.title}
 						{update.version}
 					</a>
 				{/each}
 			{:else if system.error}
-				<p class="error-text">FlowGate не ответил. Обновите страницу.</p>
+				<p class="error-text">Нет ответа от FlowGate.</p>
 			{:else}
 				<p class="muted">Загрузка…</p>
 			{/if}
@@ -367,7 +368,7 @@
 					</dd>
 				</dl>
 			{:else if keenetic.error}
-				<p class="error-text">Роутер не ответил на запрос FlowGate.</p>
+				<p class="error-text">Нет ответа от роутера.</p>
 			{:else}
 				<p class="muted">Загрузка…</p>
 			{/if}

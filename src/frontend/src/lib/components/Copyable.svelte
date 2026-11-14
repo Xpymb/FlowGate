@@ -18,7 +18,7 @@
 	title="Скопировать"
 	onclick={(event) => {
 		event.stopPropagation();
-		void copyText(value, `Скопировано: ${value}`);
+		void copyText(value, 'Скопировано в буфер обмена');
 	}}
 >
 	<span class="text">{text ?? value}</span>

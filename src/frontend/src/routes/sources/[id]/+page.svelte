@@ -7,6 +7,7 @@
 	import Badge from '#lib/components/Badge.svelte';
 	import Dialog from '#lib/components/Dialog.svelte';
 	import ListFormatHelp from '#lib/components/ListFormatHelp.svelte';
+	import ListPreview from '#lib/components/ListPreview.svelte';
 	import SourceFormFields from '#lib/components/SourceForm.svelte';
 	import UpdateButton from '#lib/components/UpdateButton.svelte';
 	import { formatDateTime, toNumber } from '#lib/format.js';
@@ -18,7 +19,6 @@
 
 	type Source = components['schemas']['DomainSourceDto'];
 	type ListSummary = components['schemas']['DomainListSummaryDto'];
-	type Preview = components['schemas']['DomainListPreviewDto'];
 	type LocalList = components['schemas']['LocalListDto'];
 	type UpdateVia = components['schemas']['UpdateVia'];
 
@@ -40,8 +40,6 @@
 	let previewOpen = $state(false);
 	let previewName = $state('');
 	let previewAttrs = $state('');
-	let preview = $state<Preview>();
-	let previewError = $state<unknown>();
 
 	let localOpen = $state(false);
 	let localIsNew = $state(false);
@@ -140,28 +138,10 @@
 		if (done !== undefined) await goto(resolve('/sources'));
 	}
 
-	async function openPreview(name: string, attrs = '') {
+	function openPreview(name: string, attrs = '') {
 		previewName = name;
 		previewAttrs = attrs;
 		previewOpen = true;
-		await loadPreview();
-	}
-
-	async function loadPreview() {
-		preview = undefined;
-		previewError = undefined;
-		try {
-			preview = await unwrap(
-				api.GET('/api/domain-sources/{id}/lists/{name}', {
-					params: {
-						path: { id, name: previewName },
-						query: { attrs: previewAttrs.trim() || undefined }
-					}
-				})
-			);
-		} catch (error) {
-			previewError = error;
-		}
 	}
 
 	function routeQuery(name: string, attrs: string): string {
@@ -358,32 +338,7 @@
 {/if}
 
 <Dialog bind:open={previewOpen} title={`Список ${previewName}`} wide>
-	<div class="form">
-		<label>
-			Фильтр атрибутов
-			<div class="row">
-				<input bind:value={previewAttrs} placeholder="например ads или !ads" />
-				<button class="secondary" onclick={loadPreview}>Применить</button>
-			</div>
-		</label>
-		{#if previewError}
-			<p class="error">{errorMessage(previewError)}</p>
-		{:else if !preview}
-			<p class="muted">Загрузка…</p>
-		{:else}
-			<p>
-				В Keenetic уйдёт {preview.total}: доменов {preview.domains}, IPv4 {preview.ipv4}, IPv6 {preview.ipv6}.
-				{#if (toNumber(preview.skippedKeyword) ?? 0) + (toNumber(preview.skippedRegexp) ?? 0) + (toNumber(preview.skippedInvalid) ?? 0) > 0}
-					<br /><span class="muted">
-						Пропущено: keyword {preview.skippedKeyword}, regexp {preview.skippedRegexp},
-						некорректных {preview.skippedInvalid}.
-					</span>
-				{/if}
-			</p>
-			<pre class="entries">{preview.entries.join('\n')}</pre>
-			{#if preview.truncated}<p class="muted">Показана часть элементов.</p>{/if}
-		{/if}
-	</div>
+	<ListPreview sourceId={id} listName={previewName} bind:attrs={previewAttrs} />
 	{#snippet actions()}
 		<button class="secondary" onclick={() => (previewOpen = false)}>Закрыть</button>
 		<a class="button" href={resolve(`/routes?${routeQuery(previewName, previewAttrs)}`)}
@@ -447,20 +402,6 @@
 		background: none;
 		color: var(--accent);
 		font-size: 0.88em;
-	}
-
-	.row {
-		display: flex;
-		gap: 8px;
-	}
-
-	.entries {
-		max-height: 50vh;
-		overflow: auto;
-		margin: 0;
-		padding: 8px;
-		background: var(--bg);
-		border-radius: var(--radius);
 	}
 
 	.locals {

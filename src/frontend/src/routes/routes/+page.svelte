@@ -474,15 +474,26 @@
 										/>
 									</td>
 									<td>
-										<button
-											class="list"
-											title="Источник: {route.sourceName ?? 'удалён'}"
-											onclick={() => openEdit(route)}
-										>
-											{route.listName}{#if route.attributeFilter}<span class="attr"
-													>{filterLabel(route.attributeFilter)}</span
-												>{/if}
-										</button>
+										<div class="list-line">
+											<button
+												class="list"
+												title="Источник: {route.sourceName ?? 'удалён'}"
+												onclick={() => openEdit(route)}
+											>
+												{route.listName}{#if route.attributeFilter}<span class="attr"
+														>{filterLabel(route.attributeFilter)}</span
+													>{/if}
+											</button>
+											<button
+												class="peek"
+												aria-label="Состав списка {route.listName}"
+												title="Состав списка"
+												disabled={!route.sourceName}
+												onclick={() => openView(route)}
+											>
+												<Icon name="eye" size={15} />
+											</button>
+										</div>
 										{#if route.state === 'Pending' || !route.sourceName || showSources}
 											<div class="sub">
 												{#if route.state === 'Pending'}<span class="pending"
@@ -727,6 +738,31 @@
 
 	.segmented .issues {
 		color: var(--warn);
+	}
+
+	.list-line {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+
+	.peek {
+		display: grid;
+		place-items: center;
+		width: 26px;
+		height: 26px;
+		border-radius: var(--r-sm);
+		color: var(--faint);
+	}
+
+	.peek:hover:not(:disabled),
+	.peek:focus-visible {
+		background: var(--hover);
+		color: var(--accent-text);
+	}
+
+	.peek:disabled {
+		opacity: 0.35;
 	}
 
 	.list {

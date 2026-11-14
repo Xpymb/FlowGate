@@ -1,17 +1,4 @@
 Package: flowgate
-Version: 0.1.2
-Depends: busybox, nginx-ssl
-Section: net
-Architecture: aarch64-3.10
-Installed-Size: 29633449
-Maintainer: Xpymb <https://github.com/Xpymb>
-URL: https://github.com/Xpymb/FlowGate
-Description: Xray manager for Keenetic with WebUI: subscriptions, socks/http/wireguard connections, DNS routes by domain lists
-Filename: flowgate_0.1.2_aarch64-3.10.ipk
-Size: 12196733
-SHA256sum: 75b13cfa16cd667b07040bbafe64294d0907ba3e2b635423ce0574b7129d6a98
-
-Package: flowgate
 Version: 0.2.0
 Depends: busybox, nginx-ssl
 Section: net
@@ -36,3 +23,16 @@ Description: Xray manager for Keenetic with WebUI: subscriptions, socks/http/wir
 Filename: flowgate_0.2.1_aarch64-3.10.ipk
 Size: 12403403
 SHA256sum: 799f8baad61ac21de777a290d3e1df2b45028aca86e7cad60199b8bed0926eac
+
+Package: flowgate
+Version: 0.2.2
+Depends: busybox, nginx-ssl
+Section: net
+Architecture: aarch64-3.10
+Installed-Size: 30385038
+Maintainer: Xpymb <https://github.com/Xpymb>
+URL: https://github.com/Xpymb/FlowGate
+Description: Xray manager for Keenetic with WebUI: subscriptions, socks/http/wireguard connections, DNS routes by domain lists
+Filename: flowgate_0.2.2_aarch64-3.10.ipk
+Size: 12451121
+SHA256sum: a5bc0c3ef31d9ee5fcd417845e1dd3595cf7eae3719f5b24be8e2c477664d4ef

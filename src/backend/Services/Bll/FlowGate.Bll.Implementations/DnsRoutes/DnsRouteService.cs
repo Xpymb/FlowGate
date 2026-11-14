@@ -218,7 +218,7 @@ public sealed class DnsRouteService : IDnsRouteService, IDisposable
 
             try
             {
-                var job = _jobs.Start(ApplyJobKind, "Применение DNS-маршрутов", RunApplyJobAsync);
+                var job = _jobs.Start(ApplyJobKind, "Синхронизация DNS-маршрутов", RunApplyJobAsync);
                 _applyJobId = job.Id;
                 return job.ToDto();
             }

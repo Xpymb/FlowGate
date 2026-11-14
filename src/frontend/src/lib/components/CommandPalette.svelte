@@ -37,10 +37,10 @@
 		{
 			id: 'a-apply',
 			group: 'Действия',
-			title: 'Применить все DNS-маршруты',
+			title: 'Синхронизировать DNS-маршруты',
 			subtitle: 'Синхронизация групп и правил с Keenetic',
 			icon: 'route',
-			keywords: 'применить маршруты keenetic',
+			keywords: 'синхронизировать применить маршруты keenetic',
 			run: () => trackJob(api.POST('/api/dns-routes/apply'))
 		},
 		{

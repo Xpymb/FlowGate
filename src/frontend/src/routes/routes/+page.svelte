@@ -338,7 +338,7 @@
 			onclick={applyAll}
 			title="Синхронизировать группы и правила с Keenetic"
 		>
-			<Icon name="refresh" size={16} />Применить все
+			<Icon name="refresh" size={16} />Синхронизировать
 		</button>
 		<button
 			class="btn primary"

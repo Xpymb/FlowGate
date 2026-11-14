@@ -34,4 +34,8 @@
   `#lib/table.svelte.js`. Формы-страницы — `SaveBar` (Ctrl+S) + `guardUnsaved()` из `#lib/unsaved.svelte.js`.
 - Меню — `#lib/nav.ts` (группы Xray и Маршруты в сайдбаре и палитре Ctrl+K). Клавиша страницы — `hotkey('n', …)` из
   `#lib/hotkeys.js` внутри `$effect`. Палитра открывает формы через query: `?new=1`, `?import=1`.
+- Мастер быстрой настройки — `#lib/components/setup/` (окно в layout), состояние `#lib/setup/setup.svelte.js`, конвейер
+  `#lib/setup/run.js`. Ответы ничего не меняют до «Настроить»; сервер выбирается по предпросмотру
+  (`/api/subscriptions/preview`, `/api/servers/preview`) и находится после сохранения по `importKey`. Шаги конвейера
+  идемпотентны: «Повторить» продолжает с упавшего. Черновик — только в памяти (URL подписки с токеном).
 - `resolve()` принимает маршрут с query: `resolve(`/routes?${query}`)`.

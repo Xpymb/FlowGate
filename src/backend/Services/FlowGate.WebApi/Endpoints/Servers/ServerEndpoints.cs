@@ -60,6 +60,11 @@ public static class ServerEndpoints
             .WithSummary("Импортировать несколько серверов как ручные")
             .Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
 
+        servers.MapPost("/preview", Preview)
+            .WithName("PreviewServers")
+            .WithSummary("Разобрать ссылки или Xray-JSON в список серверов без сохранения")
+            .Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
+
         return routes;
     }
 
@@ -105,4 +110,7 @@ public static class ServerEndpoints
         ServerImportRequest request,
         CancellationToken cancellationToken) =>
         TypedResults.Ok(await servers.ImportAsync(request, cancellationToken));
+
+    private static Ok<ServerPreviewDto> Preview(IServerService servers, ServerImportRequest request) =>
+        TypedResults.Ok(servers.Preview(request));
 }

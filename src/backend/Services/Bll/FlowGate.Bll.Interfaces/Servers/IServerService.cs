@@ -77,4 +77,12 @@ public interface IServerService
     /// <param name="cancellationToken">Токен отмены</param>
     /// <returns>Сколько добавлено, пропущено и отклонено</returns>
     Task<ServerImportResultDto> ImportAsync(ServerImportRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Разбирает текст со ссылками или Xray-JSON в список серверов, ничего не сохраняя
+    /// </summary>
+    /// <param name="request">Текст со ссылками или Xray-JSON</param>
+    /// <returns>Серверы с ключами идентичности, отклонённые узлы и предупреждения</returns>
+    /// <exception cref="RequestValidationException">Если текст пустой</exception>
+    ServerPreviewDto Preview(ServerImportRequest request);
 }

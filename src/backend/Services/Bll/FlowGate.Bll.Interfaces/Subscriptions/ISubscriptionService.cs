@@ -1,5 +1,6 @@
 using FlowGate.Exceptions;
 using FlowGate.SharedContracts.Dto.Jobs;
+using FlowGate.SharedContracts.Dto.Servers;
 using FlowGate.SharedContracts.Dto.Subscriptions;
 using FlowGate.SharedContracts.Dto.Settings;
 
@@ -34,6 +35,16 @@ public interface ISubscriptionService
     /// <returns>Подписка с идентификатором задачи обновления</returns>
     /// <exception cref="RequestValidationException">Если параметры некорректны</exception>
     Task<SubscriptionDto> CreateAsync(SubscriptionSaveRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Скачивает подписку и разбирает её серверы, ничего не сохраняя. Загрузка идёт по настройкам прокси обновлений
+    /// </summary>
+    /// <param name="request">Параметры подписки, как для создания</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    /// <returns>Название профиля, серверы с ключами идентичности, отклонённые узлы и предупреждения</returns>
+    /// <exception cref="RequestValidationException">Если параметры некорректны</exception>
+    /// <exception cref="ExternalServiceUnavailableException">Если провайдер недоступен или ответил ошибкой</exception>
+    Task<ServerPreviewDto> PreviewAsync(SubscriptionSaveRequest request, CancellationToken cancellationToken);
 
     /// <summary>
     ///     Изменяет подписку; смена адреса сбрасывает сведения прежнего провайдера

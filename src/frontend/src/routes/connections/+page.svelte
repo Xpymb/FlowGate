@@ -4,6 +4,7 @@
 	import { unwrap } from '#lib/api/errors.js';
 	import { ask } from '#lib/confirm.svelte.js';
 	import { hotkey } from '#lib/hotkeys.js';
+	import { connectionKindOptions, suggestConnectionName } from '#lib/connections.js';
 	import { connectionKinds, interfaceState } from '#lib/labels.js';
 	import { Resource } from '#lib/resource.svelte.js';
 	import { matchesQuery, UrlParam } from '#lib/table.svelte.js';
@@ -28,15 +29,7 @@
 	const servers = new Resource(() => unwrap(api.GET('/api/servers')), { live: ['servers'] });
 	const query = new UrlParam('q');
 
-	const kinds = [
-		{
-			value: 'Wireguard',
-			title: 'WireGuard',
-			text: 'Поддержка TCP и UDP (QUIC, VoIP). Рекомендуется.'
-		},
-		{ value: 'Socks', title: 'SOCKS5', text: 'Интерфейс Proxy, только TCP.' },
-		{ value: 'Http', title: 'HTTP', text: 'Интерфейс Proxy, только TCP.' }
-	];
+	const kinds = connectionKindOptions;
 
 	let editorOpen = $state(false);
 	let editingId = $state<string>();
@@ -44,8 +37,6 @@
 	let saving = $state(false);
 	/** Имя подставлено автоматически и ещё не правилось: при смене типа оно следует за типом. */
 	let autoName = $state(false);
-
-	const kindSuffixes: Record<string, string> = { Wireguard: 'wg', Socks: 'socks', Http: 'http' };
 
 	const noServers = $derived(servers.data?.length === 0);
 	const visible = $derived(
@@ -62,14 +53,11 @@
 
 	$effect(() => hotkey('n', () => !noServers && openCreate()));
 
-	/** Свободное имя вида xray-wg, xray-wg-2, … по типу соединения. */
 	function suggestName(kind: string): string {
-		const base = `xray-${kindSuffixes[kind] ?? kind.toLowerCase()}`;
-		const taken = new Set((connections.data ?? []).map((item) => item.name.toLowerCase()));
-		if (!taken.has(base)) return base;
-		let index = 2;
-		while (taken.has(`${base}-${index}`)) index++;
-		return `${base}-${index}`;
+		return suggestConnectionName(
+			kind,
+			(connections.data ?? []).map((item) => item.name)
+		);
 	}
 
 	function openCreate() {

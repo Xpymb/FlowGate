@@ -296,6 +296,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/servers/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Разобрать ссылки или Xray-JSON в список серверов без сохранения */
+        post: operations["PreviewServers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/subscriptions": {
         parameters: {
             query?: never;
@@ -328,6 +345,23 @@ export interface paths {
         post?: never;
         /** Удалить подписку вместе с её серверами */
         delete: operations["DeleteSubscription"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subscriptions/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Скачать подписку и показать её серверы без сохранения */
+        post: operations["PreviewSubscription"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1176,6 +1210,8 @@ export interface components {
              * @description Когда последний раз изменён
              */
             updatedAt: string;
+            /** @description Ключ идентичности без учётных данных: совпадает с ключом в предпросмотре (string ServerPreviewItemDto.ImportKey) */
+            importKey: string;
         };
         /** @description Узел, который не удалось импортировать */
         ServerImportRejectionDto: {
@@ -1210,6 +1246,37 @@ export interface components {
         ServerParseRequest: {
             /** @description Ссылка (vless://, vmess://, trojan://, ss://, hysteria2://, hy2://) или Xray-JSON */
             text: string;
+        };
+        /** @description Серверы, найденные в тексте или подписке, без сохранения */
+        ServerPreviewDto: {
+            /** @description Название профиля от провайдера подписки или null */
+            title: null | string;
+            /** @description Принятые серверы */
+            servers: components["schemas"]["ServerPreviewItemDto"][];
+            /** @description Отклонённые узлы */
+            rejected: components["schemas"]["ServerImportRejectionDto"][];
+            /** @description Предупреждения */
+            warnings: string[];
+        };
+        /** @description Сервер в предпросмотре */
+        ServerPreviewItemDto: {
+            /** @description Ключ идентичности: тот же ключ получит сервер после сохранения (string ServerDto.ImportKey) */
+            importKey: string;
+            /** @description Имя */
+            name: string;
+            /** @description Протокол Xray */
+            protocol: string;
+            /** @description Адрес */
+            address: string;
+            /**
+             * Format: int32
+             * @description Порт или null
+             */
+            port: null | number | string;
+            /** @description Транспорт */
+            network: string;
+            /** @description Защита */
+            security: string;
         };
         /** @description Создание или изменение ручного сервера */
         ServerSaveRequest: {
@@ -2220,6 +2287,39 @@ export interface operations {
             };
         };
     };
+    PreviewServers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServerImportRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerPreviewDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     GetSubscriptions: {
         parameters: {
             query?: never;
@@ -2368,6 +2468,48 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    PreviewSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscriptionSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerPreviewDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using FlowGate.Bll.Interfaces.Subscriptions;
 using FlowGate.Shared.WebApi.Errors;
 using FlowGate.SharedContracts.Dto.Jobs;
+using FlowGate.SharedContracts.Dto.Servers;
 using FlowGate.SharedContracts.Dto.Subscriptions;
 using FlowGate.SharedContracts.Dto.Settings;
 
@@ -35,6 +36,12 @@ public static class SubscriptionEndpoints
             .WithName("CreateSubscription")
             .WithSummary("Добавить подписку и запустить её обновление")
             .Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
+
+        subscriptions.MapPost("/preview", PreviewAsync)
+            .WithName("PreviewSubscription")
+            .WithSummary("Скачать подписку и показать её серверы без сохранения")
+            .Produces<ErrorResponse>(StatusCodes.Status400BadRequest)
+            .Produces<ErrorResponse>(StatusCodes.Status503ServiceUnavailable);
 
         subscriptions.MapPut("/{id}", UpdateAsync)
             .WithName("UpdateSubscription")
@@ -75,6 +82,12 @@ public static class SubscriptionEndpoints
         var created = await subscriptions.CreateAsync(request, cancellationToken);
         return TypedResults.Created($"/api/subscriptions/{created.Id}", created);
     }
+
+    private static async Task<Ok<ServerPreviewDto>> PreviewAsync(
+        ISubscriptionService subscriptions,
+        SubscriptionSaveRequest request,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await subscriptions.PreviewAsync(request, cancellationToken));
 
     private static async Task<Ok<SubscriptionDto>> UpdateAsync(
         ISubscriptionService subscriptions,

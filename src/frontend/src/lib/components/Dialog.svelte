@@ -9,7 +9,12 @@
 		description?: string;
 		/** `center` — модальное окно, `side` — панель справа (формы создания и правки). */
 		variant?: 'center' | 'side';
-		size?: 'sm' | 'md' | 'lg';
+		/** `xl` — мастер: на узком экране занимает весь экран. */
+		size?: 'sm' | 'md' | 'lg' | 'xl';
+		/** false — окно не закрывается ни подложкой, ни Esc, ни крестиком (идёт операция). */
+		dismissible?: boolean;
+		/** Тело без отступов и прокрутки: раскладку задаёт содержимое. */
+		flush?: boolean;
 		/** Ctrl+Enter / ⌘+Enter внутри диалога — основное действие. */
 		onsubmit?: () => void;
 		children: Snippet;
@@ -22,6 +27,8 @@
 		description,
 		variant = 'center',
 		size = 'md',
+		dismissible = true,
+		flush = false,
 		onsubmit,
 		children,
 		actions
@@ -44,7 +51,18 @@
 
 	/** Клик по подложке закрывает окно. */
 	function onclick(event: MouseEvent) {
-		if (event.target === dialog) open = false;
+		if (event.target === dialog && dismissible) open = false;
+	}
+
+	/** Esc при запрещённом закрытии гасится. */
+	function oncancel(event: Event) {
+		if (!dismissible) event.preventDefault();
+	}
+
+	/** Браузер может закрыть окно и при погашенном cancel (повторный Esc): тогда открываем снова. */
+	function onclose() {
+		if (!dismissible && open) dialog.showModal();
+		else open = false;
 	}
 </script>
 
@@ -52,7 +70,8 @@
 	bind:this={dialog}
 	class="{variant} {size}"
 	aria-labelledby={titleId}
-	onclose={() => (open = false)}
+	{onclose}
+	{oncancel}
 	{onkeydown}
 	{onclick}
 >
@@ -63,11 +82,16 @@
 					<h2 id={titleId}>{title}</h2>
 					{#if description}<p class="muted">{description}</p>{/if}
 				</div>
-				<button class="btn ghost icon sm" aria-label="Закрыть" onclick={() => (open = false)}>
+				<button
+					class="btn ghost icon sm"
+					aria-label="Закрыть"
+					disabled={!dismissible}
+					onclick={() => (open = false)}
+				>
 					<Icon name="close" />
 				</button>
 			</header>
-			<div class="body">{@render children()}</div>
+			<div class="body" class:flush>{@render children()}</div>
 			{#if actions}
 				<footer>{@render actions()}</footer>
 			{/if}
@@ -109,6 +133,11 @@
 
 	.center.lg {
 		width: min(880px, calc(100vw - 32px));
+	}
+
+	.center.xl {
+		width: min(960px, calc(100vw - 32px));
+		height: min(680px, calc(100dvh - 64px));
 	}
 
 	.center[open] {
@@ -157,6 +186,14 @@
 		padding: 20px;
 	}
 
+	.body.flush {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		padding: 0;
+		overflow: hidden;
+	}
+
 	footer {
 		display: flex;
 		justify-content: flex-end;
@@ -164,6 +201,17 @@
 		padding: 14px 20px;
 		border-top: 1px solid var(--line);
 		background: var(--surface-2);
+	}
+
+	@media (max-width: 720px) {
+		.center.xl {
+			width: 100vw;
+			max-width: 100vw;
+			height: 100dvh;
+			max-height: 100dvh;
+			border: 0;
+			border-radius: 0;
+		}
 	}
 
 	@keyframes pop {

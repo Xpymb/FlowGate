@@ -50,6 +50,27 @@ public sealed class ServerEndpointsTests : IDisposable
     }
 
     /// <summary>
+    ///     Предпросмотр ссылок отдаёт сервер с ключом и ничего не сохраняет; пустой текст — 400
+    /// </summary>
+    [Fact]
+    public async Task Preview_Links_ReturnsServersWithoutSaving()
+    {
+        using var client = _factory.CreateClient();
+
+        var preview = await ApiJson.PostAsync(client, "/api/servers/preview", new { text = $"{Link}\nvless://broken" }, HttpStatusCode.OK);
+        var empty = await ApiJson.PostAsync(client, "/api/servers/preview", new { text = " " }, HttpStatusCode.BadRequest);
+        var list = await ApiJson.GetAsync(client, "/api/servers");
+
+        var server = Assert.Single(preview.GetProperty("servers").EnumerateArray());
+        Assert.Equal("cascade-out-2", server.GetProperty("name").GetString());
+        Assert.Equal("132.243.213.13", server.GetProperty("address").GetString());
+        Assert.Equal(64, server.GetProperty("importKey").GetString()!.Length);
+        Assert.Equal(1, preview.GetProperty("rejected").GetArrayLength());
+        Assert.Equal("VALIDATION_ERROR", empty.GetProperty("errorCode").GetString());
+        Assert.Equal(0, list.GetArrayLength());
+    }
+
+    /// <summary>
     ///     Установленный Xray отклоняет outbound — 400 с ошибками в details, как в попапе на скриншоте
     /// </summary>
     [Fact]

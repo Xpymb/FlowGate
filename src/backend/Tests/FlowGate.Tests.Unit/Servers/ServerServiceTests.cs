@@ -146,6 +146,37 @@ public sealed class ServerServiceTests : IDisposable
     }
 
     /// <summary>
+    ///     Предпросмотр показывает серверы с тем же ключом, что получат сохранённые, и ничего не пишет
+    /// </summary>
+    [Fact]
+    public async Task Preview_Links_ReturnsServersWithImportKeysAndSavesNothing()
+    {
+        var text = $"{TrojanLink}\nvless://id@nl.example.net:443#NL\nvless://broken";
+
+        var preview = _sut.Preview(new ServerImportRequest(text));
+        Assert.Empty(await _servers.GetAllAsync(TestContext.Current.CancellationToken));
+        var imported = await _sut.ImportAsync(new ServerImportRequest(text), TestContext.Current.CancellationToken);
+
+        Assert.Null(preview.Title);
+        Assert.Equal(["DE", "NL"], preview.Servers.Select(server => server.Name));
+        Assert.Equal("de.example.net", preview.Servers[0].Address);
+        Assert.Equal(443, preview.Servers[0].Port);
+        Assert.Equal(3, Assert.Single(preview.Rejected).Index);
+        Assert.Equal(
+            preview.Servers.Select(server => server.ImportKey),
+            imported.Added.Select(server => server.ImportKey));
+    }
+
+    /// <summary>
+    ///     Пустой текст в предпросмотре — 400
+    /// </summary>
+    [Fact]
+    public void Preview_EmptyText_Throws()
+    {
+        Assert.Throws<RequestValidationException>(() => _sut.Preview(new ServerImportRequest("  ")));
+    }
+
+    /// <summary>
     ///     Сервер, выбранный в соединении, удалить нельзя — 409 с именем соединения
     /// </summary>
     [Fact]

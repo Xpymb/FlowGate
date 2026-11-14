@@ -40,6 +40,7 @@ namespace FlowGate.WebApi.Serialization;
 [JsonSerializable(typeof(ServerSaveRequest))]
 [JsonSerializable(typeof(ServerImportRequest))]
 [JsonSerializable(typeof(ServerImportResultDto))]
+[JsonSerializable(typeof(ServerPreviewDto))]
 [JsonSerializable(typeof(IReadOnlyList<SubscriptionDto>))]
 [JsonSerializable(typeof(SubscriptionDto))]
 [JsonSerializable(typeof(SubscriptionSaveRequest))]

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using FlowGate.Bll.Implementations.Jobs;
+using FlowGate.Bll.Implementations.Servers;
 using FlowGate.Bll.Implementations.Settings;
 using FlowGate.Bll.Implementations.UpdateProxy;
 using FlowGate.Bll.Interfaces.Servers;
@@ -16,6 +17,7 @@ using FlowGate.Exceptions;
 using FlowGate.Shared.Bll.Jobs;
 using FlowGate.Shared.Options;
 using FlowGate.SharedContracts.Dto.Jobs;
+using FlowGate.SharedContracts.Dto.Servers;
 using FlowGate.SharedContracts.Dto.Settings;
 using FlowGate.SharedContracts.Dto.Subscriptions;
 
@@ -134,6 +136,42 @@ public sealed class SubscriptionService : ISubscriptionService
 
         var job = StartRefresh(subscription);
         return subscription.ToDto(0, await DefaultIntervalAsync(cancellationToken), RetryAfterFailure, job.Id);
+    }
+
+    /// <inheritdoc />
+    public async Task<ServerPreviewDto> PreviewAsync(SubscriptionSaveRequest request, CancellationToken cancellationToken)
+    {
+        var valid = Validate(request);
+        var draft = new Subscription(
+            "preview",
+            valid.Name,
+            valid.Url,
+            AutoUpdate: false,
+            null,
+            valid.UserAgent,
+            request.SendHwid,
+            Guid.NewGuid().ToString(),
+            request.SendDeviceInfo,
+            null,
+            null,
+            _timeProvider.GetUtcNow());
+
+        ServerPreviewDto? preview = null;
+        await UpdateRoute.RunAsync(
+            _updateProxy,
+            UpdateVia.Auto,
+            null,
+            async () =>
+            {
+                var download = await _fetcher.FetchAsync(draft, cancellationToken);
+                var batch = _parser.Parse(download.Body);
+                var metadata = ProviderMetadataParser.Parse(download.Headers, batch.BodyMetadata);
+                preview = batch.ToPreviewDto(metadata?.Title);
+            },
+            cancellationToken);
+
+        _logger.LogInformation("Предпросмотр подписки {Host}: серверов {Servers}, отклонено {Rejected}", new Uri(draft.Url).Host, preview!.Servers.Count, preview.Rejected.Count);
+        return preview;
     }
 
     /// <inheritdoc />

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { SourceForm } from '#lib/sources.js';
+	import Field from './Field.svelte';
 
 	interface Props {
 		form: SourceForm;
@@ -8,87 +9,82 @@
 
 	let { form = $bindable(), editing }: Props = $props();
 	const isDat = $derived(form.kind === 'GeositeDat' || form.kind === 'GeoipDat');
+
+	const kinds = [
+		{ value: 'GitHubRepository', title: 'GitHub-репозиторий', text: 'Списки в формате v2fly' },
+		{ value: 'GeositeDat', title: 'geosite.dat', text: 'Файл доменов Xray' },
+		{ value: 'GeoipDat', title: 'geoip.dat', text: 'Файл адресов Xray' },
+		{ value: 'Local', title: 'Свои списки', text: 'Правятся прямо здесь' }
+	];
 </script>
 
 <div class="form">
-	<label>
-		Имя
-		<input bind:value={form.name} maxlength="64" />
-	</label>
-	<label>
-		Вид
-		<select bind:value={form.kind} disabled={editing}>
-			<option value="GitHubRepository">GitHub-репозиторий в формате v2fly</option>
-			<option value="GeositeDat">geosite.dat</option>
-			<option value="GeoipDat">geoip.dat</option>
-			<option value="Local">Локальные списки</option>
-		</select>
-	</label>
+	<Field label="Имя">
+		<input bind:value={form.name} maxlength="64" placeholder="Например, v2fly community" />
+	</Field>
+
+	<Field label="Вид" group hint={editing ? 'Вид источника после создания не меняется.' : undefined}>
+		<div class="choices two">
+			{#each kinds as kind (kind.value)}
+				<label class="choice" class:selected={form.kind === kind.value} class:disabled={editing}>
+					<input type="radio" bind:group={form.kind} value={kind.value} disabled={editing} />
+					<span class="choice-title">{kind.title}</span>
+					<span class="choice-text">{kind.text}</span>
+				</label>
+			{/each}
+		</div>
+	</Field>
 
 	{#if form.kind === 'GitHubRepository'}
-		<label>
-			Репозиторий
+		<Field label="Репозиторий">
 			<input
 				bind:value={form.repository}
 				placeholder="owner/repo или https://github.com/owner/repo"
 			/>
-		</label>
-		<label>
-			Ветка
-			<input bind:value={form.branch} placeholder="по умолчанию" />
-		</label>
+		</Field>
+		<Field label="Ветка" hint="Пусто — ветка по умолчанию">
+			<input bind:value={form.branch} placeholder="main" />
+		</Field>
 	{:else if isDat}
-		<div class="mode">
-			<label class="check">
-				<input type="radio" bind:group={form.datMode} value="release" /> Из релиза GitHub
-			</label>
-			<label class="check">
-				<input type="radio" bind:group={form.datMode} value="url" /> По прямой ссылке
-			</label>
-		</div>
+		<Field label="Откуда брать файл" group>
+			<div class="segmented">
+				<label class:selected={form.datMode === 'release'}>
+					<input type="radio" bind:group={form.datMode} value="release" /> Из релиза GitHub
+				</label>
+				<label class:selected={form.datMode === 'url'}>
+					<input type="radio" bind:group={form.datMode} value="url" /> По прямой ссылке
+				</label>
+			</div>
+		</Field>
 		{#if form.datMode === 'release'}
-			<label>
-				Репозиторий релизов
+			<Field label="Репозиторий релизов">
 				<input bind:value={form.releaseRepository} placeholder="owner/repo" />
-			</label>
-			<label>
-				Файл в релизе
+			</Field>
+			<Field label="Файл в релизе">
 				<input
 					bind:value={form.asset}
 					placeholder={form.kind === 'GeoipDat' ? 'geoip.dat' : 'geosite.dat'}
 				/>
-			</label>
-			<label>
-				Файл контрольной суммы
-				<input
-					bind:value={form.checksumAsset}
-					placeholder="необязательно, например geoip.dat.sha256sum"
-				/>
-			</label>
+			</Field>
+			<Field label="Файл контрольной суммы" hint="Необязательно">
+				<input bind:value={form.checksumAsset} placeholder="geoip.dat.sha256sum" />
+			</Field>
 		{:else}
-			<label>
-				Ссылка на файл
+			<Field label="Ссылка на файл">
 				<input bind:value={form.url} type="url" placeholder="https://…" />
-			</label>
-			<label>
-				Ссылка на SHA-256
-				<input bind:value={form.checksumUrl} type="url" placeholder="необязательно" />
-			</label>
+			</Field>
+			<Field label="Ссылка на SHA-256" hint="Необязательно">
+				<input bind:value={form.checksumUrl} type="url" placeholder="https://…" />
+			</Field>
 		{/if}
 	{:else}
-		<p class="hint">Списки создаются и правятся на странице источника.</p>
+		<p class="muted small">Списки создаются и правятся на странице источника после создания.</p>
 	{/if}
 
 	{#if form.kind !== 'Local'}
 		<label class="check">
-			<input type="checkbox" bind:checked={form.autoUpdate} /> Обновлять по расписанию
+			<input type="checkbox" bind:checked={form.autoUpdate} />
+			<span>Обновлять по расписанию</span>
 		</label>
 	{/if}
 </div>
-
-<style>
-	.mode {
-		display: flex;
-		gap: 16px;
-	}
-</style>

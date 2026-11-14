@@ -4,19 +4,28 @@
 	import { page } from '$app/state';
 	import { api } from '#lib/api/client.js';
 	import { errorMessage, unwrap } from '#lib/api/errors.js';
+	import { ask } from '#lib/confirm.svelte.js';
 	import { onChange } from '#lib/events.js';
-	import Badge from '#lib/components/Badge.svelte';
-	import Dialog from '#lib/components/Dialog.svelte';
-	import ListFormatHelp from '#lib/components/ListFormatHelp.svelte';
-	import ListPreview from '#lib/components/ListPreview.svelte';
-	import SourceFormFields from '#lib/components/SourceForm.svelte';
-	import UpdateButton from '#lib/components/UpdateButton.svelte';
 	import { formatDateTime, toNumber } from '#lib/format.js';
 	import { trackJob } from '#lib/jobs.svelte.js';
 	import { label, refreshStatuses, sourceKinds } from '#lib/labels.js';
+	import { Resource } from '#lib/resource.svelte.js';
 	import { formToRequest, sourceOrigin, sourceToForm, type SourceForm } from '#lib/sources.js';
 	import { attempt, attemptOk } from '#lib/toast.svelte.js';
 	import type { components } from '#lib/api/schema.js';
+	import Badge from '#lib/components/Badge.svelte';
+	import Copyable from '#lib/components/Copyable.svelte';
+	import Dialog from '#lib/components/Dialog.svelte';
+	import EmptyState from '#lib/components/EmptyState.svelte';
+	import Field from '#lib/components/Field.svelte';
+	import Icon from '#lib/components/Icon.svelte';
+	import ListFormatHelp from '#lib/components/ListFormatHelp.svelte';
+	import ListPreview from '#lib/components/ListPreview.svelte';
+	import Menu from '#lib/components/Menu.svelte';
+	import PageHeader from '#lib/components/PageHeader.svelte';
+	import SearchInput from '#lib/components/SearchInput.svelte';
+	import SourceFormFields from '#lib/components/SourceForm.svelte';
+	import UpdateButton from '#lib/components/UpdateButton.svelte';
 
 	type Source = components['schemas']['DomainSourceDto'];
 	type ListSummary = components['schemas']['DomainListSummaryDto'];
@@ -26,16 +35,20 @@
 	const visibleLimit = 300;
 	const id = $derived(page.params.id ?? '');
 
+	const routes = new Resource(() => unwrap(api.GET('/api/dns-routes')), { live: ['dns-routes'] });
+
 	let source = $state<Source>();
 	let loadError = $state<unknown>();
-	let lists = $state<ListSummary[]>([]);
+	let lists = $state<ListSummary[]>();
 	let listsError = $state<unknown>();
 	let query = $state('');
 	let localLists = $state<LocalList[]>([]);
 	let refreshing = $state(false);
 
 	let editOpen = $state(false);
-	let editForm = $state<SourceForm>(sourceToFormSafe());
+	let editForm = $state<SourceForm>(
+		sourceToForm({ name: '', kind: 'Local', autoUpdate: false } as Source)
+	);
 	let saving = $state(false);
 
 	let previewOpen = $state(false);
@@ -46,20 +59,34 @@
 	let localIsNew = $state(false);
 	let localName = $state('');
 	let localText = $state('');
+	let localOriginal = $state('');
+	let localSaving = $state(false);
 
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+	/** Списки этого источника, уже направленные в маршруты: имя списка → число маршрутов. */
+	const routed = $derived.by(() => {
+		// Временная карта внутри $derived: реактивность ей не нужна.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const map = new Map<string, number>();
+		for (const route of routes.data ?? []) {
+			if (route.sourceId === id) map.set(route.listName, (map.get(route.listName) ?? 0) + 1);
+		}
+		return map;
+	});
+
+	const localNameError = $derived(
+		localIsNew && localName && !/^[a-z0-9._!-]+$/.test(localName)
+			? 'Только латиница в нижнем регистре, цифры и - . _ !'
+			: undefined
+	);
+	const localDirty = $derived(localIsNew ? !!localName.trim() : localText !== localOriginal);
 
 	$effect(() => {
 		void loadAll(id);
 	});
 
 	$effect(() => onChange(['domain-sources', 'local-lists'], () => void loadAll(id)));
-
-	function sourceToFormSafe(): SourceForm {
-		return source
-			? sourceToForm(source)
-			: sourceToForm({ name: '', kind: 'Local', autoUpdate: false } as Source);
-	}
 
 	async function loadAll(current: string) {
 		try {
@@ -95,7 +122,8 @@
 		if (result) localLists = result;
 	}
 
-	function search() {
+	function search(value: string) {
+		query = value;
 		clearTimeout(searchTimer);
 		searchTimer = setTimeout(() => void loadLists(), 250);
 	}
@@ -110,13 +138,14 @@
 	}
 
 	function openEdit() {
-		editForm = sourceToFormSafe();
+		if (source) editForm = sourceToForm(source);
 		editOpen = true;
 	}
 
 	async function saveEdit() {
+		if (!editForm.name.trim()) return;
 		saving = true;
-		const saved = await attempt(
+		const result = await attempt(
 			() =>
 				unwrap(
 					api.PUT('/api/domain-sources/{id}', {
@@ -127,13 +156,23 @@
 			'Источник сохранён'
 		);
 		saving = false;
-		if (!saved) return;
-		source = saved;
+		if (!result) return;
+		source = result;
 		editOpen = false;
 	}
 
 	async function remove() {
-		if (!source || !confirm(`Удалить источник «${source.name}»?`)) return;
+		if (!source) return;
+		const ok = await ask({
+			title: `Удалить источник «${source.name}»?`,
+			message:
+				Number(source.routeCount) > 0
+					? `На его списки ссылаются маршруты (${source.routeCount}) — они перестанут обновляться.`
+					: 'Загруженные списки удалятся вместе с ним.',
+			action: 'Удалить',
+			danger: true
+		});
+		if (!ok) return;
 		const done = await attemptOk(
 			() => unwrap(api.DELETE('/api/domain-sources/{id}', { params: { path: { id } } })),
 			'Источник удалён'
@@ -147,25 +186,26 @@
 		previewOpen = true;
 	}
 
-	function routeQuery(name: string, attrs: string): string {
-		const pairs: [string, string][] = [
-			['source', id],
-			['list', name]
-		];
-		if (attrs.trim()) pairs.push(['attrs', attrs.trim()]);
-		return pairs.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+	function routeHref(name: string, attrs: string): string {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- одноразовая сборка query
+		const params = new URLSearchParams({ source: id, list: name });
+		if (attrs.trim()) params.set('attrs', attrs.trim());
+		return resolve(`/routes?${params}`);
 	}
 
 	function openLocal(list?: LocalList) {
 		localIsNew = !list;
 		localName = list?.name ?? '';
 		localText = list?.text ?? '';
+		localOriginal = localText;
 		localOpen = true;
 	}
 
 	async function saveLocal() {
 		const name = localName.trim();
-		const saved = await attempt(
+		if (!name || localNameError) return;
+		localSaving = true;
+		const result = await attempt(
 			() =>
 				unwrap(
 					api.PUT('/api/domain-sources/{id}/local-lists/{name}', {
@@ -173,15 +213,37 @@
 						body: { text: localText }
 					})
 				),
-			'Список сохранён'
+			localIsNew ? `Список ${name} создан` : `Список ${name} сохранён`
 		);
-		if (!saved) return;
+		localSaving = false;
+		if (!result) return;
 		localOpen = false;
 		await Promise.all([loadLocal(), loadLists()]);
 	}
 
+	async function closeLocal() {
+		if (localDirty) {
+			const ok = await ask({
+				title: 'Закрыть без сохранения?',
+				message: 'Изменения в списке пропадут.',
+				action: 'Закрыть',
+				danger: true
+			});
+			if (!ok) return;
+		}
+		localOpen = false;
+	}
+
 	async function removeLocal(name: string) {
-		if (!confirm(`Удалить список «${name}»?`)) return;
+		const ok = await ask({
+			title: `Удалить список «${name}»?`,
+			message: routed.has(name)
+				? 'Маршруты с этим списком перестанут обновляться.'
+				: 'Строки списка удалятся без возможности восстановления.',
+			action: 'Удалить',
+			danger: true
+		});
+		if (!ok) return;
 		const done = await attemptOk(
 			() =>
 				unwrap(
@@ -193,139 +255,240 @@
 		);
 		if (done) await Promise.all([loadLocal(), loadLists()]);
 	}
+
+	function lineCount(text: string): number {
+		return text.split('\n').filter((line) => line.trim() && !line.trim().startsWith('#')).length;
+	}
 </script>
 
-<div class="toolbar">
-	<h1>{source?.name ?? 'Источник'}</h1>
-	<a href={resolve('/sources')}>← Все источники</a>
-</div>
+<PageHeader
+	title={source?.name ?? 'Источник'}
+	back={{ href: resolve('/sources'), label: 'Источники списков' }}
+>
+	{#snippet meta()}
+		{#if source}
+			<Badge>{sourceKinds[source.kind] ?? source.kind}</Badge>
+			{#if source.builtIn}<Badge tone="accent">встроенный</Badge>{/if}
+		{/if}
+	{/snippet}
+	{#snippet actions()}
+		{#if source}
+			{#if source.kind !== 'Local'}
+				<UpdateButton label="Обновить сейчас" busy={refreshing} onrun={refresh} />
+			{/if}
+			{#if !source.builtIn}
+				<Menu
+					small={false}
+					buttonClass=""
+					items={[
+						{ label: 'Изменить источник', icon: 'edit', onclick: openEdit },
+						'separator',
+						{ label: 'Удалить источник', icon: 'trash', danger: true, onclick: remove }
+					]}
+				/>
+			{/if}
+		{/if}
+	{/snippet}
+</PageHeader>
 
 {#if loadError}
-	<p class="error">{errorMessage(loadError)}</p>
+	<EmptyState icon="alert" title="Источник не открылся" text={errorMessage(loadError)}>
+		<button class="btn" onclick={() => loadAll(id)}>Повторить</button>
+		<a class="btn" href={resolve('/sources')}>К источникам</a>
+	</EmptyState>
 {:else if !source}
-	<p class="muted">Загрузка…</p>
+	<div class="panel loading" aria-busy="true">Загружаем источник…</div>
 {:else}
 	{@const last = source.lastRefresh}
 	{@const status = label(refreshStatuses, last?.status)}
 	<div class="stack">
-		<section class="card">
-			<dl class="props">
-				<dt>Вид</dt>
-				<dd>{sourceKinds[source.kind] ?? source.kind}{source.builtIn ? ' (встроенный)' : ''}</dd>
-				<dt>Откуда</dt>
-				<dd>{sourceOrigin(source)}</dd>
-				{#if source.revision}
-					<dt>Версия</dt>
-					<dd><code>{source.revision}</code></dd>
-				{/if}
-				<dt>Списков</dt>
-				<dd>{source.listCount}</dd>
-				<dt>Маршрутов</dt>
-				<dd>{source.routeCount}</dd>
-				{#if source.kind !== 'Local'}
-					<dt>Автообновление</dt>
-					<dd>{source.autoUpdate ? 'да' : 'нет'}</dd>
-				{/if}
-				{#if last}
-					<dt>Обновлён</dt>
-					<dd><Badge tone={status.tone}>{status.label}</Badge> {formatDateTime(last.at)}</dd>
-				{/if}
-			</dl>
-			{#if last?.error}<p class="error">{last.error}</p>{/if}
-			{#if last && last.errors.length > 0}
-				<details>
-					<summary>Ошибки в списках: {last.errors.length}</summary>
-					<ul class="plain error small">
-						{#each last.errors as error (error)}<li>{error}</li>{/each}
-					</ul>
-				</details>
-			{/if}
-			<div class="actions buttons">
-				{#if source.kind !== 'Local'}
-					<UpdateButton label="Обновить" busy={refreshing} onrun={refresh} />
-				{/if}
-				{#if !source.builtIn}
-					<button class="secondary" onclick={openEdit}>Изменить</button>
-					<button class="danger" onclick={remove}>Удалить</button>
-				{/if}
+		<div class="facts panel">
+			<div class="wide">
+				<span class="fact-label">Откуда</span>
+				<span class="fact-value mono small">{sourceOrigin(source)}</span>
 			</div>
-		</section>
+			{#if source.revision}
+				<div>
+					<span class="fact-label">Версия</span>
+					<span class="fact-value"
+						><Copyable value={source.revision} text={source.revision.slice(0, 12)} /></span
+					>
+				</div>
+			{/if}
+			<div>
+				<span class="fact-label">Списков</span>
+				<span class="fact-value num">{source.listCount}</span>
+			</div>
+			<div>
+				<span class="fact-label">Маршрутов</span>
+				<span class="fact-value num">{source.routeCount}</span>
+			</div>
+			<div>
+				<span class="fact-label">Обновление</span>
+				<span class="fact-value">
+					{#if last}<Badge tone={status.tone} dot>{status.label}</Badge>{/if}
+					<span class="muted small">
+						{last ? formatDateTime(last.at) : source.kind === 'Local' ? 'вручную' : 'ещё не было'}
+						{#if source.kind !== 'Local'}· {source.autoUpdate
+								? 'по расписанию'
+								: 'только вручную'}{/if}
+					</span>
+				</span>
+			</div>
+		</div>
+
+		{#if last?.error}
+			<div class="banner danger" role="alert">
+				<Icon name="alert" size={18} /><span>{last.error}</span>
+			</div>
+		{/if}
+		{#if last && last.errors.length > 0}
+			<details class="panel issues">
+				<summary
+					><Icon name="alert" size={16} />Ошибки в отдельных списках: {last.errors.length}</summary
+				>
+				<ul class="error-text small">
+					{#each last.errors as error (error)}<li>{error}</li>{/each}
+				</ul>
+			</details>
+		{/if}
 
 		{#if source.kind === 'Local'}
-			<section class="card">
-				<div class="toolbar">
-					<h2>Локальные списки</h2>
-					<button class="small" onclick={() => openLocal()}>Новый список</button>
+			<section class="panel">
+				<div class="panel-head">
+					<h2>Свои списки</h2>
+					<button class="btn sm primary" onclick={() => openLocal()}>
+						<Icon name="plus" size={14} />Новый список
+					</button>
 				</div>
 				{#if localLists.length === 0}
-					<p class="empty">Списков нет</p>
+					<EmptyState
+						bare
+						icon="list"
+						title="Списков ещё нет"
+						text="Создайте список — например, telegram с адресами и доменами, которые нужно пустить через соединение."
+					>
+						<button class="btn primary" onclick={() => openLocal()}>Создать список</button>
+					</EmptyState>
 				{:else}
 					<ul class="locals">
 						{#each localLists as list (list.name)}
 							<li>
-								<code>{list.name}</code>
-								<span class="muted small">{formatDateTime(list.updatedAt)}</span>
-								<span class="actions">
-									<button class="secondary small" onclick={() => openLocal(list)}>Править</button>
-									<button class="danger small" onclick={() => removeLocal(list.name)}
-										>Удалить</button
-									>
+								<button class="local-name" onclick={() => openLocal(list)}>
+									<Icon name="list" size={16} />
+									<span class="mono">{list.name}</span>
+								</button>
+								<span class="muted small num">{lineCount(list.text)} строк</span>
+								<span class="muted small">изменён {formatDateTime(list.updatedAt)}</span>
+								<span class="row end">
+									<button class="btn sm" onclick={() => openLocal(list)}>Править</button>
+									<Menu
+										ariaLabel="Действия со списком {list.name}"
+										items={[
+											{
+												label: 'Состав в Keenetic',
+												icon: 'eye',
+												onclick: () => openPreview(list.name)
+											},
+											{
+												label: 'Направить в соединение',
+												icon: 'route',
+												href: routeHref(list.name, '')
+											},
+											'separator',
+											{
+												label: 'Удалить',
+												icon: 'trash',
+												danger: true,
+												onclick: () => removeLocal(list.name)
+											}
+										]}
+									/>
 								</span>
 							</li>
 						{/each}
 					</ul>
 				{/if}
-				<ListFormatHelp />
 			</section>
 		{/if}
 
-		<section class="card">
-			<div class="toolbar">
-				<h2>Каталог</h2>
-				<input class="search" placeholder="Поиск списка" bind:value={query} oninput={search} />
+		<section class="panel">
+			<div class="panel-head">
+				<h2>Каталог списков</h2>
+				<SearchInput value={query} placeholder="Имя списка" label="Поиск списка" oninput={search} />
 			</div>
 			{#if listsError}
-				<p class="error">{errorMessage(listsError)}</p>
+				<div class="panel-body error-text">{errorMessage(listsError)}</div>
 			{:else if !source.downloaded}
-				<p class="empty">Источник ещё не загружен</p>
+				<EmptyState
+					bare
+					icon="download"
+					title="Источник ещё не загружен"
+					text="Загрузка идёт в фоне или завершилась ошибкой — смотрите состояние выше."
+				/>
+			{:else if lists === undefined}
+				<div class="panel-body muted">Загружаем каталог…</div>
 			{:else if lists.length === 0}
-				<p class="empty">Ничего не найдено</p>
+				<EmptyState
+					bare
+					icon="search"
+					title={query ? 'Таких списков нет' : 'В источнике нет списков'}
+				/>
 			{:else}
-				<div class="table-wrap">
-					<table>
+				<div class="table-scroll">
+					<table class="table">
 						<thead>
 							<tr>
 								<th>Список</th>
-								<th>Доменов</th>
-								<th>IPv4</th>
-								<th>IPv6</th>
-								<th>Пропущено</th>
+								<th class="num">Доменов</th>
+								<th class="num">IPv4</th>
+								<th class="num">IPv6</th>
+								<th class="num">Пропущено</th>
 								<th>Атрибуты</th>
-								<th></th>
+								<th class="actions-cell"><span class="visually-hidden">Действия</span></th>
 							</tr>
 						</thead>
 						<tbody>
 							{#each lists.slice(0, visibleLimit) as list (list.name)}
+								{@const used = routed.get(list.name)}
 								<tr>
-									<td><code>{list.name}</code></td>
-									<td>{list.domains}</td>
-									<td>{list.ipv4}</td>
-									<td>{list.ipv6}</td>
-									<td class:muted={(toNumber(list.skipped) ?? 0) === 0}>{list.skipped}</td>
+									<td>
+										<button class="list-name mono" onclick={() => openPreview(list.name)}
+											>{list.name}</button
+										>
+										{#if used}
+											<a href={resolve(`/routes?q=${encodeURIComponent(list.name)}`)}>
+												<Badge tone="ok">в маршруте{used > 1 ? ` ×${used}` : ''}</Badge>
+											</a>
+										{/if}
+									</td>
+									<td class="num">{list.domains}</td>
+									<td class="num">{list.ipv4}</td>
+									<td class="num">{list.ipv6}</td>
+									<td class="num" class:faint={(toNumber(list.skipped) ?? 0) === 0}
+										>{list.skipped}</td
+									>
 									<td class="attrs">
 										{#each list.attributes as attr (attr)}
-											<button class="link" onclick={() => openPreview(list.name, attr)}
-												>@{attr}</button
+											<button
+												class="attr"
+												title="Состав только с @{attr}"
+												onclick={() => openPreview(list.name, attr)}
 											>
+												@{attr}
+											</button>
 										{/each}
 									</td>
-									<td class="actions">
-										<button class="secondary small" onclick={() => openPreview(list.name)}
-											>Состав</button
-										>
-										<a class="small" href={resolve(`/routes?${routeQuery(list.name, '')}`)}
-											>В маршрут</a
-										>
+									<td class="actions-cell">
+										<div class="row end nowrap">
+											<button class="btn sm ghost" onclick={() => openPreview(list.name)}>
+												<Icon name="eye" size={14} />Состав
+											</button>
+											<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- адрес уже собран через resolve() -->
+											<a class="btn sm" href={routeHref(list.name, '')}>
+												<Icon name="route" size={14} />В маршрут
+											</a>
+										</div>
 									</td>
 								</tr>
 							{/each}
@@ -333,95 +496,240 @@
 					</table>
 				</div>
 				{#if lists.length > visibleLimit}
-					<p class="muted">Показаны первые {visibleLimit} из {lists.length} — уточните поиск.</p>
+					<p class="panel-body muted small">
+						Показаны первые {visibleLimit} из {lists.length}. Уточните поиск, чтобы найти нужный.
+					</p>
 				{/if}
 			{/if}
 		</section>
+
+		{#if source.kind === 'Local'}<ListFormatHelp />{/if}
 	</div>
 {/if}
 
-<Dialog bind:open={previewOpen} title={`Список ${previewName}`} wide>
+<Dialog
+	bind:open={previewOpen}
+	title="Список {previewName}"
+	description="Что уйдёт в Keenetic"
+	size="lg"
+>
 	<ListPreview sourceId={id} listName={previewName} bind:attrs={previewAttrs} />
 	{#snippet actions()}
-		<button class="secondary" onclick={() => (previewOpen = false)}>Закрыть</button>
-		<a class="button" href={resolve(`/routes?${routeQuery(previewName, previewAttrs)}`)}
-			>Направить в соединение</a
+		<button class="btn" onclick={() => (previewOpen = false)}>Закрыть</button>
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- адрес уже собран через resolve() -->
+		<a class="btn primary" href={routeHref(previewName, previewAttrs)}>
+			<Icon name="route" size={16} />Направить в соединение
+		</a>
+	{/snippet}
+</Dialog>
+
+<Dialog bind:open={editOpen} variant="side" title="Источник" onsubmit={saveEdit}>
+	<SourceFormFields bind:form={editForm} editing={true} />
+	{#snippet actions()}
+		<button class="btn" onclick={() => (editOpen = false)}>Отмена</button>
+		<button
+			class="btn primary"
+			disabled={!editForm.name.trim()}
+			aria-busy={saving}
+			onclick={saveEdit}
+		>
+			Сохранить
+		</button>
+	{/snippet}
+</Dialog>
+
+<Dialog
+	bind:open={localOpen}
+	variant="side"
+	size="lg"
+	title={localIsNew ? 'Новый список' : `Список ${localName}`}
+	description="Домены, подсети и include — по одному в строке."
+	onsubmit={saveLocal}
+>
+	<div class="form">
+		{#if localIsNew}
+			<Field
+				label="Имя списка"
+				hint="Латиница в нижнем регистре, цифры, - . _ !"
+				error={localNameError}
+			>
+				<input bind:value={localName} placeholder="telegram" maxlength="64" spellcheck="false" />
+			</Field>
+		{/if}
+		<Field label="Строки" hint="{lineCount(localText)} значимых строк">
+			<textarea
+				class="local-text"
+				bind:value={localText}
+				rows="18"
+				spellcheck="false"
+				placeholder="telegram.org&#10;t.me&#10;91.108.4.0/22&#10;# комментарий"></textarea>
+		</Field>
+		<ListFormatHelp />
+	</div>
+	{#snippet actions()}
+		<button class="btn" onclick={closeLocal}>Отмена</button>
+		<button
+			class="btn primary"
+			disabled={!localName.trim() || !!localNameError}
+			aria-busy={localSaving}
+			onclick={saveLocal}>{localIsNew ? 'Создать список' : 'Сохранить'}</button
 		>
 	{/snippet}
 </Dialog>
 
-<Dialog bind:open={editOpen} title="Источник">
-	<SourceFormFields bind:form={editForm} editing={true} />
-	{#snippet actions()}
-		<button class="secondary" onclick={() => (editOpen = false)}>Отмена</button>
-		<button disabled={saving || !editForm.name.trim()} onclick={saveEdit}>Сохранить</button>
-	{/snippet}
-</Dialog>
-
-<Dialog bind:open={localOpen} title={localIsNew ? 'Новый список' : `Список ${localName}`} wide>
-	<div class="form">
-		{#if localIsNew}
-			<label>
-				Имя
-				<input bind:value={localName} placeholder="telegram" maxlength="64" />
-				<span class="hint">Латиница в нижнем регистре, цифры, - . _ !</span>
-			</label>
-		{/if}
-		<label>
-			Строки списка
-			<textarea bind:value={localText} rows="16" spellcheck="false"></textarea>
-		</label>
-	</div>
-	{#snippet actions()}
-		<button class="secondary" onclick={() => (localOpen = false)}>Отмена</button>
-		<button disabled={!localName.trim()} onclick={saveLocal}>Сохранить</button>
-	{/snippet}
-</Dialog>
-
 <style>
-	.small {
-		font-size: 0.85em;
+	.loading {
+		padding: 24px;
+		color: var(--muted);
 	}
 
-	.buttons {
-		margin-top: 12px;
+	.facts {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 	}
 
-	.toolbar h2 {
-		margin: 0 auto 0 0;
+	.facts > div {
+		display: grid;
+		gap: 4px;
+		align-content: start;
+		padding: 16px 20px;
+		border-left: 1px solid var(--line);
 	}
 
-	.search {
-		width: 240px;
+	.facts > div:first-child {
+		border-left: 0;
 	}
 
-	.attrs {
-		max-width: 260px;
+	.facts .wide {
+		grid-column: span 2;
+		overflow-wrap: anywhere;
 	}
 
-	button.link {
-		padding: 0 4px 0 0;
-		border: none;
-		background: none;
-		color: var(--accent);
-		font-size: 0.88em;
+	.fact-label {
+		color: var(--muted);
+		font-size: 12.5px;
 	}
 
-	.locals {
-		list-style: none;
-		margin: 0 0 12px;
-		padding: 0;
-	}
-
-	.locals li {
+	.fact-value {
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		padding: 6px 0;
-		border-bottom: 1px solid var(--border);
+		flex-wrap: wrap;
+		font-weight: 500;
 	}
 
-	.locals .actions {
-		margin-left: auto;
+	.banner {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 12px 16px;
+		border-radius: var(--r-md);
+		background: var(--danger-soft);
+		color: var(--ink-2);
+	}
+
+	.banner :global(.icon) {
+		color: var(--danger);
+	}
+
+	.issues summary {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 12px 16px;
+		color: var(--danger);
+		cursor: pointer;
+	}
+
+	.issues ul {
+		margin: 0;
+		padding: 0 20px 16px 40px;
+	}
+
+	.locals {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.locals li {
+		display: grid;
+		grid-template-columns: minmax(160px, 1fr) auto auto auto;
+		align-items: center;
+		gap: 20px;
+		padding: 10px 14px 10px 20px;
+		border-top: 1px solid var(--line);
+	}
+
+	.locals li:first-child {
+		border-top: 0;
+	}
+
+	.local-name,
+	.list-name {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		color: var(--ink);
+		font-weight: 500;
+		text-align: left;
+	}
+
+	.local-name :global(.icon) {
+		color: var(--faint);
+	}
+
+	.local-name:hover,
+	.list-name:hover {
+		color: var(--accent-text);
+	}
+
+	.list-name {
+		margin-right: 8px;
+	}
+
+	.attrs {
+		max-width: 280px;
+	}
+
+	.attr {
+		margin: 0 6px 2px 0;
+		padding: 1px 6px;
+		border-radius: 4px;
+		background: var(--hover);
+		color: var(--ink-2);
+		font-family: var(--mono);
+		font-size: 12px;
+	}
+
+	.attr:hover {
+		background: var(--accent-soft);
+		color: var(--accent-text);
+	}
+
+	.end {
+		justify-content: flex-end;
+	}
+
+	.nowrap {
+		flex-wrap: nowrap;
+	}
+
+	.local-text {
+		min-height: 360px;
+	}
+
+	@media (max-width: 720px) {
+		.facts .wide {
+			grid-column: auto;
+		}
+
+		.locals li {
+			grid-template-columns: 1fr auto;
+		}
+
+		.locals li > .muted {
+			display: none;
+		}
 	}
 </style>

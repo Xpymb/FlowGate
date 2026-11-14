@@ -5,20 +5,34 @@
 	import { page } from '$app/state';
 	import { api } from '#lib/api/client.js';
 	import { unwrap } from '#lib/api/errors.js';
-	import Badge from '#lib/components/Badge.svelte';
-	import Dialog from '#lib/components/Dialog.svelte';
-	import ListPreview from '#lib/components/ListPreview.svelte';
-	import Loadable from '#lib/components/Loadable.svelte';
-	import { formatDateTime } from '#lib/format.js';
+	import { ask } from '#lib/confirm.svelte.js';
+	import { formatDateTime, toNumber } from '#lib/format.js';
+	import { hotkey } from '#lib/hotkeys.js';
 	import { findRunningJob } from '#lib/jobs.js';
 	import { followJob, trackJob } from '#lib/jobs.svelte.js';
 	import { label, refreshStatuses, routeStates } from '#lib/labels.js';
 	import { Resource } from '#lib/resource.svelte.js';
-	import { attempt, attemptOk } from '#lib/toast.svelte.js';
+	import { matchesQuery, Selection, UrlParam } from '#lib/table.svelte.js';
+	import { attempt, notify, notifyError } from '#lib/toast.svelte.js';
 	import type { components } from '#lib/api/schema.js';
+	import Badge from '#lib/components/Badge.svelte';
+	import BulkBar from '#lib/components/BulkBar.svelte';
+	import Checkbox from '#lib/components/Checkbox.svelte';
+	import Copyable from '#lib/components/Copyable.svelte';
+	import Dialog from '#lib/components/Dialog.svelte';
+	import EmptyState from '#lib/components/EmptyState.svelte';
+	import Field from '#lib/components/Field.svelte';
+	import Icon from '#lib/components/Icon.svelte';
+	import ListPreview from '#lib/components/ListPreview.svelte';
+	import Loadable from '#lib/components/Loadable.svelte';
+	import Menu from '#lib/components/Menu.svelte';
+	import PageHeader from '#lib/components/PageHeader.svelte';
+	import SearchInput from '#lib/components/SearchInput.svelte';
+	import Switch from '#lib/components/Switch.svelte';
 
 	type Route = components['schemas']['DnsRouteDto'];
 	type ListSummary = components['schemas']['DomainListSummaryDto'];
+	type StateFilter = '' | 'on' | 'off' | 'issues';
 
 	const routes = new Resource(() => unwrap(api.GET('/api/dns-routes')), {
 		live: ['dns-routes', 'connections', 'domain-sources']
@@ -30,37 +44,68 @@
 		live: ['domain-sources']
 	});
 
+	const query = new UrlParam('q');
+	const stateFilter = new UrlParam('state');
+	const selection = new Selection();
+
 	let editorOpen = $state(false);
 	let editing = $state<Route>();
-	let form = $state({
-		sourceId: '',
-		listName: '',
-		attributeFilter: '',
-		connectionId: '',
-		exclusive: false
-	});
+	let form = $state(emptyForm());
 	let catalog = $state<ListSummary[]>([]);
+	let catalogLoading = $state(false);
 	let saving = $state(false);
 	let applying = $state(false);
-	let busy = $state<Record<string, boolean>>({});
+	let bulkBusy = $state(false);
+	/** Переключения правил в процессе: id → состояние, к которому идём. */
+	let pending = $state<Record<string, boolean>>({});
 	let catalogTimer: ReturnType<typeof setTimeout> | undefined;
 	let viewOpen = $state(false);
 	let viewing = $state<Route>();
 
-	const selectedList = $derived(catalog.find((list) => list.name === form.listName));
+	const all = $derived(routes.data ?? []);
+	const noConnections = $derived(connections.data?.length === 0);
+	const selectedList = $derived(catalog.find((list) => list.name === form.listName.trim()));
+	const counts = $derived({
+		on: all.filter((route) => route.state === 'Enabled').length,
+		off: all.filter((route) => route.state === 'Disabled').length,
+		issues: all.filter(hasIssue).length
+	});
+	const visible = $derived(
+		all.filter(
+			(route) =>
+				matchesState(route, stateFilter.value as StateFilter) &&
+				matchesQuery(query.value, [
+					route.listName,
+					route.sourceName,
+					route.connectionName,
+					route.interfaceName,
+					route.groupName,
+					route.attributeFilter
+				])
+		)
+	);
+	const visibleIds = $derived(visible.map((route) => route.id));
+	const selectedRoutes = $derived(all.filter((route) => selection.has(route.id)));
 
 	$effect(() => {
-		const query = page.url.searchParams;
-		const sourceId = query.get('source');
-		if (!sourceId) return;
+		selection.retain(all.map((route) => route.id));
+	});
+
+	$effect(() => hotkey('n', () => !noConnections && openCreate()));
+
+	// Переход из источника (?source=&list=&attrs=) или из палитры (?new=1) открывает форму создания.
+	$effect(() => {
+		const params = page.url.searchParams;
+		const sourceId = params.get('source');
+		if (!sourceId && params.get('new') !== '1') return;
 		const prefill = {
-			sourceId,
-			listName: query.get('list') ?? '',
-			attributeFilter: query.get('attrs') ?? ''
+			sourceId: sourceId ?? undefined,
+			listName: params.get('list') ?? '',
+			attributeFilter: params.get('attrs') ?? ''
 		};
 		untrack(() => {
 			openCreate(prefill);
-			void goto(resolve('/routes'), { shallow: true, replace: true });
+			void goto(resolve('/routes'), { replace: true, reset: false });
 		});
 	});
 
@@ -73,14 +118,40 @@
 		}
 	});
 
-	function openCreate(prefill: Partial<typeof form> = {}) {
+	function emptyForm() {
+		return {
+			sourceId: '',
+			listName: '',
+			attributeFilter: '',
+			connectionId: '',
+			exclusive: false
+		};
+	}
+
+	function hasIssue(route: Route): boolean {
+		return (
+			route.state === 'Pending' ||
+			!route.connectionName ||
+			!route.sourceName ||
+			(!!route.lastApply && route.lastApply.status !== 'Ok')
+		);
+	}
+
+	function matchesState(route: Route, filter: StateFilter): boolean {
+		if (filter === 'on') return route.state === 'Enabled';
+		if (filter === 'off') return route.state === 'Disabled';
+		if (filter === 'issues') return hasIssue(route);
+		return true;
+	}
+
+	function openCreate(prefill: Partial<ReturnType<typeof emptyForm>> = {}) {
 		editing = undefined;
 		form = {
+			...emptyForm(),
 			sourceId: prefill.sourceId ?? sources.data?.[0]?.id ?? '',
 			listName: prefill.listName ?? '',
 			attributeFilter: prefill.attributeFilter ?? '',
-			connectionId: connections.data?.[0]?.id ?? '',
-			exclusive: prefill.exclusive ?? false
+			connectionId: connections.data?.[0]?.id ?? ''
 		};
 		editorOpen = true;
 		void loadCatalog();
@@ -106,6 +177,7 @@
 
 	async function loadCatalog() {
 		if (!form.sourceId) return;
+		catalogLoading = true;
 		const result = await attempt(() =>
 			unwrap(
 				api.GET('/api/domain-sources/{id}/lists', {
@@ -116,6 +188,7 @@
 				})
 			)
 		);
+		catalogLoading = false;
 		catalog = result ?? [];
 	}
 
@@ -125,6 +198,7 @@
 	}
 
 	async function save() {
+		if (!form.connectionId || !form.listName.trim() || !form.sourceId) return;
 		saving = true;
 		const attributeFilter = form.attributeFilter.trim() || null;
 		const target = editing;
@@ -152,7 +226,7 @@
 								}
 							})
 						),
-			target ? 'Маршрут изменён' : 'Маршрут создан'
+			target ? 'Маршрут изменён, применяем в Keenetic' : 'Маршрут создан, применяем в Keenetic'
 		);
 		saving = false;
 		if (!saved) return;
@@ -169,32 +243,73 @@
 		await routes.reload();
 	}
 
-	async function toggle(route: Route) {
-		busy[route.id] = true;
-		const action = route.state === 'Disabled' ? 'enable' : 'disable';
-		const done = await attemptOk(
-			() =>
-				unwrap(api.POST(`/api/dns-routes/{id}/${action}`, { params: { path: { id: route.id } } })),
-			action === 'enable' ? 'Правило будет включено' : 'Правило будет выключено'
-		);
-		if (done) await afterChange();
-		busy[route.id] = false;
+	async function setEnabled(route: Route, enabled: boolean): Promise<boolean> {
+		const action = enabled ? 'enable' : 'disable';
+		try {
+			await unwrap(
+				api.POST(`/api/dns-routes/{id}/${action}`, { params: { path: { id: route.id } } })
+			);
+			return true;
+		} catch (error) {
+			notifyError(error);
+			return false;
+		}
 	}
 
-	async function remove(route: Route) {
-		if (
-			!confirm(
-				`Удалить маршрут «${route.listName}» вместе с группой ${route.groupName} в Keenetic?`
-			)
-		)
-			return;
-		busy[route.id] = true;
-		const done = await attemptOk(
-			() => unwrap(api.DELETE('/api/dns-routes/{id}', { params: { path: { id: route.id } } })),
-			'Маршрут удалён'
-		);
+	async function toggle(route: Route) {
+		const target = route.state === 'Disabled';
+		pending[route.id] = target;
+		const done = await setEnabled(route, target);
 		if (done) await afterChange();
-		busy[route.id] = false;
+		delete pending[route.id];
+	}
+
+	async function bulkSetEnabled(enabled: boolean) {
+		const list = selectedRoutes.filter(
+			(route) => route.state !== 'Pending' && (route.state === 'Enabled') !== enabled
+		);
+		if (list.length === 0) {
+			notify(
+				'info',
+				enabled ? 'Выбранные правила уже включены' : 'Выбранные правила уже выключены'
+			);
+			return;
+		}
+		bulkBusy = true;
+		for (const route of list) pending[route.id] = enabled;
+		let done = 0;
+		for (const route of list) if (await setEnabled(route, enabled)) done++;
+		if (done > 0) notify('ok', `${enabled ? 'Включаем' : 'Выключаем'} правила: ${done}`);
+		await afterChange();
+		for (const route of list) delete pending[route.id];
+		bulkBusy = false;
+	}
+
+	async function removeRoutes(list: Route[]) {
+		const one = list.length === 1;
+		const ok = await ask({
+			title: one ? `Удалить маршрут «${list[0].listName}»?` : `Удалить маршруты: ${list.length}?`,
+			message: one
+				? `Группа ${list[0].groupName} и правило удалятся из Keenetic, сайты списка пойдут напрямую.`
+				: 'Их группы и правила удалятся из Keenetic, сайты этих списков пойдут напрямую.',
+			action: 'Удалить',
+			danger: true
+		});
+		if (!ok) return;
+		bulkBusy = true;
+		let done = 0;
+		for (const route of list) {
+			try {
+				await unwrap(api.DELETE('/api/dns-routes/{id}', { params: { path: { id: route.id } } }));
+				selection.ids.delete(route.id);
+				done++;
+			} catch (error) {
+				notifyError(error);
+			}
+		}
+		if (done > 0) notify('ok', one ? 'Маршрут удалён' : `Удалено маршрутов: ${done}`);
+		bulkBusy = false;
+		await afterChange();
 	}
 
 	async function applyAll() {
@@ -203,106 +318,251 @@
 		applying = false;
 		void routes.reload();
 	}
+
+	function partsLabel(parts: number | string): string {
+		const count = toNumber(parts) ?? 1;
+		return count > 1 ? `, ${count} части` : '';
+	}
 </script>
 
-<div class="toolbar">
-	<h1>DNS-маршруты</h1>
-	<button class="secondary" disabled={applying} onclick={applyAll}>
-		{applying ? 'Применяется…' : 'Применить все'}
-	</button>
-	<button onclick={() => openCreate()} disabled={!connections.data?.length}>Добавить</button>
-</div>
-
-<p class="muted intro">
-	Маршрут — один список источника в одно соединение: группа <code>fg-…</code> в Keenetic и правило DNS-маршрута
-	на интерфейс. Правило, выключенное в Keenetic, FlowGate сам не включит.
-</p>
+<PageHeader
+	title="DNS-маршруты"
+	description="Маршрут направляет сайты одного списка в соединение: FlowGate создаёт в Keenetic группу доменов и правило на интерфейс."
+>
+	{#snippet actions()}
+		<button
+			class="btn"
+			aria-busy={applying}
+			onclick={applyAll}
+			title="Пересоздать группы и правила в Keenetic"
+		>
+			<Icon name="refresh" size={16} />Применить все
+		</button>
+		<button
+			class="btn primary"
+			disabled={noConnections}
+			onclick={() => openCreate()}
+			title="Клавиша N"
+		>
+			<Icon name="plus" size={16} />Новый маршрут
+		</button>
+	{/snippet}
+</PageHeader>
 
 <Loadable resource={routes}>
 	{#snippet children(list)}
 		{#if list.length === 0}
-			<p class="card empty">
-				{connections.data?.length === 0 ? 'Сначала создайте соединение.' : 'Маршрутов нет.'}
-			</p>
+			{#if noConnections}
+				<EmptyState
+					icon="plug"
+					title="Сначала создайте соединение"
+					text="Маршрут направляет сайты в соединение. Создайте его, а затем возвращайтесь сюда."
+				>
+					<a class="btn primary" href={resolve('/connections')}>К соединениям</a>
+				</EmptyState>
+			{:else}
+				<EmptyState
+					icon="route"
+					title="Маршрутов пока нет"
+					text="Выберите список сайтов — например, youtube из источника v2fly — и соединение, через которое их пустить."
+				>
+					<button class="btn primary" onclick={() => openCreate()}>Создать маршрут</button>
+					<a class="btn" href={resolve('/sources')}>Посмотреть списки</a>
+				</EmptyState>
+			{/if}
 		{:else}
-			<div class="table-wrap">
-				<table>
-					<thead>
-						<tr>
-							<th>Список</th>
-							<th>Соединение</th>
-							<th>Группа</th>
-							<th>Правило</th>
-							<th>Применение</th>
-							<th></th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each list as route (route.id)}
-							{@const state = label(routeStates, route.state)}
-							{@const apply = route.lastApply}
-							{@const applyStatus = label(refreshStatuses, apply?.status)}
-							<tr>
-								<td>
-									<code>{route.listName}</code>
-									{#if route.attributeFilter}<Badge>@{route.attributeFilter}</Badge>{/if}
-									{#if route.exclusive}<Badge>эксклюзивный</Badge>{/if}
-									<div class="muted small">{route.sourceName ?? 'источник удалён'}</div>
-								</td>
-								<td>
-									{#if route.connectionName}
-										{route.connectionName}
-										<div class="muted small">{route.interfaceName}</div>
-									{:else}<Badge tone="danger">соединение удалено</Badge>{/if}
-								</td>
-								<td><code>{route.groupName}</code></td>
-								<td><Badge tone={state.tone}>{state.label}</Badge></td>
-								<td>
-									{#if apply}
-										<Badge tone={applyStatus.tone}>{applyStatus.label}</Badge>
-										<div class="muted small">
-											{apply.entries} эл.{Number(apply.parts) > 1 ? `, ${apply.parts} части` : ''} · {formatDateTime(
-												apply.at
-											)}
-										</div>
-										{#if apply.error}<div class="error small">{apply.error}</div>{/if}
-										{#each apply.warnings as warning (warning)}
-											<div class="muted small">{warning}</div>
-										{/each}
-									{:else}—{/if}
-								</td>
-								<td class="actions">
-									{#if route.state !== 'Pending'}
-										<button
-											class="secondary small"
-											disabled={busy[route.id]}
-											onclick={() => toggle(route)}
-										>
-											{route.state === 'Disabled' ? 'Включить' : 'Выключить'}
-										</button>
-									{/if}
-									<button
-										class="secondary small"
-										disabled={!route.sourceName}
-										onclick={() => openView(route)}>Домены</button
-									>
-									<button class="secondary small" onclick={() => openEdit(route)}>Изменить</button>
-									<button
-										class="danger small"
-										disabled={busy[route.id]}
-										onclick={() => remove(route)}>Удалить</button
-									>
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
+			<div class="toolbar">
+				<SearchInput
+					value={query.value}
+					placeholder="Список, соединение или группа"
+					oninput={(value) => query.set(value)}
+				/>
+				<div class="segmented" role="group" aria-label="Состояние правила">
+					<button aria-pressed={stateFilter.value === ''} onclick={() => stateFilter.set('')}>
+						Все <span class="faint num">{list.length}</span>
+					</button>
+					<button aria-pressed={stateFilter.value === 'on'} onclick={() => stateFilter.set('on')}>
+						Включены <span class="faint num">{counts.on}</span>
+					</button>
+					<button aria-pressed={stateFilter.value === 'off'} onclick={() => stateFilter.set('off')}>
+						Выключены <span class="faint num">{counts.off}</span>
+					</button>
+					{#if counts.issues > 0}
+						<button
+							class="issues"
+							aria-pressed={stateFilter.value === 'issues'}
+							onclick={() => stateFilter.set('issues')}
+						>
+							Требуют внимания <span class="num">{counts.issues}</span>
+						</button>
+					{/if}
+				</div>
 			</div>
+
+			<div class="panel">
+				<div class="table-scroll">
+					<table class="table">
+						<thead>
+							<tr>
+								<th class="check-cell">
+									<Checkbox
+										label="Выбрать все"
+										checked={selection.allState(visibleIds) === 'all'}
+										indeterminate={selection.allState(visibleIds) === 'some'}
+										onchange={() => selection.toggleAll(visibleIds)}
+									/>
+								</th>
+								<th>Куда идут сайты</th>
+								<th>Группа Keenetic</th>
+								<th>Применение</th>
+								<th>Правило</th>
+								<th class="actions-cell"><span class="visually-hidden">Действия</span></th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each visible as route (route.id)}
+								{@const apply = route.lastApply}
+								{@const applyStatus = label(refreshStatuses, apply?.status)}
+								{@const routeState = label(routeStates, route.state)}
+								{@const enabled = pending[route.id] ?? route.state === 'Enabled'}
+								<tr class:selected={selection.has(route.id)} class:off={route.state === 'Disabled'}>
+									<td class="check-cell">
+										<Checkbox
+											label="Выбрать {route.listName}"
+											checked={selection.has(route.id)}
+											onchange={() => selection.toggle(route.id)}
+										/>
+									</td>
+									<td>
+										<div class="path">
+											<button class="list" onclick={() => openEdit(route)}>
+												<span class="mono">{route.listName}</span>
+												{#if route.attributeFilter}<span class="attr">@{route.attributeFilter}</span
+													>{/if}
+											</button>
+											<span class="arrow" aria-label="через"
+												><Icon name="arrowRight" size={14} /></span
+											>
+											{#if route.connectionName}
+												<span class="conn">{route.connectionName}</span>
+											{:else}
+												<Badge tone="danger">соединение удалено</Badge>
+											{/if}
+										</div>
+										<div class="sub">
+											{route.sourceName ?? 'источник удалён'}
+											{#if route.interfaceName}· <span class="mono">{route.interfaceName}</span
+												>{/if}
+											{#if route.exclusive}· <span
+													title="Если соединение недоступно, сайты блокируются">эксклюзивный</span
+												>{/if}
+										</div>
+									</td>
+									<td><Copyable value={route.groupName} /></td>
+									<td>
+										{#if apply}
+											<Badge tone={applyStatus.tone} dot>{applyStatus.label}</Badge>
+											<div class="sub">
+												{apply.entries} эл.{partsLabel(apply.parts)} · {formatDateTime(apply.at)}
+											</div>
+											{#if apply.error}<div class="error-text small">{apply.error}</div>{/if}
+											{#each apply.warnings as warning (warning)}
+												<div class="sub">{warning}</div>
+											{/each}
+										{:else}
+											<span class="faint">ещё не применялся</span>
+										{/if}
+									</td>
+									<td>
+										{#if route.state === 'Pending'}
+											<Badge tone={routeState.tone}>{routeState.label}</Badge>
+										{:else}
+											<div class="toggle">
+												<Switch
+													checked={enabled}
+													busy={route.id in pending}
+													label="Правило {route.listName}"
+													title={enabled ? 'Выключить правило' : 'Включить правило'}
+													onchange={() => toggle(route)}
+												/>
+												<span class="muted small">{enabled ? 'вкл.' : 'выкл.'}</span>
+											</div>
+										{/if}
+									</td>
+									<td class="actions-cell">
+										<Menu
+											ariaLabel="Действия с маршрутом {route.listName}"
+											items={[
+												{ label: 'Изменить', icon: 'edit', onclick: () => openEdit(route) },
+												{
+													label: 'Состав списка',
+													icon: 'eye',
+													disabled: !route.sourceName,
+													onclick: () => openView(route)
+												},
+												{
+													label: 'Открыть источник',
+													icon: 'layers',
+													disabled: !route.sourceName,
+													href: resolve('/sources/[id]', { id: route.sourceId })
+												},
+												'separator',
+												{
+													label: 'Удалить',
+													icon: 'trash',
+													danger: true,
+													onclick: () => removeRoutes([route])
+												}
+											]}
+										/>
+									</td>
+								</tr>
+							{:else}
+								<tr>
+									<td colspan="6">
+										<EmptyState
+											bare
+											icon="search"
+											title="Ничего не нашлось"
+											text="Под поиск и фильтр не подходит ни один маршрут."
+										>
+											<button
+												class="btn"
+												onclick={() => {
+													query.set('');
+													stateFilter.set('');
+												}}>Сбросить фильтры</button
+											>
+										</EmptyState>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</div>
+			<p class="muted small note">
+				Правило, выключенное вручную в Keenetic, FlowGate сам не включит — включите его здесь.
+			</p>
 		{/if}
 	{/snippet}
 </Loadable>
 
-<Dialog bind:open={viewOpen} title={`Список ${viewing?.listName ?? ''}`} wide>
+<BulkBar count={selection.size} onclear={() => selection.clear()}>
+	<button class="btn sm" disabled={bulkBusy} onclick={() => bulkSetEnabled(true)}>Включить</button>
+	<button class="btn sm" disabled={bulkBusy} onclick={() => bulkSetEnabled(false)}>Выключить</button
+	>
+	<button class="btn sm danger" aria-busy={bulkBusy} onclick={() => removeRoutes(selectedRoutes)}>
+		<Icon name="trash" size={14} />Удалить
+	</button>
+</BulkBar>
+
+<Dialog
+	bind:open={viewOpen}
+	title="Список {viewing?.listName ?? ''}"
+	description="Что уходит в Keenetic по этому маршруту"
+	size="lg"
+>
 	{#if viewing}
 		<ListPreview
 			sourceId={viewing.sourceId}
@@ -312,77 +572,206 @@
 		/>
 	{/if}
 	{#snippet actions()}
-		<button class="secondary" onclick={() => (viewOpen = false)}>Закрыть</button>
+		<button class="btn" onclick={() => (viewOpen = false)}>Закрыть</button>
 	{/snippet}
 </Dialog>
 
-<Dialog bind:open={editorOpen} title={editing ? 'Маршрут' : 'Новый маршрут'}>
+<Dialog
+	bind:open={editorOpen}
+	variant="side"
+	title={editing ? `Маршрут ${editing.listName}` : 'Новый маршрут'}
+	description={editing
+		? 'Список и источник не меняются — для другого списка создайте новый маршрут.'
+		: 'Какие сайты и через какое соединение пускать.'}
+	onsubmit={save}
+>
 	<div class="form">
-		<label>
-			Источник
-			<select bind:value={form.sourceId} disabled={!!editing} onchange={loadCatalog}>
-				{#each sources.data ?? [] as source (source.id)}
-					<option value={source.id}>{source.name}</option>
-				{/each}
-			</select>
-		</label>
-		<label>
-			Список
-			<input
-				bind:value={form.listName}
-				disabled={!!editing}
-				list="route-lists"
-				placeholder="youtube"
-				oninput={catalogSearch}
-			/>
-			<datalist id="route-lists">
-				{#each catalog.slice(0, 200) as item (item.name)}
-					<option value={item.name}>{item.domains} доменов, {item.ipv4} IPv4</option>
-				{/each}
-			</datalist>
-			{#if selectedList}
-				<span class="hint">
-					доменов {selectedList.domains}, IPv4 {selectedList.ipv4}, IPv6 {selectedList.ipv6}
-					{#if selectedList.attributes.length}· атрибуты: {selectedList.attributes.join(', ')}{/if}
-				</span>
-			{/if}
-		</label>
-		<label>
-			Фильтр атрибутов
-			<input bind:value={form.attributeFilter} placeholder="необязательно: ads или !ads" />
-		</label>
-		<label>
-			Соединение
-			<select bind:value={form.connectionId}>
+		<div class="step">
+			<span class="step-title">Какие сайты</span>
+			<Field label="Источник">
+				<select bind:value={form.sourceId} disabled={!!editing} onchange={loadCatalog}>
+					{#each sources.data ?? [] as source (source.id)}
+						<option value={source.id}>{source.name}</option>
+					{/each}
+				</select>
+			</Field>
+			<Field
+				label="Список"
+				hint={editing ? undefined : 'Начните вводить — подскажем из каталога источника.'}
+			>
+				<input
+					bind:value={form.listName}
+					disabled={!!editing}
+					list="route-lists"
+					placeholder="youtube"
+					spellcheck="false"
+					autocomplete="off"
+					oninput={catalogSearch}
+				/>
+				<datalist id="route-lists">
+					{#each catalog.slice(0, 200) as item (item.name)}
+						<option value={item.name}>{item.domains} доменов, {item.ipv4} IPv4</option>
+					{/each}
+				</datalist>
+				{#snippet extra()}
+					{#if selectedList}
+						<div class="list-info">
+							<span><b class="num">{selectedList.domains}</b> доменов</span>
+							<span><b class="num">{selectedList.ipv4}</b> IPv4</span>
+							<span><b class="num">{selectedList.ipv6}</b> IPv6</span>
+							{#if selectedList.attributes.length}
+								<span class="muted"
+									>атрибуты: {selectedList.attributes.map((attr) => `@${attr}`).join(' ')}</span
+								>
+							{/if}
+						</div>
+					{:else if form.listName.trim() && !catalogLoading && !editing}
+						<span class="hint warn-text">Такого списка в источнике нет — проверьте имя.</span>
+					{/if}
+				{/snippet}
+			</Field>
+			<Field
+				label="Фильтр атрибутов"
+				hint="Необязательно: ads — только строки с @ads, !ads — без них."
+			>
+				<input bind:value={form.attributeFilter} placeholder="без фильтра" spellcheck="false" />
+			</Field>
+		</div>
+
+		<div class="step">
+			<span class="step-title">Через какое соединение</span>
+			<div class="choices">
 				{#each connections.data ?? [] as connection (connection.id)}
-					<option value={connection.id}>{connection.name} — {connection.interfaceName}</option>
+					<label class="choice" class:selected={form.connectionId === connection.id}>
+						<input type="radio" bind:group={form.connectionId} value={connection.id} />
+						<span class="choice-title">{connection.name}</span>
+						<span class="choice-text">
+							{connection.serverName ?? 'сервер удалён'} ·
+							<span class="mono">{connection.interfaceName}</span>
+						</span>
+					</label>
 				{/each}
-			</select>
-		</label>
-		<label class="check">
-			<input type="checkbox" bind:checked={form.exclusive} /> Эксклюзивный маршрут
-		</label>
-		<span class="hint">
-			Трафик к доменам списка идёт только через это соединение; если оно недоступно — блокируется
-		</span>
+			</div>
+			<label class="check">
+				<input type="checkbox" bind:checked={form.exclusive} />
+				<span>
+					Эксклюзивный маршрут
+					<span class="hint"
+						>Сайты идут только через это соединение; если оно недоступно — блокируются, а не идут
+						напрямую.</span
+					>
+				</span>
+			</label>
+		</div>
 	</div>
 	{#snippet actions()}
-		<button class="secondary" onclick={() => (editorOpen = false)}>Отмена</button>
+		<button class="btn" onclick={() => (editorOpen = false)}>Отмена</button>
 		<button
-			disabled={saving || !form.connectionId || !form.listName.trim() || !form.sourceId}
-			onclick={save}
+			class="btn primary"
+			disabled={!form.connectionId || !form.listName.trim() || !form.sourceId}
+			aria-busy={saving}
+			onclick={save}>{editing ? 'Сохранить' : 'Создать маршрут'}</button
 		>
-			{editing ? 'Сохранить' : 'Создать'}
-		</button>
 	{/snippet}
 </Dialog>
 
 <style>
-	.intro {
-		margin-top: 0;
+	.toolbar {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		flex-wrap: wrap;
+		margin-bottom: 16px;
 	}
 
-	.small {
-		font-size: 0.85em;
+	.segmented .issues {
+		color: var(--warn);
+	}
+
+	.path {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		flex-wrap: wrap;
+	}
+
+	.list {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 2px 8px;
+		border-radius: 5px;
+		background: var(--hover);
+		color: var(--ink);
+		font-weight: 500;
+	}
+
+	.list:hover {
+		background: var(--accent-soft);
+		color: var(--accent-text);
+	}
+
+	.attr {
+		color: var(--muted);
+		font-family: var(--mono);
+		font-size: 12px;
+	}
+
+	.arrow {
+		display: inline-flex;
+		color: var(--accent);
+	}
+
+	.conn {
+		font-weight: 500;
+	}
+
+	tr.off .path {
+		opacity: 0.6;
+	}
+
+	tr.off .arrow {
+		color: var(--faint);
+	}
+
+	.toggle {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.note {
+		margin-top: 12px;
+	}
+
+	.step {
+		display: grid;
+		gap: 16px;
+		padding-bottom: 20px;
+		border-bottom: 1px solid var(--line);
+	}
+
+	.step:last-child {
+		padding-bottom: 0;
+		border-bottom: 0;
+	}
+
+	.step-title {
+		font-weight: 600;
+	}
+
+	.list-info {
+		display: flex;
+		gap: 4px 14px;
+		flex-wrap: wrap;
+		padding: 8px 10px;
+		border-radius: var(--r-sm);
+		background: var(--surface-2);
+		font-size: 12.5px;
+	}
+
+	.warn-text {
+		color: var(--warn);
+		font-size: 12.5px;
 	}
 </style>

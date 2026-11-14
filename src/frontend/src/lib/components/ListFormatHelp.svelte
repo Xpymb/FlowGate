@@ -1,72 +1,87 @@
+<script lang="ts">
+	import Icon from './Icon.svelte';
+
+	const rows: [string, string][] = [
+		['example.com, domain:example.com', 'домен и поддомены'],
+		['full:www.example.com', 'только этот домен (в Keenetic — как обычный)'],
+		['91.108.4.0/22, 149.154.167.51', 'IPv4-подсеть или адрес'],
+		['2001:67c:4e8::/48', 'IPv6-подсеть или адрес'],
+		['include:games', 'вложить список из этого же источника'],
+		['include:games @ads / @!ads', 'только строки с атрибутом / без него'],
+		['ads.example.com @ads', 'строка с атрибутом для фильтра маршрута'],
+		['keyword:…, regexp:…', 'пропускаются: Keenetic их не умеет'],
+		['# комментарий', 'можно и в конце строки']
+	];
+</script>
+
 <details class="help">
-	<summary>Формат списков</summary>
-	<p>
-		Репозиторий: публичный на GitHub, списки в папке <code>data/</code> —
-		<b>один файл = один список</b>, имя файла — имя списка (латиница в нижнем регистре, цифры,
-		<code>- . _ !</code>, расширение
-		<code>.txt</code> отбрасывается). Вложенные папки не читаются.
-	</p>
-	<table>
-		<tbody>
-			<tr
-				><td><code>example.com</code>, <code>domain:example.com</code></td><td>домен и поддомены</td
-				></tr
-			>
-			<tr><td><code>full:www.example.com</code></td><td>домен (в Keenetic — как обычный)</td></tr>
-			<tr
-				><td><code>91.108.4.0/22</code>, <code>149.154.167.51</code></td><td
-					>IPv4-подсеть или адрес</td
-				></tr
-			>
-			<tr><td><code>2001:67c:4e8::/48</code></td><td>IPv6-подсеть или адрес</td></tr>
-			<tr><td><code>include:games</code></td><td>вложить список из этого же источника</td></tr>
-			<tr>
-				<td><code>include:games @ads</code> / <code>@!ads</code></td>
-				<td>только строки с атрибутом / без него</td>
-			</tr>
-			<tr
-				><td><code>ads.example.com @ads</code></td><td>строка с атрибутом для фильтра маршрута</td
-				></tr
-			>
-			<tr
-				><td><code>keyword:…</code>, <code>regexp:…</code></td><td
-					>пропускаются: Keenetic их не умеет</td
-				></tr
-			>
-			<tr><td><code># комментарий</code></td><td>можно и в конце строки</td></tr>
-		</tbody>
-	</table>
-	<p>
-		Домены, IPv4 и IPv6 можно смешивать: в Keenetic это одна группа <code>fg-&lt;список&gt;</code>
-		(по 1000 элементов, дальше части <code>-2</code>, <code>-3</code>). Кириллические домены — в
-		punycode (<code>xn--…</code>). Цикл include — ошибка списка.
-	</p>
+	<summary><Icon name="info" size={16} />Как устроены списки</summary>
+	<div class="content">
+		<p>
+			Репозиторий — публичный на GitHub, списки лежат в папке <code>data/</code>: один файл — один
+			список, имя файла — имя списка (латиница в нижнем регистре, цифры, <code>- . _ !</code>,
+			расширение <code>.txt</code> отбрасывается). Вложенные папки не читаются.
+		</p>
+		<table>
+			<tbody>
+				{#each rows as [syntax, meaning] (syntax)}
+					<tr><td><code>{syntax}</code></td><td>{meaning}</td></tr>
+				{/each}
+			</tbody>
+		</table>
+		<p>
+			Домены, IPv4 и IPv6 можно смешивать: в Keenetic это одна группа <code>fg-&lt;список&gt;</code>
+			по 1000 элементов, дальше части <code>-2</code>, <code>-3</code>. Кириллические домены пишутся
+			в punycode (<code>xn--…</code>). Цикл include — ошибка списка.
+		</p>
+	</div>
 </details>
 
 <style>
 	.help {
+		border: 1px solid var(--line);
+		border-radius: var(--r-md);
 		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-		padding: 8px 12px;
 	}
 
 	summary {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 12px 16px;
+		color: var(--ink-2);
+		font-weight: 500;
 		cursor: pointer;
-		color: var(--accent);
+		list-style: none;
 	}
 
-	table {
-		margin: 8px 0;
+	summary::-webkit-details-marker {
+		display: none;
 	}
 
-	td {
-		padding: 4px 8px;
-		font-size: 0.92em;
+	summary :global(.icon) {
+		color: var(--accent-text);
+	}
+
+	.content {
+		display: grid;
+		gap: 12px;
+		padding: 0 16px 16px;
+		color: var(--ink-2);
+		font-size: 13.5px;
 	}
 
 	p {
-		margin: 8px 0;
-		font-size: 0.92em;
+		max-width: 80ch;
+	}
+
+	table {
+		border-collapse: collapse;
+	}
+
+	td {
+		padding: 6px 16px 6px 0;
+		border-top: 1px solid var(--line);
+		vertical-align: top;
 	}
 </style>

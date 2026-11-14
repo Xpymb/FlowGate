@@ -1,84 +1,182 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import Icon from './Icon.svelte';
 
 	interface Props {
 		open: boolean;
 		title: string;
-		wide?: boolean;
+		/** Подзаголовок под названием. */
+		description?: string;
+		/** `center` — модальное окно, `side` — панель справа (формы создания и правки). */
+		variant?: 'center' | 'side';
+		size?: 'sm' | 'md' | 'lg';
+		/** Ctrl+Enter / ⌘+Enter внутри диалога — основное действие. */
+		onsubmit?: () => void;
 		children: Snippet;
 		actions?: Snippet;
 	}
 
-	let { open = $bindable(), title, wide = false, children, actions }: Props = $props();
+	let {
+		open = $bindable(),
+		title,
+		description,
+		variant = 'center',
+		size = 'md',
+		onsubmit,
+		children,
+		actions
+	}: Props = $props();
+
 	let dialog: HTMLDialogElement;
+	const titleId = `dialog-${Math.random().toString(36).slice(2, 8)}`;
 
 	$effect(() => {
 		if (open && !dialog.open) dialog.showModal();
 		if (!open && dialog.open) dialog.close();
 	});
+
+	function onkeydown(event: KeyboardEvent) {
+		if (onsubmit && event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+			event.preventDefault();
+			onsubmit();
+		}
+	}
+
+	/** Клик по подложке закрывает окно. */
+	function onclick(event: MouseEvent) {
+		if (event.target === dialog) open = false;
+	}
 </script>
 
-<dialog bind:this={dialog} class:wide onclose={() => (open = false)}>
-	<header>
-		<h2>{title}</h2>
-		<button class="close" aria-label="Закрыть" onclick={() => (open = false)}>×</button>
-	</header>
+<dialog
+	bind:this={dialog}
+	class="{variant} {size}"
+	aria-labelledby={titleId}
+	onclose={() => (open = false)}
+	{onkeydown}
+	{onclick}
+>
 	{#if open}
-		<div class="body">{@render children()}</div>
-		{#if actions}
-			<footer>{@render actions()}</footer>
-		{/if}
+		<div class="frame">
+			<header>
+				<div class="titles">
+					<h2 id={titleId}>{title}</h2>
+					{#if description}<p class="muted">{description}</p>{/if}
+				</div>
+				<button class="btn ghost icon sm" aria-label="Закрыть" onclick={() => (open = false)}>
+					<Icon name="close" />
+				</button>
+			</header>
+			<div class="body">{@render children()}</div>
+			{#if actions}
+				<footer>{@render actions()}</footer>
+			{/if}
+		</div>
 	{/if}
 </dialog>
 
 <style>
 	dialog {
-		width: min(560px, calc(100vw - 32px));
-		max-height: calc(100vh - 48px);
 		padding: 0;
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
+		border: 1px solid var(--line);
 		background: var(--surface);
-		color: var(--text);
-	}
-
-	dialog.wide {
-		width: min(900px, calc(100vw - 32px));
+		color: var(--ink);
+		box-shadow: var(--shadow-pop);
+		overflow: hidden;
 	}
 
 	dialog::backdrop {
-		background: rgb(0 0 0 / 0.45);
+		background: var(--backdrop);
+	}
+
+	.frame {
+		display: flex;
+		flex-direction: column;
+		max-height: inherit;
+		height: 100%;
+	}
+
+	/* Окно по центру */
+	.center {
+		width: min(520px, calc(100vw - 32px));
+		max-height: calc(100dvh - 64px);
+		border-radius: var(--r-lg);
+	}
+
+	.center.sm {
+		width: min(420px, calc(100vw - 32px));
+	}
+
+	.center.lg {
+		width: min(880px, calc(100vw - 32px));
+	}
+
+	.center[open] {
+		animation: pop 0.16s var(--ease);
+	}
+
+	/* Панель справа */
+	.side {
+		margin: 0 0 0 auto;
+		width: min(480px, 100vw);
+		height: 100dvh;
+		max-height: 100dvh;
+		border-width: 0 0 0 1px;
+		border-radius: 0;
+	}
+
+	.side.lg {
+		width: min(720px, 100vw);
+	}
+
+	.side[open] {
+		animation: slide 0.2s var(--ease);
 	}
 
 	header {
 		display: flex;
-		align-items: center;
-		padding: 12px 16px;
-		border-bottom: 1px solid var(--border);
+		align-items: flex-start;
+		gap: 12px;
+		padding: 18px 20px 14px;
+		border-bottom: 1px solid var(--line);
 	}
 
-	h2 {
-		margin: 0;
+	.titles {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.titles p {
+		margin-top: 2px;
+		font-size: 13px;
 	}
 
 	.body {
-		padding: 16px;
+		flex: 1;
+		overflow: auto;
+		padding: 20px;
 	}
 
 	footer {
 		display: flex;
 		justify-content: flex-end;
 		gap: 8px;
-		padding: 12px 16px;
-		border-top: 1px solid var(--border);
+		padding: 14px 20px;
+		border-top: 1px solid var(--line);
+		background: var(--surface-2);
 	}
 
-	.close {
-		margin-left: auto;
-		padding: 0 8px;
-		border: none;
-		background: transparent;
-		color: var(--muted);
-		font-size: 1.3rem;
+	@keyframes pop {
+		from {
+			opacity: 0;
+			transform: translateY(6px) scale(0.98);
+		}
+	}
+
+	@keyframes slide {
+		from {
+			transform: translateX(24px);
+			opacity: 0;
+		}
 	}
 </style>

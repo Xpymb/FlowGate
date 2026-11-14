@@ -4,11 +4,20 @@
 	import { page } from '$app/state';
 	import { api } from '#lib/api/client.js';
 	import { errorMessage, unwrap } from '#lib/api/errors.js';
-	import Badge from '#lib/components/Badge.svelte';
-	import JsonEditor from '#lib/components/JsonEditor.svelte';
+	import { ask } from '#lib/confirm.svelte.js';
 	import { formatDateTime } from '#lib/format.js';
 	import { attempt, attemptOk } from '#lib/toast.svelte.js';
+	import { guardUnsaved } from '#lib/unsaved.svelte.js';
 	import type { components } from '#lib/api/schema.js';
+	import Badge from '#lib/components/Badge.svelte';
+	import Copyable from '#lib/components/Copyable.svelte';
+	import EmptyState from '#lib/components/EmptyState.svelte';
+	import Field from '#lib/components/Field.svelte';
+	import Icon from '#lib/components/Icon.svelte';
+	import JsonEditor from '#lib/components/JsonEditor.svelte';
+	import Menu from '#lib/components/Menu.svelte';
+	import PageHeader from '#lib/components/PageHeader.svelte';
+	import SaveBar from '#lib/components/SaveBar.svelte';
 
 	type Server = components['schemas']['ServerDto'];
 	type Validation = components['schemas']['ServerValidationDto'];
@@ -28,10 +37,18 @@
 	let editable = $state(true);
 	let name = $state('');
 	let text = $state('');
+	let saved = $state({ name: '', text: '' });
 	let link = $state('');
 	let warnings = $state<string[]>([]);
 	let validation = $state<Validation>();
-	let busy = $state(false);
+	let parsing = $state(false);
+	let validating = $state(false);
+	let saving = $state(false);
+
+	const dirty = $derived(editable && (name !== saved.name || text !== saved.text));
+	const invalid = $derived(editable && !name.trim() ? 'Укажите имя сервера' : undefined);
+
+	guardUnsaved(() => dirty && !saving);
 
 	$effect(() => {
 		void load(id);
@@ -42,6 +59,7 @@
 		loadError = undefined;
 		validation = undefined;
 		warnings = [];
+		link = '';
 		try {
 			if (current === 'new') {
 				server = undefined;
@@ -57,6 +75,7 @@
 				name = details.server.name;
 				text = JSON.stringify(details.outbound, null, 2);
 			}
+			saved = { name, text };
 		} catch (error) {
 			loadError = error;
 		} finally {
@@ -78,170 +97,272 @@
 	}
 
 	async function fromLink() {
-		busy = true;
+		if (!link.trim()) return;
+		parsing = true;
 		const draft = await attempt(() =>
 			unwrap(api.POST('/api/servers/parse', { body: { text: link } }))
 		);
-		busy = false;
+		parsing = false;
 		if (!draft) return;
 		text = JSON.stringify(draft.outbound, null, 2);
 		if (!name.trim()) name = draft.name;
 		warnings = draft.warnings;
 		validation = undefined;
+		link = '';
 	}
 
 	async function validate() {
 		const outbound = parseOutbound();
 		if (!outbound) return;
-		busy = true;
+		validating = true;
 		const result = await attempt(() =>
 			unwrap(api.POST('/api/servers/validate', { body: { outbound } }))
 		);
-		busy = false;
+		validating = false;
 		if (result) validation = result;
 	}
 
 	async function save() {
 		const outbound = parseOutbound();
 		if (!outbound) return;
-		busy = true;
+		saving = true;
 		const body = { name: name.trim(), outbound };
-		const saved = await attempt(
+		const result = await attempt(
 			() =>
 				isNew
 					? unwrap(api.POST('/api/servers', { body }))
 					: unwrap(api.PUT('/api/servers/{id}', { params: { path: { id } }, body })),
-			'Сервер сохранён'
+			isNew ? 'Сервер добавлен' : 'Изменения сохранены'
 		);
-		busy = false;
-		if (!saved) return;
-		if (isNew) {
-			await goto(resolve('/servers/[id]', { id: saved.server.id }), { replace: true });
-		} else {
-			server = saved.server;
-			text = JSON.stringify(saved.outbound, null, 2);
+		if (!result) {
+			saving = false;
+			return;
 		}
+		server = result.server;
+		name = result.server.name;
+		text = JSON.stringify(result.outbound, null, 2);
+		saved = { name, text };
+		saving = false;
+		if (isNew) await goto(resolve('/servers/[id]', { id: result.server.id }), { replace: true });
 	}
 
 	async function remove() {
-		if (!server || !confirm(`Удалить сервер «${server.name}»?`)) return;
+		if (!server) return;
+		const ok = await ask({
+			title: `Удалить сервер «${server.name}»?`,
+			message: 'Соединения, которые через него работают, перестанут пропускать трафик.',
+			action: 'Удалить',
+			danger: true
+		});
+		if (!ok) return;
 		const done = await attemptOk(
 			() => unwrap(api.DELETE('/api/servers/{id}', { params: { path: { id } } })),
 			'Сервер удалён'
 		);
-		if (done) await goto(resolve('/servers'));
+		if (done) {
+			saved = { name, text };
+			await goto(resolve('/servers'));
+		}
+	}
+
+	function resetChanges() {
+		name = saved.name;
+		text = saved.text;
+		validation = undefined;
+		warnings = [];
 	}
 </script>
 
-<div class="toolbar">
-	<h1>{isNew ? 'Новый сервер' : (server?.name ?? 'Сервер')}</h1>
-	<a href={resolve('/servers')}>← Все серверы</a>
-</div>
+<PageHeader
+	title={isNew ? 'Новый сервер' : (server?.name ?? 'Сервер')}
+	back={{ href: resolve('/servers'), label: 'Серверы' }}
+>
+	{#snippet meta()}
+		{#if server}
+			{#if server.source === 'Subscription'}<Badge tone="accent">из подписки</Badge>
+			{:else}<Badge>вручную</Badge>{/if}
+		{/if}
+	{/snippet}
+	{#snippet actions()}
+		{#if !loading && !loadError}
+			<button class="btn" aria-busy={validating} onclick={validate}>
+				<Icon name="check" size={16} />Проверить конфиг
+			</button>
+			{#if server && editable}
+				<Menu
+					small={false}
+					buttonClass=""
+					items={[{ label: 'Удалить сервер', icon: 'trash', danger: true, onclick: remove }]}
+				/>
+			{/if}
+		{/if}
+	{/snippet}
+</PageHeader>
 
 {#if loading}
-	<p class="muted">Загрузка…</p>
+	<div class="panel loading" aria-busy="true">Загружаем сервер…</div>
 {:else if loadError}
-	<p class="error">{errorMessage(loadError)}</p>
+	<EmptyState icon="alert" title="Сервер не открылся" text={errorMessage(loadError)}>
+		<button class="btn" onclick={() => load(id)}>Повторить</button>
+		<a class="btn" href={resolve('/servers')}>К списку серверов</a>
+	</EmptyState>
 {:else}
-	<div class="stack">
+	<div class="layout">
+		<div class="main stack">
+			{#if !editable}
+				<div class="note" role="note">
+					<Icon name="lock" size={16} />
+					<span>
+						Сервер пришёл из подписки и только для чтения: правки перезапишет следующее обновление.
+					</span>
+				</div>
+			{/if}
+
+			{#if editable}
+				<section class="panel panel-body form">
+					<Field label="Имя" hint="Так сервер будет называться в списках и соединениях.">
+						<input bind:value={name} maxlength="128" placeholder="Например, Нидерланды" />
+					</Field>
+					<Field
+						label="Заполнить из ссылки"
+						hint="vless://, vmess://, trojan://, ss:// или Xray-JSON — заменит outbound ниже."
+					>
+						<div class="link">
+							<input
+								bind:value={link}
+								placeholder="vless://…"
+								spellcheck="false"
+								onkeydown={(event) => event.key === 'Enter' && fromLink()}
+							/>
+							<button class="btn" disabled={!link.trim()} aria-busy={parsing} onclick={fromLink}>
+								Разобрать
+							</button>
+						</div>
+					</Field>
+				</section>
+			{/if}
+
+			<section class="panel">
+				<header class="panel-head">
+					<h2>Outbound Xray</h2>
+					{#if validation}
+						{#if validation.valid}
+							<Badge tone="ok" dot>
+								{validation.checkedByXray ? 'Xray: ошибок нет' : 'JSON в порядке'}
+							</Badge>
+						{:else}
+							<Badge tone="danger" dot>есть ошибки</Badge>
+						{/if}
+					{/if}
+				</header>
+				<div class="panel-body editor-body">
+					<p class="muted small">Без поля <code>tag</code> — его FlowGate назначает сам.</p>
+					<JsonEditor bind:value={text} readonly={!editable} label="Outbound Xray" />
+					{#if validation && !validation.valid}
+						<ul class="issues error-text">
+							{#each validation.errors as error (error)}<li>{error}</li>{/each}
+						</ul>
+					{/if}
+					{#if validation?.valid && !validation.checkedByXray}
+						<p class="muted small">
+							Xray не установлен, поэтому проверены только поля — сам Xray конфиг не видел.
+						</p>
+					{/if}
+					{#if warnings.length > 0}
+						<ul class="issues muted">
+							{#each warnings as warning (warning)}<li>{warning}</li>{/each}
+						</ul>
+					{/if}
+				</div>
+			</section>
+		</div>
+
 		{#if server}
-			<section class="card">
+			<aside class="panel panel-body side">
+				<h2>Сводка</h2>
 				<dl class="props">
 					<dt>Протокол</dt>
-					<dd>{server.protocol}, {server.network} / {server.security}</dd>
+					<dd class="mono">{server.protocol}</dd>
+					<dt>Транспорт</dt>
+					<dd>{server.network} · {server.security}</dd>
 					<dt>Адрес</dt>
-					<dd>{server.address}{server.port ? `:${server.port}` : ''}</dd>
+					<dd><Copyable value={`${server.address}${server.port ? `:${server.port}` : ''}`} /></dd>
 					{#if server.serverName}
 						<dt>SNI</dt>
-						<dd>{server.serverName}</dd>
+						<dd><Copyable value={server.serverName} /></dd>
 					{/if}
-					<dt>Источник</dt>
-					<dd>{server.source === 'Subscription' ? 'подписка' : 'вручную'}</dd>
 					<dt>Изменён</dt>
 					<dd>{formatDateTime(server.updatedAt)}</dd>
 				</dl>
-				{#if !editable}
-					<p class="muted note">
-						Сервер из подписки: правки перезапишет следующее обновление, поэтому он только для
-						чтения.
-					</p>
-				{/if}
-			</section>
+			</aside>
 		{/if}
-
-		<section class="card form">
-			{#if editable}
-				<label>
-					Имя
-					<input bind:value={name} maxlength="128" />
-				</label>
-				<div class="link">
-					<label>
-						Заполнить из ссылки
-						<input bind:value={link} placeholder="vless://… или Xray-JSON" />
-					</label>
-					<button class="secondary" disabled={busy || !link.trim()} onclick={fromLink}
-						>Разобрать</button
-					>
-				</div>
-			{/if}
-			<div>
-				<div class="label-row">
-					<span>Outbound Xray (без <code>tag</code>)</span>
-					{#if validation}
-						{#if validation.valid}
-							<Badge tone="ok"
-								>{validation.checkedByXray ? 'Xray: ошибок нет' : 'JSON в порядке'}</Badge
-							>
-						{:else}
-							<Badge tone="danger">есть ошибки</Badge>
-						{/if}
-					{/if}
-				</div>
-				<JsonEditor bind:value={text} readonly={!editable} />
-			</div>
-			{#if warnings.length > 0}
-				<ul class="plain muted">
-					{#each warnings as warning (warning)}<li>{warning}</li>{/each}
-				</ul>
-			{/if}
-			{#if validation && !validation.valid}
-				<ul class="plain error">
-					{#each validation.errors as error (error)}<li>{error}</li>{/each}
-				</ul>
-			{/if}
-			{#if validation?.valid && !validation.checkedByXray}
-				<p class="hint">Xray не установлен: проверены только поля, сам Xray конфиг не проверял.</p>
-			{/if}
-			<div class="actions">
-				<button class="secondary" disabled={busy} onclick={validate}>Проверить</button>
-				{#if editable}
-					<button disabled={busy || !name.trim()} onclick={save}>Сохранить</button>
-					{#if !isNew}
-						<button class="danger" disabled={busy} onclick={remove}>Удалить</button>
-					{/if}
-				{/if}
-			</div>
-		</section>
 	</div>
+
+	{#if editable}
+		<SaveBar
+			dirty={dirty || isNew}
+			{saving}
+			{invalid}
+			saveLabel={isNew ? 'Добавить сервер' : 'Сохранить'}
+			onsave={save}
+			onreset={isNew ? undefined : resetChanges}
+		/>
+	{/if}
 {/if}
 
 <style>
+	.loading {
+		padding: 24px;
+		color: var(--muted);
+	}
+
+	.layout {
+		display: grid;
+		gap: 20px;
+		align-items: start;
+	}
+
+	@media (min-width: 1100px) {
+		.layout {
+			grid-template-columns: minmax(0, 1fr) 300px;
+		}
+	}
+
+	.side {
+		display: grid;
+		gap: 16px;
+	}
+
+	.side dl.props {
+		grid-template-columns: max-content 1fr;
+		gap: 10px 16px;
+	}
+
 	.note {
-		margin: 12px 0 0;
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 12px 16px;
+		border-radius: var(--r-md);
+		background: var(--info-soft);
+		color: var(--ink-2);
 	}
 
 	.link {
-		display: grid;
-		grid-template-columns: 1fr auto;
+		display: flex;
 		gap: 8px;
-		align-items: end;
 	}
 
-	.label-row {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		margin-bottom: 4px;
+	.editor-body {
+		display: grid;
+		gap: 12px;
+	}
+
+	.issues {
+		display: grid;
+		gap: 4px;
+		margin: 0;
+		padding-left: 18px;
+		font-size: 13px;
 	}
 </style>

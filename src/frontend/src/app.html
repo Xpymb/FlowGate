@@ -5,6 +5,14 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="color-scheme" content="light dark" />
 		<title>FlowGate</title>
+		<script>
+			try {
+				const mode = localStorage.getItem('flowgate-theme');
+				if (mode === 'light' || mode === 'dark') document.documentElement.dataset.theme = mode;
+			} catch {
+				// тема по системе
+			}
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

@@ -11,6 +11,12 @@ export function isRunning(job: Job): boolean {
 	return job.status === 'Running';
 }
 
+/** Выполняющаяся задача указанного вида или undefined. */
+export async function findRunningJob(kind: string): Promise<Job | undefined> {
+	const jobs = await unwrap(api.GET('/api/jobs'));
+	return jobs.find((job) => job.kind === kind && isRunning(job));
+}
+
 /**
  * Опрашивает фоновую задачу (ответ 202 + JobDto) до завершения.
  * Бросает {@link ApiError}, если задача завершилась ошибкой.

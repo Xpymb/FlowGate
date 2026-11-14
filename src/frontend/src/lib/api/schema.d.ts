@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Поток изменений (Server-Sent Events): change с темой в данных и ping при простое */
+        get: operations["GetEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/xray": {
         parameters: {
             query?: never;
@@ -1230,6 +1247,12 @@ export interface components {
             /** @description Интервалы обновлений */
             intervals: components["schemas"]["UpdateIntervalsSaveRequest"];
         };
+        SseItemOfstring: {
+            data?: null | string;
+            eventType?: null | string;
+            eventId?: null | string;
+            reconnectionInterval?: null | string;
+        };
         /** @description Подписка */
         SubscriptionDto: {
             /** @description Идентификатор */
@@ -1647,6 +1670,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    GetEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["SseItemOfstring"];
                 };
             };
         };

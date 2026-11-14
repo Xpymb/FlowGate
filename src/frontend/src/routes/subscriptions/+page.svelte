@@ -9,14 +9,16 @@
 	import { trackJob } from '#lib/jobs.svelte.js';
 	import { hoursLabel, intervalOptions, label, refreshStatuses } from '#lib/labels.js';
 	import { Resource } from '#lib/resource.svelte.js';
-	import { attempt } from '#lib/toast.svelte.js';
+	import { attempt, attemptOk } from '#lib/toast.svelte.js';
 	import type { components } from '#lib/api/schema.js';
 
 	type Subscription = components['schemas']['SubscriptionDto'];
 	type SaveRequest = components['schemas']['SubscriptionSaveRequest'];
 	type UpdateVia = components['schemas']['UpdateVia'];
 
-	const subscriptions = new Resource(() => unwrap(api.GET('/api/subscriptions')));
+	const subscriptions = new Resource(() => unwrap(api.GET('/api/subscriptions')), {
+		live: ['subscriptions', 'servers']
+	});
 
 	let editorOpen = $state(false);
 	let editingId = $state<string>();
@@ -108,11 +110,11 @@
 			)
 		)
 			return;
-		const done = await attempt(
+		const done = await attemptOk(
 			() => unwrap(api.DELETE('/api/subscriptions/{id}', { params: { path: { id: item.id } } })),
 			'Подписка удалена'
 		);
-		if (done !== undefined) void subscriptions.reload();
+		if (done) void subscriptions.reload();
 	}
 
 	function traffic(item: Subscription): string | undefined {

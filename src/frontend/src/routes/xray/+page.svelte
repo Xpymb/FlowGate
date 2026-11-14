@@ -13,7 +13,7 @@
 
 	type UpdateVia = components['schemas']['UpdateVia'];
 
-	const status = new Resource(() => unwrap(api.GET('/api/xray')));
+	const status = new Resource(() => unwrap(api.GET('/api/xray')), { live: ['xray'] });
 	let includePrerelease = $state(false);
 	const releases = new Resource(() =>
 		unwrap(api.GET('/api/xray/releases', { params: { query: { includePrerelease } } }))

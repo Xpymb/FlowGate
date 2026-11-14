@@ -8,6 +8,7 @@ using FlowGate.Contracts.Xray;
 using FlowGate.Dal.Interfaces.Xray;
 using FlowGate.Exceptions;
 using FlowGate.Shared.Bll.Processes;
+using FlowGate.Shared.Changes;
 using FlowGate.Shared.Options;
 
 namespace FlowGate.Bll.Implementations.Xray;
@@ -34,6 +35,7 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
     private readonly string _configPath;
     private readonly TimeSpan _startTimeout;
     private readonly Control _control;
+    private readonly IChangeFeed? _changes;
 
     private IManagedProcess? _process;
     private XrayProcessState _state = XrayProcessState.Stopped;
@@ -53,14 +55,16 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
     /// <param name="logs">Буфер вывода Xray</param>
     /// <param name="timeProvider">Источник времени</param>
     /// <param name="logger">Логгер</param>
-    /// <exception cref="ArgumentNullException">Если любой аргумент равен null</exception>
+    /// <param name="changes">Шина изменений: тема <see cref="ChangeTopics.Xray"/> при смене состояния; null — не сообщать</param>
+    /// <exception cref="ArgumentNullException">Если любой аргумент, кроме changes, равен null</exception>
     public XrayProcessService(
         IOptions<XrayOptions> options,
         IXrayConfigFileProvider configFile,
         IXrayProcessManager processes,
         IXrayLogBuffer logs,
         TimeProvider timeProvider,
-        ILogger<XrayProcessService> logger)
+        ILogger<XrayProcessService> logger,
+        IChangeFeed? changes = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(configFile);
@@ -73,6 +77,7 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
         _configPath = configFile.ConfigPath;
         _startTimeout = TimeSpan.FromSeconds(options.Value.StartTimeoutSeconds);
         _control = new Control(this);
+        _changes = changes;
     }
 
     /// <inheritdoc />
@@ -235,6 +240,8 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
             _lastError = null;
         }
 
+        NotifyChanged();
+
         _logger.LogInformation("Xray запущен (pid {Pid})", process.Id);
         _ = SuperviseAsync(process, startedAt);
     }
@@ -288,6 +295,7 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
             delay = Backoff(_consecutiveFailures);
         }
 
+        NotifyChanged();
         process.Dispose();
         _logger.LogWarning(
             "Xray неожиданно завершился с кодом {ExitCode}, перезапуск через {Delay} с. {Output}",
@@ -341,6 +349,8 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
                     _state = XrayProcessState.Restarting;
                 }
 
+                NotifyChanged();
+
                 _logger.LogWarning("Перезапуск Xray не удался: {Error}. Следующая попытка через {Delay} с", ex.Message, delay.TotalSeconds);
             }
         }
@@ -374,7 +384,11 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
             _state = state;
             _lastError = error;
         }
+
+        NotifyChanged();
     }
+
+    private void NotifyChanged() => _changes?.Publish(ChangeTopics.Xray);
 
     private sealed class Control : IXrayProcessControl
     {

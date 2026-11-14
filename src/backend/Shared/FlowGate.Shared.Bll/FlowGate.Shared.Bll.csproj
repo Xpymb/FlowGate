@@ -6,6 +6,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\FlowGate.Exceptions\FlowGate.Exceptions.csproj" />
+        <ProjectReference Include="..\FlowGate.Shared.Changes\FlowGate.Shared.Changes.csproj" />
         <ProjectReference Include="..\FlowGate.Shared.Options\FlowGate.Shared.Options.csproj" />
     </ItemGroup>
 

@@ -13,13 +13,15 @@
 	import { label, refreshStatuses, sourceKinds } from '#lib/labels.js';
 	import { Resource } from '#lib/resource.svelte.js';
 	import { emptySourceForm, formToRequest, sourceOrigin } from '#lib/sources.js';
-	import { attempt } from '#lib/toast.svelte.js';
+	import { attempt, attemptOk } from '#lib/toast.svelte.js';
 	import type { components } from '#lib/api/schema.js';
 
 	type Source = components['schemas']['DomainSourceDto'];
 	type UpdateVia = components['schemas']['UpdateVia'];
 
-	const sources = new Resource(() => unwrap(api.GET('/api/domain-sources')));
+	const sources = new Resource(() => unwrap(api.GET('/api/domain-sources')), {
+		live: ['domain-sources', 'dns-routes']
+	});
 
 	let createOpen = $state(false);
 	let form = $state(emptySourceForm());
@@ -54,11 +56,11 @@
 
 	async function remove(source: Source) {
 		if (!confirm(`Удалить источник «${source.name}»?`)) return;
-		const done = await attempt(
+		const done = await attemptOk(
 			() => unwrap(api.DELETE('/api/domain-sources/{id}', { params: { path: { id: source.id } } })),
 			'Источник удалён'
 		);
-		if (done !== undefined) void sources.reload();
+		if (done) void sources.reload();
 	}
 </script>
 

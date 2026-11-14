@@ -20,6 +20,20 @@ export async function trackJob(
 		return false;
 	}
 
+	return followJob(job);
+}
+
+/** Показывает ход уже запущенной задачи и ждёт её завершения. Возвращает true при успехе. */
+export async function followJob(job: Job): Promise<boolean> {
+	if (activeJobs.some((item) => item.id === job.id)) {
+		try {
+			await waitForJob(job);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
 	activeJobs.push(job);
 	try {
 		const done = await waitForJob(job, (current) => replace(current));

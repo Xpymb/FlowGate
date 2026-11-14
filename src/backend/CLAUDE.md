@@ -75,6 +75,7 @@ Shared/
   FlowGate.Exceptions              исключения API с errorCode и HTTP-статусом
   FlowGate.Shared.Options          классы опций, их валидаторы и регистрация
   FlowGate.Shared.Bll              общая BLL-инфраструктура (очередь операций NDMS)
+  FlowGate.Shared.Changes          шина изменений для SSE (IChangeFeed)
   FlowGate.Shared.Dal              JsonFileStore<T>: атомарная запись JSON
   FlowGate.Shared.WebApi           ExceptionHandlerMiddleware, формат ошибок
   Keenetic/FlowGate.Shared.Keenetic.HttpClient   RCI-клиент Keenetic
@@ -92,7 +93,7 @@ WebApi ──► SharedContracts, Bll.Interfaces, Shared.WebApi, Shared.Options
 Bll.Implementations ──► Bll.Interfaces, Contracts, SharedContracts, Dal.Interfaces, Shared.Bll, Keenetic.HttpClient
 Contracts ──► SharedContracts
 Dal.Implementations ──► Dal.Interfaces, Contracts, Shared.Dal
-Shared.* ──► Exceptions, Shared.Options (не на Services/*)
+Shared.* ──► Exceptions, Shared.Options, Shared.Changes (не на Services/*)
 ```
 
 - Эндпоинты работают только с DTO из `SharedContracts`; маппинг DTO ↔ Entity — в BLL.
@@ -199,6 +200,16 @@ Shared.* ──► Exceptions, Shared.Options (не на Services/*)
 
 Долгие операции — через `IJobRunner` (в памяти, одна задача вида одновременно, иначе `ConflictException`, история из 20).
 Эндпоинт отвечает **202** + `JobDto` + `Location: /api/jobs/{id}`, прогресс — шаги `IJobContext.Report`.
+
+### Поток изменений (SSE)
+
+`GET /api/events` (`EventEndpoints`, `TypedResults.ServerSentEvents`) — события `change` с темой в данных и `ping`
+при подключении и раз в 25 с простоя. Источник — `IChangeFeed` (`Shared/FlowGate.Shared.Changes`, синглтон, у
+подписчика своя очередь на 64 темы с вытеснением старых). Публикуют: `JsonFileStore` после каждой записи (тема — имя
+файла без расширения: `dns-routes`, `connections`, …), `JobRunner` (`jobs`), `XrayProcessService` (`xray`). Данные в
+событии не передаются — UI перечитывает их через REST. Новое хранилище через `IJsonFileStoreFactory` публикует само;
+состояние вне файлов (живые данные Keenetic) в поток не попадает. nginx: `location = /api/events` без буферизации,
+бэкенд дополнительно ставит `X-Accel-Buffering: no`.
 
 ### Хранение
 

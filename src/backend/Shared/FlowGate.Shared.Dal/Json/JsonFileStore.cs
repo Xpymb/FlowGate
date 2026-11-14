@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 
+using FlowGate.Shared.Changes;
 using FlowGate.Shared.Dal.Files;
 
 namespace FlowGate.Shared.Dal.Json;
@@ -14,6 +15,8 @@ public sealed class JsonFileStore<T> : IJsonFileStore<T>, IDisposable
 {
     private readonly JsonTypeInfo<T> _typeInfo;
     private readonly Func<T> _createDefault;
+    private readonly IChangeFeed? _changes;
+    private readonly string _topic;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private T? _cached;
 
@@ -23,13 +26,16 @@ public sealed class JsonFileStore<T> : IJsonFileStore<T>, IDisposable
     /// <param name="filePath">Полный путь к файлу</param>
     /// <param name="typeInfo">Source-generated метаданные сериализации</param>
     /// <param name="createDefault">Значение, если файла ещё нет</param>
+    /// <param name="changes">Шина изменений: после записи публикуется тема <see cref="ChangeTopics.ForFile"/>; null — не публиковать</param>
     /// <exception cref="ArgumentNullException">Если typeInfo или createDefault равны null</exception>
-    public JsonFileStore(string filePath, JsonTypeInfo<T> typeInfo, Func<T> createDefault)
+    public JsonFileStore(string filePath, JsonTypeInfo<T> typeInfo, Func<T> createDefault, IChangeFeed? changes = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         FilePath = Path.GetFullPath(filePath);
         _typeInfo = typeInfo ?? throw new ArgumentNullException(nameof(typeInfo));
         _createDefault = createDefault ?? throw new ArgumentNullException(nameof(createDefault));
+        _changes = changes;
+        _topic = ChangeTopics.ForFile(FilePath);
     }
 
     /// <inheritdoc />
@@ -64,6 +70,8 @@ public sealed class JsonFileStore<T> : IJsonFileStore<T>, IDisposable
         {
             _gate.Release();
         }
+
+        _changes?.Publish(_topic);
     }
 
     /// <inheritdoc />
@@ -71,19 +79,22 @@ public sealed class JsonFileStore<T> : IJsonFileStore<T>, IDisposable
     {
         ArgumentNullException.ThrowIfNull(update);
 
+        T updated;
         await _gate.WaitAsync(cancellationToken);
         try
         {
             var current = _cached ??= await LoadAsync(cancellationToken);
-            var updated = update(current) ?? throw new InvalidOperationException("Функция обновления вернула null");
+            updated = update(current) ?? throw new InvalidOperationException("Функция обновления вернула null");
             await SaveAsync(updated, cancellationToken);
             _cached = updated;
-            return updated;
         }
         finally
         {
             _gate.Release();
         }
+
+        _changes?.Publish(_topic);
+        return updated;
     }
 
     /// <inheritdoc />

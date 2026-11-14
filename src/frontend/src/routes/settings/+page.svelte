@@ -30,8 +30,10 @@
 		form = toForm(loaded);
 		return loaded;
 	});
-	const servers = new Resource(() => unwrap(api.GET('/api/servers')));
-	const status = new Resource(() => unwrap(api.GET('/api/settings/update-proxy/status')));
+	const servers = new Resource(() => unwrap(api.GET('/api/servers')), { live: ['servers'] });
+	const status = new Resource(() => unwrap(api.GET('/api/settings/update-proxy/status')), {
+		live: ['settings']
+	});
 
 	$effect(() => {
 		const timer = setInterval(() => void status.reload(), 5000);

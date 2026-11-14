@@ -46,7 +46,12 @@
 	let saving = $state(false);
 
 	const dirty = $derived(editable && (name !== saved.name || text !== saved.text));
-	const invalid = $derived(editable && !name.trim() ? 'Укажите имя сервера' : undefined);
+	/** Ошибку имени показываем после ухода из пустого поля или попытки сохранить. */
+	let nameTouched = $state(false);
+	let nameInput = $state<HTMLInputElement>();
+	const nameError = $derived(
+		editable && nameTouched && !name.trim() ? 'Укажите имя сервера' : undefined
+	);
 
 	guardUnsaved(() => dirty && !saving);
 
@@ -60,6 +65,7 @@
 		validation = undefined;
 		warnings = [];
 		link = '';
+		nameTouched = false;
 		try {
 			if (current === 'new') {
 				server = undefined;
@@ -123,6 +129,11 @@
 	}
 
 	async function save() {
+		if (!name.trim()) {
+			nameTouched = true;
+			nameInput?.focus();
+			return;
+		}
 		const outbound = parseOutbound();
 		if (!outbound) return;
 		saving = true;
@@ -207,7 +218,7 @@
 		<a class="btn" href={resolve('/servers')}>К списку серверов</a>
 	</EmptyState>
 {:else}
-	<div class="layout">
+	<div class="layout" class:with-side={!!server}>
 		<div class="main stack">
 			{#if !editable}
 				<div class="note" role="note">
@@ -221,8 +232,21 @@
 
 			{#if editable}
 				<section class="panel panel-body form">
-					<Field label="Имя" hint="Отображается в списках и при выборе сервера.">
-						<input bind:value={name} maxlength="128" placeholder="Нидерланды" />
+					<Field
+						label="Имя"
+						required
+						hint="Отображается в списках и при выборе сервера."
+						error={nameError}
+					>
+						<input
+							bind:this={nameInput}
+							bind:value={name}
+							maxlength="128"
+							placeholder="Нидерланды"
+							required
+							aria-invalid={!!nameError}
+							onblur={() => (nameTouched = true)}
+						/>
 					</Field>
 					<Field
 						label="Импорт из ссылки"
@@ -305,7 +329,6 @@
 		<SaveBar
 			dirty={dirty || isNew}
 			{saving}
-			{invalid}
 			saveLabel={isNew ? 'Добавить сервер' : 'Сохранить'}
 			onsave={save}
 			onreset={isNew ? undefined : resetChanges}
@@ -326,7 +349,7 @@
 	}
 
 	@media (min-width: 1100px) {
-		.layout {
+		.layout.with-side {
 			grid-template-columns: minmax(0, 1fr) 300px;
 		}
 	}

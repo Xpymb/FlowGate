@@ -10,11 +10,22 @@
 		layout?: 'stacked' | 'split';
 		/** Подпись не оборачивает поле (группа радиокнопок, редактор). */
 		group?: boolean;
+		/** Обязательное поле: звёздочка у подписи. */
+		required?: boolean;
 		children: Snippet;
 		extra?: Snippet;
 	}
 
-	let { label, hint, error, layout = 'stacked', group = false, children, extra }: Props = $props();
+	let {
+		label,
+		hint,
+		error,
+		layout = 'stacked',
+		group = false,
+		required = false,
+		children,
+		extra
+	}: Props = $props();
 </script>
 
 <svelte:element
@@ -25,15 +36,17 @@
 	aria-label={group ? label : undefined}
 >
 	<span class="caption">
-		<span class="name">{label}</span>
+		<span class="name"
+			>{label}{#if required}<span class="required" aria-hidden="true">*</span>{/if}</span
+		>
 		{#if layout === 'split' && (error || hint)}
-			<span class="hint" class:error-text={!!error}>{error ?? hint}</span>
+			<span class="hint" class:error={!!error}>{error ?? hint}</span>
 		{/if}
 	</span>
 	<span class="control">
 		{@render children()}
 		{#if layout === 'stacked' && (error || hint)}
-			<span class="hint" class:error-text={!!error}>{error ?? hint}</span>
+			<span class="hint" class:error={!!error}>{error ?? hint}</span>
 		{/if}
 		{#if extra}{@render extra()}{/if}
 	</span>
@@ -76,6 +89,21 @@
 
 	.stacked .name {
 		font-size: 13px;
+	}
+
+	.hint.error {
+		color: var(--danger);
+	}
+
+	.required {
+		margin-left: 3px;
+		color: var(--danger);
+	}
+
+	.invalid :global(input:focus),
+	.invalid :global(select:focus),
+	.invalid :global(textarea:focus) {
+		box-shadow: 0 0 0 3px var(--danger-soft);
 	}
 
 	.control {

@@ -2428,7 +2428,8 @@
           "entries",
           "skipped",
           "parts",
-          "warnings"
+          "warnings",
+          "contentChangedAt"
         ],
         "type": "object",
         "properties": {
@@ -2481,6 +2482,14 @@
               "type": "string"
             },
             "description": "Предупреждения"
+          },
+          "contentChangedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Когда состав групп в Keenetic последний раз изменился или null, если неизвестно",
+            "format": "date-time"
           }
         },
         "description": "Итог применения маршрута"

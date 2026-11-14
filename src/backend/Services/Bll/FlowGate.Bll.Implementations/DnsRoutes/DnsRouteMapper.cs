@@ -36,7 +36,15 @@ public static class DnsRouteMapper
             state,
             route.RequestedExclusive ?? route.Exclusive,
             route.LastApply is { } apply
-                ? new DnsRouteApplyDto(apply.At, apply.Status.ToString(), apply.Error, apply.Entries, apply.Skipped, apply.Parts, apply.Warnings)
+                ? new DnsRouteApplyDto(
+                    apply.At,
+                    apply.Status.ToString(),
+                    apply.Error,
+                    apply.Entries,
+                    apply.Skipped,
+                    apply.Parts,
+                    apply.Warnings,
+                    apply.ContentChangedAt)
                 : null,
             route.CreatedAt,
             route.UpdatedAt);

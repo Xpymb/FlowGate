@@ -9,4 +9,12 @@ namespace FlowGate.Contracts.DnsRoutes;
 /// <param name="Exclusive">Правила маршрута после применения эксклюзивные (<c>reject</c>)</param>
 /// <param name="Parts">Частей группы после применения</param>
 /// <param name="Entries">Элементов в группах после применения</param>
-public sealed record DnsRouteOutcome(string RouteId, DnsRouteOutcomeKind Kind, bool Disabled, bool Exclusive, int Parts, int Entries);
+/// <param name="ContentChanged">Состав групп в Keenetic изменился: элементы добавлены или удалены</param>
+public sealed record DnsRouteOutcome(
+    string RouteId,
+    DnsRouteOutcomeKind Kind,
+    bool Disabled,
+    bool Exclusive,
+    int Parts,
+    int Entries,
+    bool ContentChanged = false);

@@ -464,8 +464,11 @@
 									<td>
 										{#if apply}
 											<Badge tone={applyStatus.tone} dot>{applyStatus.label}</Badge>
-											<div class="sub">
-												{apply.entries} эл.{partsLabel(apply.parts)} · {formatDateTime(apply.at)}
+											<div class="sub" title="Последняя синхронизация: {formatDateTime(apply.at)}">
+												{apply.entries} эл.{partsLabel(apply.parts)} · изменён
+												{apply.contentChangedAt
+													? formatDateTime(apply.contentChangedAt)
+													: 'нет данных'}
 											</div>
 											{#if apply.error}<div class="error-text small">{apply.error}</div>{/if}
 											{#each apply.warnings as warning (warning)}

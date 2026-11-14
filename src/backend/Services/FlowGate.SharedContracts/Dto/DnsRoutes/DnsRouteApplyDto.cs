@@ -10,6 +10,7 @@ namespace FlowGate.SharedContracts.Dto.DnsRoutes;
 /// <param name="Skipped">Пропущено правил списка</param>
 /// <param name="Parts">Частей группы (по 1000 элементов)</param>
 /// <param name="Warnings">Предупреждения</param>
+/// <param name="ContentChangedAt">Когда состав групп в Keenetic последний раз изменился или null, если неизвестно</param>
 public sealed record DnsRouteApplyDto(
     DateTimeOffset At,
     string Status,
@@ -17,4 +18,5 @@ public sealed record DnsRouteApplyDto(
     int Entries,
     int Skipped,
     int Parts,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings,
+    DateTimeOffset? ContentChangedAt);

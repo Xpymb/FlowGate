@@ -408,7 +408,10 @@ public sealed class DnsRouteService : IDnsRouteService, IDisposable
                             RequestedDisabled = null,
                             Exclusive = outcome.Exclusive,
                             RequestedExclusive = null,
-                            LastApply = apply,
+                            LastApply = apply with
+                            {
+                                ContentChangedAt = outcome.ContentChanged ? now : route.LastApply?.ContentChangedAt,
+                            },
                         },
                         cancellationToken);
                     break;
@@ -426,7 +429,15 @@ public sealed class DnsRouteService : IDnsRouteService, IDisposable
         await _routes.UpdateAsync(id, update, cancellationToken);
 
     private DnsRouteApply Apply(DnsRouteApplyStatus status, string? error, DnsRouteApply? previous) =>
-        new(_timeProvider.GetUtcNow(), status, error, previous?.Entries ?? 0, previous?.Skipped ?? 0, previous?.Parts ?? 0, previous?.Warnings ?? []);
+        new(
+            _timeProvider.GetUtcNow(),
+            status,
+            error,
+            previous?.Entries ?? 0,
+            previous?.Skipped ?? 0,
+            previous?.Parts ?? 0,
+            previous?.Warnings ?? [],
+            previous?.ContentChangedAt);
 
     private static Dictionary<string, IReadOnlyList<string>> FindOverlaps(IReadOnlyList<DnsRouteTarget> targets)
     {

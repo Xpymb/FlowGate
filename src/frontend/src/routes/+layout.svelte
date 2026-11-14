@@ -11,6 +11,7 @@
 	import Icon from '#lib/components/Icon.svelte';
 	import JobPanel from '#lib/components/JobPanel.svelte';
 	import Logo from '#lib/components/Logo.svelte';
+	import SetupWizard from '#lib/components/setup/SetupWizard.svelte';
 	import ShortcutsHelp from '#lib/components/ShortcutsHelp.svelte';
 	import Sidebar from '#lib/components/Sidebar.svelte';
 	import Toasts from '#lib/components/Toasts.svelte';
@@ -107,6 +108,7 @@
 <CommandPalette bind:open={paletteOpen} />
 <ShortcutsHelp bind:open={helpOpen} />
 <ConfirmHost />
+<SetupWizard />
 <JobPanel />
 <Toasts />
 

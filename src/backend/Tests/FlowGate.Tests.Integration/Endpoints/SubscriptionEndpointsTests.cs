@@ -49,6 +49,28 @@ public sealed class SubscriptionEndpointsTests : IDisposable
     }
 
     /// <summary>
+    ///     Предпросмотр подписки показывает серверы с ключами, по которым мастер находит их после создания подписки
+    /// </summary>
+    [Fact]
+    public async Task Preview_ThenCreate_ImportKeysMatchAndPreviewSavesNothing()
+    {
+        using var client = _factory.CreateClient();
+
+        var preview = await ApiJson.PostAsync(client, "/api/subscriptions/preview", new { url = "https://sub.example.com/sub/token" }, HttpStatusCode.OK);
+        var before = await ApiJson.GetAsync(client, "/api/subscriptions");
+        var created = await ApiJson.PostAsync(client, "/api/subscriptions", new { url = "https://sub.example.com/sub/token" }, HttpStatusCode.Created);
+        await ApiJson.WaitForJobAsync(client, created.GetProperty("refreshJobId").GetString()!);
+        var servers = await ApiJson.GetAsync(client, "/api/servers");
+
+        var previewKeys = preview.GetProperty("servers").EnumerateArray().Select(server => server.GetProperty("importKey").GetString()).Order().ToList();
+        var storedKeys = servers.EnumerateArray().Select(server => server.GetProperty("importKey").GetString()).Order().ToList();
+        Assert.Equal("Мой VPN", preview.GetProperty("title").GetString());
+        Assert.Equal(0, before.GetArrayLength());
+        Assert.Equal(3, previewKeys.Count);
+        Assert.Equal(previewKeys, storedKeys);
+    }
+
+    /// <summary>
     ///     Сервер подписки нельзя править вручную
     /// </summary>
     [Fact]

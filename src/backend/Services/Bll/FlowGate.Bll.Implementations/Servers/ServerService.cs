@@ -210,6 +210,19 @@ public sealed class ServerService : IServerService
             batch.Warnings);
     }
 
+    /// <inheritdoc />
+    public ServerPreviewDto Preview(ServerImportRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (string.IsNullOrWhiteSpace(request.Text))
+        {
+            throw new RequestValidationException("Вставьте ссылки на серверы или Xray-JSON");
+        }
+
+        return _parser.Parse(request.Text).ToPreviewDto(null);
+    }
+
     private async Task<(string Name, JsonObject Outbound)> PrepareAsync(ServerSaveRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);

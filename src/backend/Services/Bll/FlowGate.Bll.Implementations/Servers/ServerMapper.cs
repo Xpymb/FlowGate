@@ -32,7 +32,8 @@ public static class ServerMapper
             summary.ServerName,
             server.SourceKind.ToString(),
             server.SubscriptionId,
-            server.UpdatedAt);
+            server.UpdatedAt,
+            server.ImportKey);
     }
 
     /// <summary>
@@ -49,5 +50,36 @@ public static class ServerMapper
             server.ToDto(),
             (JsonObject)server.Outbound.DeepClone(),
             server.SourceKind == ServerSourceKind.Manual);
+    }
+
+    /// <summary>
+    ///     Преобразует разобранный текст в предпросмотр
+    /// </summary>
+    /// <param name="batch">Результат разбора</param>
+    /// <param name="title">Название профиля от провайдера или null</param>
+    /// <returns>Серверы с ключами идентичности, отклонённые узлы и предупреждения</returns>
+    /// <exception cref="ArgumentNullException">Если batch равен null</exception>
+    public static ServerPreviewDto ToPreviewDto(this ServerImportBatch batch, string? title)
+    {
+        ArgumentNullException.ThrowIfNull(batch);
+
+        return new ServerPreviewDto(
+            title,
+            batch.Servers.Select(ToPreviewItem).ToList(),
+            batch.Rejected.Select(rejection => new ServerImportRejectionDto(rejection.Index, rejection.Reason)).ToList(),
+            batch.Warnings);
+    }
+
+    private static ServerPreviewItemDto ToPreviewItem(ParsedServer server)
+    {
+        var summary = OutboundSummary.From(server.Outbound);
+        return new ServerPreviewItemDto(
+            ServerImportKey.Compute(server.Outbound),
+            server.Name,
+            summary.Protocol,
+            summary.Address,
+            summary.Port,
+            summary.Network,
+            summary.Security);
     }
 }

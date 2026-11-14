@@ -7,6 +7,7 @@
 	import { trackJob } from '#lib/jobs.svelte.js';
 	import { interfaceState, label, xrayStates, type Tone } from '#lib/labels.js';
 	import { Resource } from '#lib/resource.svelte.js';
+	import { setup } from '#lib/setup/setup.svelte.js';
 	import { notify } from '#lib/toast.svelte.js';
 	import Badge from '#lib/components/Badge.svelte';
 	import Icon, { type IconName } from '#lib/components/Icon.svelte';
@@ -242,6 +243,20 @@
 
 <PageHeader title="Обзор" description="Состояние маршрутизации и компонентов системы." />
 
+{#if routes.data?.length === 0}
+	<section class="panel setup-card" aria-labelledby="setup-title">
+		<span class="setup-icon"><Icon name="route" size={20} /></span>
+		<div class="setup-text">
+			<h2 id="setup-title">Трафик пока идёт напрямую</h2>
+			<p class="muted">
+				Быстрая настройка подключит VPN-сервер и направит через него выбранные сервисы: три шага в
+				одном окне.
+			</p>
+		</div>
+		<button class="btn primary" onclick={() => setup.start()}>Быстрая настройка</button>
+	</section>
+{/if}
+
 <section class="flow" aria-label="Путь трафика">
 	{#each nodes as node, index (node.key)}
 		{#if index > 0}
@@ -391,6 +406,45 @@
 </div>
 
 <style>
+	.setup-card {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		margin-bottom: 24px;
+		padding: 18px 20px;
+		border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+	}
+
+	.setup-icon {
+		display: grid;
+		flex: none;
+		place-items: center;
+		width: 40px;
+		height: 40px;
+		border-radius: 11px;
+		background: var(--accent-soft);
+		color: var(--accent-text);
+	}
+
+	.setup-text {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.setup-text h2 {
+		font-size: 15px;
+	}
+
+	@media (max-width: 640px) {
+		.setup-card {
+			flex-wrap: wrap;
+		}
+
+		.setup-card .btn {
+			width: 100%;
+		}
+	}
+
 	/* Схема потока — единственный выразительный элемент интерфейса. */
 	.flow {
 		display: grid;

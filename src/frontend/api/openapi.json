@@ -746,6 +746,47 @@
         }
       }
     },
+    "/api/servers/preview": {
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Разобрать ссылки или Xray-JSON в список серверов без сохранения",
+        "operationId": "PreviewServers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerPreviewDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/subscriptions": {
       "get": {
         "tags": [
@@ -930,6 +971,57 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subscriptions/preview": {
+      "post": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Скачать подписку и показать её серверы без сохранения",
+        "operationId": "PreviewSubscription",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerPreviewDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -3457,7 +3549,8 @@
           "serverName",
           "source",
           "subscriptionId",
-          "updatedAt"
+          "updatedAt",
+          "importKey"
         ],
         "type": "object",
         "properties": {
@@ -3514,6 +3607,10 @@
             "type": "string",
             "description": "Когда последний раз изменён",
             "format": "date-time"
+          },
+          "importKey": {
+            "type": "string",
+            "description": "Ключ идентичности без учётных данных: совпадает с ключом в предпросмотре (string ServerPreviewItemDto.ImportKey)"
           }
         },
         "description": "Сервер в списке"
@@ -3608,6 +3705,95 @@
           }
         },
         "description": "Запрос разбора ссылки"
+      },
+      "ServerPreviewDto": {
+        "required": [
+          "title",
+          "servers",
+          "rejected",
+          "warnings"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Название профиля от провайдера подписки или null"
+          },
+          "servers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServerPreviewItemDto"
+            },
+            "description": "Принятые серверы"
+          },
+          "rejected": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServerImportRejectionDto"
+            },
+            "description": "Отклонённые узлы"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Предупреждения"
+          }
+        },
+        "description": "Серверы, найденные в тексте или подписке, без сохранения"
+      },
+      "ServerPreviewItemDto": {
+        "required": [
+          "importKey",
+          "name",
+          "protocol",
+          "address",
+          "port",
+          "network",
+          "security"
+        ],
+        "type": "object",
+        "properties": {
+          "importKey": {
+            "type": "string",
+            "description": "Ключ идентичности: тот же ключ получит сервер после сохранения (string ServerDto.ImportKey)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Имя"
+          },
+          "protocol": {
+            "type": "string",
+            "description": "Протокол Xray"
+          },
+          "address": {
+            "type": "string",
+            "description": "Адрес"
+          },
+          "port": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Порт или null",
+            "format": "int32"
+          },
+          "network": {
+            "type": "string",
+            "description": "Транспорт"
+          },
+          "security": {
+            "type": "string",
+            "description": "Защита"
+          }
+        },
+        "description": "Сервер в предпросмотре"
       },
       "ServerSaveRequest": {
         "required": [

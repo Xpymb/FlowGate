@@ -84,6 +84,62 @@ public sealed class SubscriptionServiceTests : IDisposable
     }
 
     /// <summary>
+    ///     Предпросмотр скачивает подписку и показывает её серверы, не создавая ни подписки, ни серверов
+    /// </summary>
+    [Fact]
+    public async Task PreviewAsync_ValidSubscription_ReturnsServersAndSavesNothing()
+    {
+        var preview = await _sut.PreviewAsync(new SubscriptionSaveRequest("https://sub.example.com/token"), TestContext.Current.CancellationToken);
+
+        Assert.Equal("Мой VPN", preview.Title);
+        Assert.Equal(3, preview.Servers.Count);
+        Assert.All(preview.Servers, server => Assert.Equal(64, server.ImportKey.Length));
+        Assert.Empty(await _sut.GetAllAsync(TestContext.Current.CancellationToken));
+        Assert.Empty(await _servers.GetAllAsync(TestContext.Current.CancellationToken));
+        await _xrayConfig.DidNotReceive().ApplyAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    ///     Ключи предпросмотра совпадают с ключами серверов, сохранённых после создания подписки
+    /// </summary>
+    [Fact]
+    public async Task PreviewAsync_ThenCreate_ImportKeysMatchStoredServers()
+    {
+        var preview = await _sut.PreviewAsync(new SubscriptionSaveRequest("https://sub.example.com/token"), TestContext.Current.CancellationToken);
+        await CreateRefreshedAsync();
+
+        var stored = await _servers.GetAllAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            preview.Servers.Select(server => server.ImportKey).Order(),
+            stored.Select(server => server.ImportKey).Order());
+    }
+
+    /// <summary>
+    ///     Недоступный провайдер в предпросмотре — исключение без записи в хранилище
+    /// </summary>
+    [Fact]
+    public async Task PreviewAsync_ProviderFails_Throws()
+    {
+        _fetcher.FetchAsync(Arg.Any<Subscription>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new ExternalServiceUnavailableException("Провайдер sub.example.com ответил HTTP 502"));
+
+        await Assert.ThrowsAsync<ExternalServiceUnavailableException>(
+            () => _sut.PreviewAsync(new SubscriptionSaveRequest("https://sub.example.com/token"), TestContext.Current.CancellationToken));
+        Assert.Empty(await _sut.GetAllAsync(TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Некорректный адрес в предпросмотре — 400
+    /// </summary>
+    [Fact]
+    public async Task PreviewAsync_InvalidUrl_Throws()
+    {
+        await Assert.ThrowsAsync<RequestValidationException>(
+            () => _sut.PreviewAsync(new SubscriptionSaveRequest("ftp://sub.example.com"), TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
     ///     Ошибка провайдера записывается в подписку, серверы не трогаются, повтор — через 30 минут
     /// </summary>
     [Fact]

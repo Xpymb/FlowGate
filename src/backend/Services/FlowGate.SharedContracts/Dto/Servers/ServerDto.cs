@@ -14,6 +14,7 @@ namespace FlowGate.SharedContracts.Dto.Servers;
 /// <param name="Source"><c>Manual</c> или <c>Subscription</c></param>
 /// <param name="SubscriptionId">Подписка-источник или null</param>
 /// <param name="UpdatedAt">Когда последний раз изменён</param>
+/// <param name="ImportKey">Ключ идентичности без учётных данных: совпадает с ключом в предпросмотре (<see cref="ServerPreviewItemDto.ImportKey"/>)</param>
 public sealed record ServerDto(
     string Id,
     string Name,
@@ -25,4 +26,5 @@ public sealed record ServerDto(
     string ServerName,
     string Source,
     string? SubscriptionId,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string ImportKey);

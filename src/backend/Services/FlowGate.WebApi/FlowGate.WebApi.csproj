@@ -30,6 +30,7 @@
         <ProjectReference Include="..\Dal\FlowGate.Dal.Implementations\FlowGate.Dal.Implementations.csproj" />
         <ProjectReference Include="..\..\Shared\FlowGate.Shared.Options\FlowGate.Shared.Options.csproj" />
         <ProjectReference Include="..\..\Shared\FlowGate.Shared.Bll\FlowGate.Shared.Bll.csproj" />
+        <ProjectReference Include="..\..\Shared\FlowGate.Shared.Changes\FlowGate.Shared.Changes.csproj" />
         <ProjectReference Include="..\..\Shared\FlowGate.Shared.Dal\FlowGate.Shared.Dal.csproj" />
         <ProjectReference Include="..\..\Shared\FlowGate.Shared.WebApi\FlowGate.Shared.WebApi.csproj" />
         <ProjectReference Include="..\..\Shared\Keenetic\FlowGate.Shared.Keenetic.HttpClient\FlowGate.Shared.Keenetic.HttpClient.csproj" />

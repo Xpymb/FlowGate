@@ -7,7 +7,7 @@
 	import Badge from '#lib/components/Badge.svelte';
 	import JsonEditor from '#lib/components/JsonEditor.svelte';
 	import { formatDateTime } from '#lib/format.js';
-	import { attempt } from '#lib/toast.svelte.js';
+	import { attempt, attemptOk } from '#lib/toast.svelte.js';
 	import type { components } from '#lib/api/schema.js';
 
 	type Server = components['schemas']['ServerDto'];
@@ -116,7 +116,7 @@
 		busy = false;
 		if (!saved) return;
 		if (isNew) {
-			await goto(resolve('/servers/[id]', { id: saved.server.id }), { replaceState: true });
+			await goto(resolve('/servers/[id]', { id: saved.server.id }), { replace: true });
 		} else {
 			server = saved.server;
 			text = JSON.stringify(saved.outbound, null, 2);
@@ -125,11 +125,11 @@
 
 	async function remove() {
 		if (!server || !confirm(`Удалить сервер «${server.name}»?`)) return;
-		const done = await attempt(
+		const done = await attemptOk(
 			() => unwrap(api.DELETE('/api/servers/{id}', { params: { path: { id } } })),
 			'Сервер удалён'
 		);
-		if (done !== undefined) await goto(resolve('/servers'));
+		if (done) await goto(resolve('/servers'));
 	}
 </script>
 

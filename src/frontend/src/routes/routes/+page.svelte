@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -9,18 +10,25 @@
 	import ListPreview from '#lib/components/ListPreview.svelte';
 	import Loadable from '#lib/components/Loadable.svelte';
 	import { formatDateTime } from '#lib/format.js';
-	import { trackJob } from '#lib/jobs.svelte.js';
+	import { findRunningJob } from '#lib/jobs.js';
+	import { followJob, trackJob } from '#lib/jobs.svelte.js';
 	import { label, refreshStatuses, routeStates } from '#lib/labels.js';
 	import { Resource } from '#lib/resource.svelte.js';
-	import { attempt } from '#lib/toast.svelte.js';
+	import { attempt, attemptOk } from '#lib/toast.svelte.js';
 	import type { components } from '#lib/api/schema.js';
 
 	type Route = components['schemas']['DnsRouteDto'];
 	type ListSummary = components['schemas']['DomainListSummaryDto'];
 
-	const routes = new Resource(() => unwrap(api.GET('/api/dns-routes')));
-	const connections = new Resource(() => unwrap(api.GET('/api/connections')));
-	const sources = new Resource(() => unwrap(api.GET('/api/domain-sources')));
+	const routes = new Resource(() => unwrap(api.GET('/api/dns-routes')), {
+		live: ['dns-routes', 'connections', 'domain-sources']
+	});
+	const connections = new Resource(() => unwrap(api.GET('/api/connections')), {
+		live: ['connections']
+	});
+	const sources = new Resource(() => unwrap(api.GET('/api/domain-sources')), {
+		live: ['domain-sources']
+	});
 
 	let editorOpen = $state(false);
 	let editing = $state<Route>();
@@ -45,12 +53,15 @@
 		const query = page.url.searchParams;
 		const sourceId = query.get('source');
 		if (!sourceId) return;
-		openCreate({
+		const prefill = {
 			sourceId,
 			listName: query.get('list') ?? '',
 			attributeFilter: query.get('attrs') ?? ''
+		};
+		untrack(() => {
+			openCreate(prefill);
+			void goto(resolve('/routes'), { shallow: true, replace: true });
 		});
-		void goto(resolve('/routes'), { replaceState: true });
 	});
 
 	$effect(() => {
@@ -146,19 +157,28 @@
 		saving = false;
 		if (!saved) return;
 		editorOpen = false;
+		await afterChange();
+	}
+
+	/** Показывает сохранённое намерение сразу и обновляет таблицу, когда фоновое применение в Keenetic закончится. */
+	async function afterChange() {
 		void routes.reload();
+		const job = await findRunningJob('dns-routes-apply').catch(() => undefined);
+		if (!job) return;
+		await followJob(job);
+		await routes.reload();
 	}
 
 	async function toggle(route: Route) {
 		busy[route.id] = true;
 		const action = route.state === 'Disabled' ? 'enable' : 'disable';
-		await attempt(
+		const done = await attemptOk(
 			() =>
 				unwrap(api.POST(`/api/dns-routes/{id}/${action}`, { params: { path: { id: route.id } } })),
-			action === 'enable' ? 'Правило включено' : 'Правило выключено'
+			action === 'enable' ? 'Правило будет включено' : 'Правило будет выключено'
 		);
+		if (done) await afterChange();
 		busy[route.id] = false;
-		void routes.reload();
 	}
 
 	async function remove(route: Route) {
@@ -168,11 +188,13 @@
 			)
 		)
 			return;
-		const done = await attempt(
+		busy[route.id] = true;
+		const done = await attemptOk(
 			() => unwrap(api.DELETE('/api/dns-routes/{id}', { params: { path: { id: route.id } } })),
 			'Маршрут удалён'
 		);
-		if (done !== undefined) void routes.reload();
+		if (done) await afterChange();
+		busy[route.id] = false;
 	}
 
 	async function applyAll() {
@@ -265,7 +287,11 @@
 										onclick={() => openView(route)}>Домены</button
 									>
 									<button class="secondary small" onclick={() => openEdit(route)}>Изменить</button>
-									<button class="danger small" onclick={() => remove(route)}>Удалить</button>
+									<button
+										class="danger small"
+										disabled={busy[route.id]}
+										onclick={() => remove(route)}>Удалить</button
+									>
 								</td>
 							</tr>
 						{/each}

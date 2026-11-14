@@ -6,13 +6,15 @@
 	import Dialog from '#lib/components/Dialog.svelte';
 	import Loadable from '#lib/components/Loadable.svelte';
 	import { Resource } from '#lib/resource.svelte.js';
-	import { attempt, notify } from '#lib/toast.svelte.js';
+	import { attempt, attemptOk, notify } from '#lib/toast.svelte.js';
 	import type { components } from '#lib/api/schema.js';
 
 	type ImportResult = components['schemas']['ServerImportResultDto'];
 
-	const servers = new Resource(() => unwrap(api.GET('/api/servers')));
-	const subscriptions = new Resource(() => unwrap(api.GET('/api/subscriptions')));
+	const servers = new Resource(() => unwrap(api.GET('/api/servers')), { live: ['servers'] });
+	const subscriptions = new Resource(() => unwrap(api.GET('/api/subscriptions')), {
+		live: ['subscriptions']
+	});
 
 	let filter = $state('');
 	let importOpen = $state(false);
@@ -53,11 +55,11 @@
 
 	async function remove(id: string, name: string) {
 		if (!confirm(`Удалить сервер «${name}»?`)) return;
-		const done = await attempt(
+		const done = await attemptOk(
 			() => unwrap(api.DELETE('/api/servers/{id}', { params: { path: { id } } })),
 			'Сервер удалён'
 		);
-		if (done !== undefined) void servers.reload();
+		if (done) void servers.reload();
 	}
 </script>
 

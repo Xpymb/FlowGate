@@ -16,5 +16,9 @@
 - Данные страницы — `new Resource(() => unwrap(api.GET(...)))` + `<Loadable resource={...}>`; действия — `attempt()` из
   `#lib/toast.svelte.js` (ошибка → уведомление); фоновые задачи — `trackJob()` из `#lib/jobs.svelte.js` (панель хода
   задачи в layout).
+- Живое обновление: `new Resource(load, { live: ['dns-routes', …] })` перечитывает данные по событию `change` из
+  `GET /api/events` (SSE, `#lib/events.js`). Тема — имя JSON-файла данных бэкенда без расширения, плюс `jobs` и `xray`.
+  Состояние интерфейсов Keenetic в события не попадает — на «Соединениях» остаётся опрос раз в 5 с. Форму настроек
+  живой не делать: событие затёрло бы несохранённые правки.
 - Диалоги — `#lib/components/Dialog.svelte` (`<dialog>`, `bind:open`); подписи состояний и цвета — `#lib/labels.js`.
 - `resolve()` принимает маршрут с query: `resolve(`/routes?${query}`)`.

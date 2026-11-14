@@ -15,6 +15,7 @@
   <Folder Name="/Shared/">
     <Project Path="Shared/FlowGate.Exceptions/FlowGate.Exceptions.csproj" />
     <Project Path="Shared/FlowGate.Shared.Bll/FlowGate.Shared.Bll.csproj" />
+    <Project Path="Shared/FlowGate.Shared.Changes/FlowGate.Shared.Changes.csproj" />
     <Project Path="Shared/FlowGate.Shared.Dal/FlowGate.Shared.Dal.csproj" />
     <Project Path="Shared/FlowGate.Shared.Options/FlowGate.Shared.Options.csproj" />
     <Project Path="Shared/FlowGate.Shared.WebApi/FlowGate.Shared.WebApi.csproj" />

@@ -62,6 +62,27 @@
         }
       }
     },
+    "/api/events": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Поток изменений (Server-Sent Events): change с темой в данных и ping при простое",
+        "operationId": "GetEvents",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/SseItemOfstring"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/xray": {
       "get": {
         "tags": [
@@ -3690,6 +3711,36 @@
         },
         "description": "Сохранение настроек целиком"
       },
+      "SseItemOfstring": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "eventType": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "eventId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reconnectionInterval": {
+            "pattern": "^-?(\\d+\\.)?\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,7})?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "SubscriptionDto": {
         "required": [
           "id",
@@ -4543,6 +4594,9 @@
     },
     {
       "name": "Keenetic"
+    },
+    {
+      "name": "Events"
     },
     {
       "name": "Xray"

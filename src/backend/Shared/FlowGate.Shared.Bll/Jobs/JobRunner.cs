@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 
 using FlowGate.Exceptions;
+using FlowGate.Shared.Changes;
 
 namespace FlowGate.Shared.Bll.Jobs;
 
@@ -19,17 +20,20 @@ public sealed class JobRunner : IJobRunner, IDisposable
     private readonly CancellationTokenSource _shutdown = new();
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<JobRunner> _logger;
+    private readonly IChangeFeed? _changes;
 
     /// <summary>
     ///     Инициализирует новый экземпляр класса <see cref="JobRunner"/>
     /// </summary>
     /// <param name="timeProvider">Источник времени</param>
     /// <param name="logger">Логгер</param>
+    /// <param name="changes">Шина изменений: тема <see cref="ChangeTopics.Jobs"/> на запуск, шаг и завершение; null — не сообщать</param>
     /// <exception cref="ArgumentNullException">Если timeProvider или logger равны null</exception>
-    public JobRunner(TimeProvider timeProvider, ILogger<JobRunner> logger)
+    public JobRunner(TimeProvider timeProvider, ILogger<JobRunner> logger, IChangeFeed? changes = null)
     {
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _changes = changes;
     }
 
     /// <inheritdoc />
@@ -47,11 +51,12 @@ public sealed class JobRunner : IJobRunner, IDisposable
                 throw new ConflictException($"Уже выполняется: {running.Title}");
             }
 
-            job = new JobState(Guid.NewGuid(), kind, title, _timeProvider.GetUtcNow(), _sync, _timeProvider);
+            job = new JobState(Guid.NewGuid(), kind, title, _timeProvider.GetUtcNow(), _sync, _timeProvider, NotifyChanged);
             _jobs.Insert(0, job);
         }
 
         _logger.LogInformation("Задача {JobId} «{Title}» запущена", job.Id, title);
+        NotifyChanged();
         job.Completion = Task.Run(() => RunAsync(job, work));
         return job.ToSnapshot();
     }
@@ -111,8 +116,11 @@ public sealed class JobRunner : IJobRunner, IDisposable
         finally
         {
             TrimHistory();
+            NotifyChanged();
         }
     }
+
+    private void NotifyChanged() => _changes?.Publish(ChangeTopics.Jobs);
 
     private void TrimHistory()
     {
@@ -131,9 +139,11 @@ public sealed class JobRunner : IJobRunner, IDisposable
         private readonly Lock _sync;
         private readonly TimeProvider _timeProvider;
         private readonly List<JobStep> _steps = [];
+        private readonly Action _onReport;
 
-        public JobState(Guid id, string kind, string title, DateTimeOffset startedAt, Lock sync, TimeProvider timeProvider)
+        public JobState(Guid id, string kind, string title, DateTimeOffset startedAt, Lock sync, TimeProvider timeProvider, Action onReport)
         {
+            _onReport = onReport;
             Id = id;
             Kind = kind;
             Title = title;
@@ -168,6 +178,8 @@ public sealed class JobRunner : IJobRunner, IDisposable
             {
                 _steps.Add(new JobStep(_timeProvider.GetUtcNow(), message));
             }
+
+            _onReport();
         }
 
         public void Finish(JobStatus status, string? error)

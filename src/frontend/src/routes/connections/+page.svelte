@@ -6,18 +6,25 @@
 	import Loadable from '#lib/components/Loadable.svelte';
 	import { connectionKinds, interfaceState } from '#lib/labels.js';
 	import { Resource } from '#lib/resource.svelte.js';
-	import { attempt } from '#lib/toast.svelte.js';
+	import { attempt, attemptOk } from '#lib/toast.svelte.js';
 	import type { components } from '#lib/api/schema.js';
 
 	type Connection = components['schemas']['ConnectionDto'];
 
-	const connections = new Resource(() => unwrap(api.GET('/api/connections')));
-	const servers = new Resource(() => unwrap(api.GET('/api/servers')));
+	const connections = new Resource(() => unwrap(api.GET('/api/connections')), {
+		live: ['connections', 'servers']
+	});
+	const servers = new Resource(() => unwrap(api.GET('/api/servers')), { live: ['servers'] });
 
 	let editorOpen = $state(false);
 	let editingId = $state<string>();
 	let form = $state({ name: '', kind: 'Socks', serverId: '' });
 	let saving = $state(false);
+
+	$effect(() => {
+		const timer = setInterval(() => void connections.reload(), 5000);
+		return () => clearInterval(timer);
+	});
 
 	function openCreate() {
 		editingId = undefined;
@@ -60,11 +67,11 @@
 	async function remove(item: Connection) {
 		if (!confirm(`Удалить соединение «${item.name}» и интерфейс ${item.interfaceName} в Keenetic?`))
 			return;
-		const done = await attempt(
+		const done = await attemptOk(
 			() => unwrap(api.DELETE('/api/connections/{id}', { params: { path: { id: item.id } } })),
 			'Соединение удалено'
 		);
-		if (done !== undefined) void connections.reload();
+		if (done) void connections.reload();
 	}
 </script>
 

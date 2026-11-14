@@ -49,3 +49,15 @@ export async function attempt<T>(
 		return undefined;
 	}
 }
+
+/** Как {@link attempt}, но для действий без тела ответа (204): возвращает true при успехе. */
+export async function attemptOk(
+	action: () => Promise<unknown>,
+	success?: string
+): Promise<boolean> {
+	const result = await attempt(async () => {
+		await action();
+		return true;
+	}, success);
+	return result === true;
+}

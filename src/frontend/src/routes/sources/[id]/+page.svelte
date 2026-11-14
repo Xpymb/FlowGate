@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { api } from '#lib/api/client.js';
 	import { errorMessage, unwrap } from '#lib/api/errors.js';
+	import { onChange } from '#lib/events.js';
 	import Badge from '#lib/components/Badge.svelte';
 	import Dialog from '#lib/components/Dialog.svelte';
 	import ListFormatHelp from '#lib/components/ListFormatHelp.svelte';
@@ -14,7 +15,7 @@
 	import { trackJob } from '#lib/jobs.svelte.js';
 	import { label, refreshStatuses, sourceKinds } from '#lib/labels.js';
 	import { formToRequest, sourceOrigin, sourceToForm, type SourceForm } from '#lib/sources.js';
-	import { attempt } from '#lib/toast.svelte.js';
+	import { attempt, attemptOk } from '#lib/toast.svelte.js';
 	import type { components } from '#lib/api/schema.js';
 
 	type Source = components['schemas']['DomainSourceDto'];
@@ -51,6 +52,8 @@
 	$effect(() => {
 		void loadAll(id);
 	});
+
+	$effect(() => onChange(['domain-sources', 'local-lists'], () => void loadAll(id)));
 
 	function sourceToFormSafe(): SourceForm {
 		return source
@@ -131,11 +134,11 @@
 
 	async function remove() {
 		if (!source || !confirm(`Удалить источник «${source.name}»?`)) return;
-		const done = await attempt(
+		const done = await attemptOk(
 			() => unwrap(api.DELETE('/api/domain-sources/{id}', { params: { path: { id } } })),
 			'Источник удалён'
 		);
-		if (done !== undefined) await goto(resolve('/sources'));
+		if (done) await goto(resolve('/sources'));
 	}
 
 	function openPreview(name: string, attrs = '') {
@@ -179,7 +182,7 @@
 
 	async function removeLocal(name: string) {
 		if (!confirm(`Удалить список «${name}»?`)) return;
-		const done = await attempt(
+		const done = await attemptOk(
 			() =>
 				unwrap(
 					api.DELETE('/api/domain-sources/{id}/local-lists/{name}', {
@@ -188,7 +191,7 @@
 				),
 			'Список удалён'
 		);
-		if (done !== undefined) await Promise.all([loadLocal(), loadLists()]);
+		if (done) await Promise.all([loadLocal(), loadLists()]);
 	}
 </script>
 

@@ -11,7 +11,13 @@
 - Долгие операции: бэкенд отвечает 202 + `JobDto` → `waitForJob()` из `#lib/jobs.js` (опрос `/api/jobs/{id}`).
 - 401 означает «нет сессии» (отвечает nginx через `auth_request`): middleware клиента ставит `session.unauthorized`.
 - Числа в DTO типизированы как `number | string` (OpenAPI .NET) — приводить через `toNumber()` / форматтеры `#lib/format.js`.
-- Без UI-китов: CSS-переменные в `src/app.css` (светлая и тёмная тема), стили компонентов — в `<style>`.
+- Без UI-китов: токены и общие классы (`.btn primary|ghost|danger|sm|icon`, `.panel`, `.table`, `.form`, `.check`,
+  `.segmented`, `.choices`) — в `src/app.css`, светлая и тёмная тема (`data-theme` + система, `#lib/theme.svelte.js`).
+  Стили компонентов — в `<style>`. Шрифты Onest и JetBrains Mono — пакетами `@fontsource-variable/*`, без CDN.
+- Ход операции у кнопки — `aria-busy={busy}` (спиннер вместо текста), не смена надписи.
+- Таблицы — `<table class="table cards">`: на ширине ≤ 720 px строка становится карточкой. Главная ячейка —
+  `class="primary"`, прочие — `data-label="Подпись"`; `check-cell`, `switch-cell`, `actions-cell` встают в первую строку
+  карточки. Отдельных мобильных компонентов не делать. Элементы сеток с длинным содержимым — `min-width: 0`.
 - Тексты интерфейса — на русском.
 - Данные страницы — `new Resource(() => unwrap(api.GET(...)))` + `<Loadable resource={...}>`; действия — `attempt()` из
   `#lib/toast.svelte.js` (ошибка → уведомление); фоновые задачи — `trackJob()` из `#lib/jobs.svelte.js` (панель хода
@@ -20,5 +26,12 @@
   `GET /api/events` (SSE, `#lib/events.js`). Тема — имя JSON-файла данных бэкенда без расширения, плюс `jobs` и `xray`.
   Состояние интерфейсов Keenetic в события не попадает — на «Соединениях» остаётся опрос раз в 5 с. Форму настроек
   живой не делать: событие затёрло бы несохранённые правки.
-- Диалоги — `#lib/components/Dialog.svelte` (`<dialog>`, `bind:open`); подписи состояний и цвета — `#lib/labels.js`.
+- Диалоги — `#lib/components/Dialog.svelte` (`<dialog>`, `bind:open`): `variant="side"` — панель справа для форм
+  создания и правки, по центру — просмотр и подтверждения. Подтверждение — `await ask({...})` из `#lib/confirm.svelte.js`,
+  нативный `confirm()` не использовать (кроме `guardUnsaved`). Подписи состояний и цвета — `#lib/labels.js`.
+- Страница: `PageHeader` (заголовок, описание, `actions`), пустое состояние — `EmptyState` с основным действием, действия
+  строки — `Menu` («⋯»), массовые — `Selection` + `BulkBar`. Поиск и фильтры в адресе — `UrlParam` из
+  `#lib/table.svelte.js`. Формы-страницы — `SaveBar` (Ctrl+S) + `guardUnsaved()` из `#lib/unsaved.svelte.js`.
+- Меню — `#lib/nav.ts` (группы Xray и Маршруты в сайдбаре и палитре Ctrl+K). Клавиша страницы — `hotkey('n', …)` из
+  `#lib/hotkeys.js` внутри `$effect`. Палитра открывает формы через query: `?new=1`, `?import=1`.
 - `resolve()` принимает маршрут с query: `resolve(`/routes?${query}`)`.

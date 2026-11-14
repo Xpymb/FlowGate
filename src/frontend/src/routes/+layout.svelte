@@ -1,28 +1,50 @@
 <script lang="ts">
 	import '../app.css';
 	import favicon from '#lib/assets/favicon.svg';
-	import { resolve } from '$app/paths';
+	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
+	import { dispatchHotkey, isTyping } from '#lib/hotkeys.js';
+	import { currentLink } from '#lib/nav.js';
 	import { session } from '#lib/session.svelte.js';
+	import CommandPalette from '#lib/components/CommandPalette.svelte';
+	import ConfirmHost from '#lib/components/ConfirmHost.svelte';
+	import Icon from '#lib/components/Icon.svelte';
 	import JobPanel from '#lib/components/JobPanel.svelte';
+	import Logo from '#lib/components/Logo.svelte';
+	import ShortcutsHelp from '#lib/components/ShortcutsHelp.svelte';
+	import Sidebar from '#lib/components/Sidebar.svelte';
 	import Toasts from '#lib/components/Toasts.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
 
-	const links = [
-		{ path: '/', title: 'Обзор' },
-		{ path: '/xray', title: 'Xray' },
-		{ path: '/servers', title: 'Серверы' },
-		{ path: '/subscriptions', title: 'Подписки' },
-		{ path: '/connections', title: 'Соединения' },
-		{ path: '/sources', title: 'Источники' },
-		{ path: '/routes', title: 'Маршруты' },
-		{ path: '/settings', title: 'Настройки' }
-	] as const;
+	let drawerOpen = $state(false);
+	let paletteOpen = $state(false);
+	let helpOpen = $state(false);
 
-	function isActive(path: string): boolean {
-		return path === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(path);
+	const section = $derived(currentLink(page.url.pathname));
+
+	afterNavigate(() => {
+		drawerOpen = false;
+	});
+
+	function onkeydown(event: KeyboardEvent) {
+		if ((event.ctrlKey || event.metaKey) && event.code === 'KeyK') {
+			event.preventDefault();
+			paletteOpen = !paletteOpen;
+			return;
+		}
+		if (event.key === 'Escape' && drawerOpen) {
+			drawerOpen = false;
+			return;
+		}
+		const question = event.key === '?' || (event.shiftKey && event.code === 'Slash');
+		if (question && !isTyping(event.target) && !document.querySelector('dialog[open]')) {
+			event.preventDefault();
+			helpOpen = true;
+			return;
+		}
+		dispatchHotkey(event);
 	}
 </script>
 
@@ -30,70 +52,167 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-<div class="shell">
-	<header>
-		<a class="brand" href={resolve('/')}>FlowGate</a>
-		<nav>
-			{#each links as link (link.path)}
-				<a href={resolve(link.path)} class:active={isActive(link.path)}>{link.title}</a>
-			{/each}
-		</nav>
-	</header>
+<svelte:window {onkeydown} />
 
-	<main>
+<a class="skip" href="#content">К содержимому</a>
+
+<div class="app">
+	<Sidebar
+		open={drawerOpen}
+		onpalette={() => {
+			drawerOpen = false;
+			paletteOpen = true;
+		}}
+		onclose={() => (drawerOpen = false)}
+	/>
+	{#if drawerOpen}
+		<button class="scrim" aria-label="Закрыть меню" onclick={() => (drawerOpen = false)}></button>
+	{/if}
+
+	<div class="main-column">
+		<header class="mobile-bar">
+			<button
+				class="btn ghost icon"
+				aria-label="Меню"
+				aria-expanded={drawerOpen}
+				onclick={() => (drawerOpen = true)}
+			>
+				<Icon name="menu" />
+			</button>
+			<Logo />
+			<span class="section">{section?.title ?? 'FlowGate'}</span>
+			<button
+				class="btn ghost icon"
+				aria-label="Поиск и команды"
+				onclick={() => (paletteOpen = true)}
+			>
+				<Icon name="search" />
+			</button>
+		</header>
+
 		{#if session.unauthorized}
-			<p class="card error">
-				Сессия закончилась или вход не выполнен. Обновите страницу, чтобы войти.
-			</p>
+			<div class="session" role="alert">
+				<Icon name="lock" size={16} />
+				<span>Сессия истекла. Обновите страницу для повторного входа.</span>
+				<button class="btn sm" onclick={() => location.reload()}>Обновить</button>
+			</div>
 		{/if}
-		{@render children()}
-	</main>
+
+		<main id="content" tabindex="-1">
+			{@render children()}
+		</main>
+	</div>
 </div>
 
+<CommandPalette bind:open={paletteOpen} />
+<ShortcutsHelp bind:open={helpOpen} />
+<ConfirmHost />
 <JobPanel />
 <Toasts />
 
 <style>
-	.shell {
-		max-width: 1100px;
-		margin: 0 auto;
-		padding: 0 var(--gap) var(--gap);
+	.skip {
+		position: fixed;
+		top: 8px;
+		left: 8px;
+		z-index: 100;
+		padding: 8px 12px;
+		border-radius: var(--r-sm);
+		background: var(--accent);
+		color: var(--accent-ink);
+		transform: translateY(-200%);
 	}
 
-	header {
+	.skip:focus {
+		transform: none;
+	}
+
+	.app {
+		display: flex;
+		min-height: 100dvh;
+	}
+
+	.main-column {
+		flex: 1;
+		min-width: 0;
+	}
+
+	main {
+		max-width: 1280px;
+		margin: 0 auto;
+		padding: 40px 48px 96px;
+		outline: none;
+	}
+
+	.mobile-bar {
+		display: none;
+	}
+
+	.scrim {
+		display: none;
+	}
+
+	.session {
 		display: flex;
 		align-items: center;
-		gap: 24px;
-		padding: 12px 0;
-		margin-bottom: var(--gap);
-		border-bottom: 1px solid var(--border);
-		flex-wrap: wrap;
+		gap: 10px;
+		padding: 10px 48px;
+		background: var(--warn-soft);
+		color: var(--warn);
+		font-weight: 500;
 	}
 
-	.brand {
-		font-weight: 600;
-		font-size: 1.1rem;
-		color: var(--text);
-		text-decoration: none;
+	.session span {
+		flex: 1;
 	}
 
-	nav {
-		display: flex;
-		gap: 16px;
-		flex-wrap: wrap;
+	@media (max-width: 1200px) {
+		main {
+			padding: 32px 32px 96px;
+		}
 	}
 
-	nav a {
-		color: var(--muted);
-		text-decoration: none;
+	@media (max-width: 899px) {
+		.mobile-bar {
+			position: sticky;
+			top: 0;
+			z-index: 20;
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			height: 56px;
+			padding: 0 8px;
+			border-bottom: 1px solid var(--line);
+			background: color-mix(in srgb, var(--surface) 90%, transparent);
+			backdrop-filter: blur(10px);
+		}
+
+		.section {
+			flex: 1;
+			font-weight: 600;
+		}
+
+		.scrim {
+			position: fixed;
+			inset: 0;
+			z-index: 44;
+			display: block;
+			background: var(--backdrop);
+			animation: fade 0.2s;
+		}
+
+		main {
+			padding: 24px 16px 96px;
+		}
+
+		.session {
+			padding: 10px 16px;
+		}
 	}
 
-	nav a.active {
-		color: var(--text);
-		font-weight: 600;
-	}
-
-	main > .error {
-		margin-bottom: var(--gap);
+	@keyframes fade {
+		from {
+			opacity: 0;
+		}
 	}
 </style>

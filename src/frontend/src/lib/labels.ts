@@ -26,22 +26,22 @@ export const sourceKinds: Record<string, string> = {
 };
 
 export const routeStates: Record<string, { label: string; tone: Tone }> = {
-	Pending: { label: 'не создан', tone: 'warn' },
+	Pending: { label: 'не применён', tone: 'warn' },
 	Enabled: { label: 'включён', tone: 'ok' },
 	Disabled: { label: 'выключен', tone: 'muted' }
 };
 
 export const updateProxyStates: Record<string, { label: string; tone: Tone }> = {
 	Disabled: { label: 'выключен', tone: 'muted' },
-	Idle: { label: 'ждёт запроса', tone: 'accent' },
+	Idle: { label: 'в ожидании', tone: 'accent' },
 	Running: { label: 'работает', tone: 'ok' },
-	Unavailable: { label: 'недоступен, напрямую', tone: 'warn' }
+	Unavailable: { label: 'недоступен', tone: 'warn' }
 };
 
 export const refreshStatuses: Record<string, { label: string; tone: Tone }> = {
-	Ok: { label: 'ок', tone: 'ok' },
+	Ok: { label: 'успешно', tone: 'ok' },
 	Partial: { label: 'частично', tone: 'warn' },
-	Waiting: { label: 'ждёт источник', tone: 'warn' },
+	Waiting: { label: 'ожидает источник', tone: 'warn' },
 	Failed: { label: 'ошибка', tone: 'danger' }
 };
 
@@ -85,7 +85,7 @@ export function interfaceState(connection: Schemas['ConnectionDto']): {
 	if (iface.state === 'down') return { label: 'выключен', tone: 'muted' };
 	if (connection.kind === 'Wireguard') {
 		return iface.wireguardOnline
-			? { label: 'на связи', tone: 'ok' }
+			? { label: 'активен', tone: 'ok' }
 			: { label: 'нет рукопожатия', tone: 'warn' };
 	}
 	return iface.connected

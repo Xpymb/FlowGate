@@ -62,6 +62,56 @@ public sealed class DnsRoutePlannerTests
     }
 
     /// <summary>
+    ///     Новый маршрут меняет состав групп
+    /// </summary>
+    [Fact]
+    public void Plan_NewRoute_ContentChanged()
+    {
+        var plan = Plan([Target(Route(), "a.com")], NdmsDnsState.Empty);
+
+        Assert.True(Assert.Single(plan.Outcomes).ContentChanged);
+    }
+
+    /// <summary>
+    ///     Состав совпадает с Keenetic — изменения нет
+    /// </summary>
+    [Fact]
+    public void Plan_SameContent_ContentNotChanged()
+    {
+        var state = State([Group(Base, Description, "a.com", "b.com")], [Rule(Base, "Proxy0")]);
+
+        var plan = Plan([Target(Provisioned(), "b.com", "a.com")], state);
+
+        Assert.False(Assert.Single(plan.Outcomes).ContentChanged);
+    }
+
+    /// <summary>
+    ///     Только удаление элемента — состав изменился
+    /// </summary>
+    [Fact]
+    public void Plan_EntryRemoved_ContentChanged()
+    {
+        var state = State([Group(Base, Description, "a.com", "old.com")], [Rule(Base, "Proxy0")]);
+
+        var plan = Plan([Target(Provisioned(), "a.com")], state);
+
+        Assert.True(Assert.Single(plan.Outcomes).ContentChanged);
+    }
+
+    /// <summary>
+    ///     Восстановление удалённого пользователем правила не считается изменением состава
+    /// </summary>
+    [Fact]
+    public void Plan_OnlyRuleRestored_ContentNotChanged()
+    {
+        var state = State([Group(Base, Description, "a.com")], []);
+
+        var plan = Plan([Target(Provisioned(), "a.com")], state);
+
+        Assert.False(Assert.Single(plan.Outcomes).ContentChanged);
+    }
+
+    /// <summary>
     ///     Выключенное пользователем правило остаётся выключенным при обновлении состава
     /// </summary>
     [Fact]

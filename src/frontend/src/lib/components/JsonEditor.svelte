@@ -1,15 +1,20 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import type { Compartment } from '@codemirror/state';
 	import type { EditorView } from 'codemirror';
+	import { theme } from '#lib/theme.svelte.js';
 
 	interface Props {
 		value: string;
 		readonly?: boolean;
+		label?: string;
 	}
 
-	let { value = $bindable(), readonly = false }: Props = $props();
+	let { value = $bindable(), readonly = false, label = 'JSON' }: Props = $props();
 	let host = $state<HTMLDivElement>();
 	let view = $state.raw<EditorView>();
+	let themeSlot = $state.raw<Compartment>();
+	let darkTheme = $state.raw<unknown>();
 	let failed = $state(false);
 
 	$effect(() => {
@@ -18,15 +23,46 @@
 		let disposed = false;
 		void (async () => {
 			try {
-				const [{ EditorView, basicSetup }, { json }, { EditorState }, { oneDark }] =
-					await Promise.all([
-						import('codemirror'),
-						import('@codemirror/lang-json'),
-						import('@codemirror/state'),
-						import('@codemirror/theme-one-dark')
-					]);
+				const [
+					{ EditorView, basicSetup },
+					{ json },
+					{ EditorState, Compartment, Prec },
+					{ oneDark }
+				] = await Promise.all([
+					import('codemirror'),
+					import('@codemirror/lang-json'),
+					import('@codemirror/state'),
+					import('@codemirror/theme-one-dark')
+				]);
 				if (disposed) return;
-				const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+				const slot = new Compartment();
+				// Поверх темы редактора: цвета интерфейса и номера строк на всю высоту поля.
+				const surface = Prec.highest(
+					EditorView.theme({
+						'&': {
+							backgroundColor: untrack(() => readonly) ? 'var(--surface-2)' : 'var(--surface)',
+							color: 'var(--ink)',
+							fontSize: '13px'
+						},
+						'&.cm-focused': { outline: 'none' },
+						'.cm-scroller': { fontFamily: 'var(--mono)', lineHeight: '1.6' },
+						'.cm-content, .cm-gutter': { minHeight: '320px' },
+						'.cm-gutters': {
+							backgroundColor: 'var(--surface-2)',
+							color: 'var(--faint)',
+							borderRight: '1px solid var(--line)'
+						},
+						'.cm-activeLine': {
+							backgroundColor: 'color-mix(in srgb, var(--accent) 7%, transparent)'
+						},
+						'.cm-activeLineGutter': {
+							backgroundColor: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+							color: 'var(--ink-2)'
+						}
+					})
+				);
+				darkTheme = oneDark;
+				themeSlot = slot;
 				view = new EditorView({
 					parent,
 					doc: untrack(() => value),
@@ -35,7 +71,9 @@
 						json(),
 						EditorState.readOnly.of(untrack(() => readonly)),
 						EditorView.lineWrapping,
-						...(dark ? [oneDark] : []),
+						EditorView.contentAttributes.of({ 'aria-label': untrack(() => label) }),
+						slot.of(untrack(() => theme.dark) ? oneDark : []),
+						surface,
 						EditorView.updateListener.of((update) => {
 							if (update.docChanged) value = update.state.doc.toString();
 						})
@@ -52,6 +90,15 @@
 		};
 	});
 
+	// Тема меняется на лету вместе с интерфейсом.
+	$effect(() => {
+		const dark = theme.dark;
+		if (!view || !themeSlot) return;
+		view.dispatch({
+			effects: themeSlot.reconfigure(dark ? (darkTheme as Parameters<Compartment['of']>[0]) : [])
+		});
+	});
+
 	$effect(() => {
 		const next = value;
 		const editor = view;
@@ -64,29 +111,32 @@
 </script>
 
 {#if failed}
-	<textarea class="fallback" bind:value {readonly} spellcheck="false"></textarea>
+	<textarea class="fallback" bind:value {readonly} spellcheck="false" aria-label={label}></textarea>
 {:else}
-	<div class="editor" bind:this={host}></div>
+	<div class="editor" class:readonly bind:this={host}></div>
 {/if}
 
 <style>
 	.editor,
 	.fallback {
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-		overflow: hidden;
-		min-height: 320px;
-		max-height: 60vh;
-		overflow-y: auto;
+		max-height: 62vh;
+		overflow: auto;
+		border: 1px solid var(--line-strong);
+		border-radius: var(--r-sm);
+		background: var(--surface);
 	}
 
-	.editor :global(.cm-editor) {
-		min-height: 320px;
+	.editor:focus-within {
+		border-color: var(--accent);
+		box-shadow: 0 0 0 3px var(--accent-soft);
+	}
+
+	.editor.readonly {
+		background: var(--surface-2);
 	}
 
 	.fallback {
 		width: 100%;
-		font-family: var(--mono);
-		padding: 8px;
+		min-height: 320px;
 	}
 </style>

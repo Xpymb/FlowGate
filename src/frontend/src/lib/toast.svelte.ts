@@ -2,11 +2,17 @@ import { ApiError, errorMessage } from './api/errors.js';
 
 export type ToastTone = 'ok' | 'error' | 'info';
 
+export interface ToastAction {
+	label: string;
+	run: () => void;
+}
+
 export interface Toast {
 	id: number;
 	tone: ToastTone;
 	text: string;
 	detail?: string;
+	action?: ToastAction;
 }
 
 const lifetimeMs = { ok: 4000, info: 6000, error: 12000 } as const;
@@ -19,9 +25,9 @@ export function dismiss(id: number): void {
 	if (index >= 0) toasts.splice(index, 1);
 }
 
-export function notify(tone: ToastTone, text: string, detail?: string): void {
+export function notify(tone: ToastTone, text: string, detail?: string, action?: ToastAction): void {
 	const id = nextId++;
-	toasts.push({ id, tone, text, detail });
+	toasts.push({ id, tone, text, detail, action });
 	setTimeout(() => dismiss(id), lifetimeMs[tone]);
 }
 
@@ -33,6 +39,16 @@ export function notifyError(error: unknown): void {
 					.join('\n')
 			: undefined;
 	notify('error', errorMessage(error), detail || undefined);
+}
+
+/** Копирует текст в буфер обмена и сообщает об этом. */
+export async function copyText(text: string, what = 'Скопировано'): Promise<void> {
+	try {
+		await navigator.clipboard.writeText(text);
+		notify('ok', what);
+	} catch {
+		notify('error', 'Нет доступа к буферу обмена', 'Скопируйте вручную: ' + text);
+	}
 }
 
 /** Выполняет действие пользователя: ошибка — в уведомление, успех — опционально сообщением. */

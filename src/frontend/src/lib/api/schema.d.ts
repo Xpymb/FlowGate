@@ -770,6 +770,11 @@ export interface components {
             parts: number | string;
             /** @description Предупреждения */
             warnings: string[];
+            /**
+             * Format: date-time
+             * @description Когда состав групп в Keenetic последний раз изменился или null, если неизвестно
+             */
+            contentChangedAt: null | string;
         };
         /** @description Создание маршрута */
         DnsRouteCreateRequest: {

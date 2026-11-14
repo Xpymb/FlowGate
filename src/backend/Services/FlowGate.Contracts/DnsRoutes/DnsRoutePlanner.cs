@@ -106,9 +106,10 @@ public static class DnsRoutePlanner
             return new DnsRouteOutcome(route.Id, DnsRouteOutcomeKind.Waiting, route.LastKnownDisabled, route.Exclusive, 0, 0);
         }
 
+        var contentChanged = false;
         var parts = target.Content is null
             ? observedParts.Select(part => new PlannedPart(part.Name, part.Index, part.Entries.ToList(), exists: true)).ToList()
-            : PlaceEntries(baseName, observedParts, target.Content.Entries, maxEntries, state, commands);
+            : PlaceEntries(baseName, observedParts, target.Content.Entries, maxEntries, state, commands, out contentChanged);
 
         foreach (var part in parts)
         {
@@ -122,7 +123,14 @@ public static class DnsRoutePlanner
         }
 
         var (disabled, exclusive) = PlanRules(target, parts, state, recreatedInterfaces, commands);
-        return new DnsRouteOutcome(route.Id, DnsRouteOutcomeKind.Applied, disabled, exclusive, parts.Count, parts.Sum(part => part.Entries.Count));
+        return new DnsRouteOutcome(
+            route.Id,
+            DnsRouteOutcomeKind.Applied,
+            disabled,
+            exclusive,
+            parts.Count,
+            parts.Sum(part => part.Entries.Count),
+            contentChanged);
     }
 
     private static List<PlannedPart> PlaceEntries(
@@ -131,8 +139,10 @@ public static class DnsRoutePlanner
         IReadOnlyList<string> desired,
         int maxEntries,
         NdmsDnsState state,
-        List<string> commands)
+        List<string> commands,
+        out bool changed)
     {
+        changed = false;
         var desiredSet = desired.ToHashSet(StringComparer.Ordinal);
         var placed = new HashSet<string>(StringComparer.Ordinal);
         var parts = new List<PlannedPart>();
@@ -150,6 +160,7 @@ public static class DnsRoutePlanner
                 else
                 {
                     commands.Add($"no object-group fqdn {observed.Name} include {entry}");
+                    changed = true;
                 }
             }
 
@@ -162,6 +173,7 @@ public static class DnsRoutePlanner
         }
 
         var pending = new Queue<string>(desired.Where(entry => !placed.Contains(entry)));
+        changed |= pending.Count > 0;
         foreach (var part in parts)
         {
             Fill(part, pending, maxEntries, commands);

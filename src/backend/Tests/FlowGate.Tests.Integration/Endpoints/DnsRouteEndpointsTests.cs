@@ -84,6 +84,39 @@ public sealed class DnsRouteEndpointsTests : IDisposable
     }
 
     /// <summary>
+    ///     Дата изменения состава: ставится при создании, не сдвигается повторной синхронизацией без изменений и
+    ///     обновляется, когда меняется список
+    /// </summary>
+    [Fact]
+    public async Task ContentChangedAt_MovesOnlyWhenListChanges()
+    {
+        using var client = _factory.CreateClient();
+        var connectionId = await CreateConnectionAsync(client);
+        var source = await ApiJson.PostAsync(client, "/api/domain-sources", new { name = "Мои", kind = "Local" }, HttpStatusCode.Created);
+        var sourceId = source.GetProperty("id").GetString();
+        await SaveLocalListAsync(client, sourceId, "telegram.org\n");
+        var created = await ApiJson.PostAsync(client, "/api/dns-routes", new { sourceId, listName = "telegram", connectionId }, HttpStatusCode.Created);
+        var id = created.GetProperty("id").GetString();
+        await ApiJson.WaitForAllJobsAsync(client);
+        var first = (await ApiJson.GetAsync(client, $"/api/dns-routes/{id}")).GetProperty("lastApply");
+
+        await Task.Delay(20, TestContext.Current.CancellationToken);
+        await ApplyAllAsync(client);
+        var unchanged = (await ApiJson.GetAsync(client, $"/api/dns-routes/{id}")).GetProperty("lastApply");
+
+        await Task.Delay(20, TestContext.Current.CancellationToken);
+        await SaveLocalListAsync(client, sourceId, "telegram.org\nt.me\n");
+        await ApplyAllAsync(client);
+        var changed = (await ApiJson.GetAsync(client, $"/api/dns-routes/{id}")).GetProperty("lastApply");
+
+        Assert.True(first.GetProperty("contentChangedAt").GetDateTimeOffset() <= first.GetProperty("at").GetDateTimeOffset());
+        Assert.True(unchanged.GetProperty("at").GetDateTimeOffset() > first.GetProperty("at").GetDateTimeOffset());
+        Assert.Equal(first.GetProperty("contentChangedAt").GetDateTimeOffset(), unchanged.GetProperty("contentChangedAt").GetDateTimeOffset());
+        Assert.True(changed.GetProperty("contentChangedAt").GetDateTimeOffset() > unchanged.GetProperty("at").GetDateTimeOffset());
+        Assert.True(changed.GetProperty("contentChangedAt").GetDateTimeOffset() <= changed.GetProperty("at").GetDateTimeOffset());
+    }
+
+    /// <summary>
     ///     GitHub-репозиторий: каталог из tarball коммита; повторное обновление при том же sha архив не качает
     /// </summary>
     [Fact]
@@ -179,6 +212,22 @@ public sealed class DnsRouteEndpointsTests : IDisposable
     {
         counter++;
         return response;
+    }
+
+    private static async Task SaveLocalListAsync(HttpClient client, string? sourceId, string text)
+    {
+        using var response = await client.PutAsJsonAsync(
+            $"/api/domain-sources/{sourceId}/local-lists/telegram",
+            new { text },
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await ApiJson.WaitForAllJobsAsync(client);
+    }
+
+    private static async Task ApplyAllAsync(HttpClient client)
+    {
+        var job = await ApiJson.PostAsync(client, "/api/dns-routes/apply", new { }, HttpStatusCode.Accepted);
+        await ApiJson.WaitForJobAsync(client, job.GetProperty("id").GetString()!);
     }
 
     private static async Task<string> CreateConnectionAsync(HttpClient client)

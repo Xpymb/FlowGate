@@ -414,10 +414,10 @@
 										onchange={() => selection.toggleAll(visibleIds)}
 									/>
 								</th>
+								<th class="switch-cell"><span class="visually-hidden">Правило</span></th>
 								<th>Маршрут</th>
 								<th>Группа Keenetic</th>
 								<th>Применение</th>
-								<th>Правило</th>
 								<th class="actions-cell"><span class="visually-hidden">Действия</span></th>
 							</tr>
 						</thead>
@@ -433,6 +433,20 @@
 											label="Выбрать {route.listName}"
 											checked={selection.has(route.id)}
 											onchange={() => selection.toggle(route.id)}
+										/>
+									</td>
+									<td class="switch-cell">
+										<Switch
+											checked={enabled}
+											busy={route.id in pending}
+											disabled={route.state === 'Pending'}
+											label="Правило {route.listName}"
+											title={route.state === 'Pending'
+												? 'Правило ещё не создано в Keenetic'
+												: enabled
+													? 'Выключить правило'
+													: 'Включить правило'}
+											onchange={() => toggle(route)}
 										/>
 									</td>
 									<td>
@@ -452,7 +466,8 @@
 											{/if}
 										</div>
 										<div class="sub">
-											{route.sourceName ?? 'источник удалён'}
+											{#if route.state === 'Pending'}<span class="pending">{routeState.label}</span> ·
+											{/if}{route.sourceName ?? 'источник удалён'}
 											{#if route.interfaceName}· <span class="mono">{route.interfaceName}</span
 												>{/if}
 											{#if route.exclusive}· <span
@@ -476,22 +491,6 @@
 											{/each}
 										{:else}
 											<span class="faint">не применялся</span>
-										{/if}
-									</td>
-									<td>
-										{#if route.state === 'Pending'}
-											<Badge tone={routeState.tone}>{routeState.label}</Badge>
-										{:else}
-											<div class="toggle">
-												<Switch
-													checked={enabled}
-													busy={route.id in pending}
-													label="Правило {route.listName}"
-													title={enabled ? 'Выключить правило' : 'Включить правило'}
-													onchange={() => toggle(route)}
-												/>
-												<span class="muted small">{enabled ? 'вкл.' : 'выкл.'}</span>
-											</div>
 										{/if}
 									</td>
 									<td class="actions-cell">
@@ -739,10 +738,16 @@
 		color: var(--faint);
 	}
 
-	.toggle {
-		display: flex;
-		align-items: center;
-		gap: 8px;
+	/* Переключатель правила — сразу за чекбоксом, без своей подписи: состояние видно по строке. */
+	.switch-cell {
+		width: 1%;
+		padding-left: 4px;
+		padding-right: 4px;
+	}
+
+	.pending {
+		color: var(--warn);
+		font-weight: 500;
 	}
 
 	.note {

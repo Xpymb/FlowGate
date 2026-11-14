@@ -250,7 +250,6 @@
 
 <style>
 	.lead {
-		max-width: 72ch;
 		margin-bottom: 20px;
 		color: var(--muted);
 	}

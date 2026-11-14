@@ -42,6 +42,10 @@
 	let editingId = $state<string>();
 	let form = $state({ name: '', kind: 'Wireguard', serverId: '' });
 	let saving = $state(false);
+	/** Имя подставлено автоматически и ещё не правилось: при смене типа оно следует за типом. */
+	let autoName = $state(false);
+
+	const kindSuffixes: Record<string, string> = { Wireguard: 'wg', Socks: 'socks', Http: 'http' };
 
 	const noServers = $derived(servers.data?.length === 0);
 	const visible = $derived(
@@ -58,15 +62,36 @@
 
 	$effect(() => hotkey('n', () => !noServers && openCreate()));
 
+	/** Свободное имя вида xray-wg, xray-wg-2, … по типу соединения. */
+	function suggestName(kind: string): string {
+		const base = `xray-${kindSuffixes[kind] ?? kind.toLowerCase()}`;
+		const taken = new Set((connections.data ?? []).map((item) => item.name.toLowerCase()));
+		if (!taken.has(base)) return base;
+		let index = 2;
+		while (taken.has(`${base}-${index}`)) index++;
+		return `${base}-${index}`;
+	}
+
 	function openCreate() {
 		editingId = undefined;
-		form = { name: '', kind: 'Wireguard', serverId: servers.data?.[0]?.id ?? '' };
+		form = {
+			name: suggestName('Wireguard'),
+			kind: 'Wireguard',
+			serverId: servers.data?.[0]?.id ?? ''
+		};
+		autoName = true;
 		editorOpen = true;
+	}
+
+	function changeKind(kind: string) {
+		form.kind = kind;
+		if (autoName) form.name = suggestName(kind);
 	}
 
 	function openEdit(item: Connection) {
 		editingId = item.id;
 		form = { name: item.name, kind: item.kind, serverId: item.serverId };
+		autoName = false;
 		editorOpen = true;
 	}
 
@@ -255,8 +280,17 @@
 	onsubmit={save}
 >
 	<div class="form">
-		<Field label="Имя" hint="Используется в описании интерфейса Keenetic. Кавычки не допускаются.">
-			<input bind:value={form.name} maxlength="64" placeholder="YouTube" />
+		<Field
+			label="Имя"
+			hint="Подставляется по типу соединения, можно изменить. Используется в описании интерфейса Keenetic, кавычки не допускаются."
+		>
+			<input
+				bind:value={form.name}
+				maxlength="64"
+				placeholder="xray-wg"
+				spellcheck="false"
+				oninput={() => (autoName = false)}
+			/>
 		</Field>
 		<Field label="Тип" group hint={editingId ? 'Тип нельзя изменить после создания.' : undefined}>
 			<div class="choices">
@@ -266,7 +300,14 @@
 						class:selected={form.kind === kind.value}
 						class:disabled={!!editingId}
 					>
-						<input type="radio" bind:group={form.kind} value={kind.value} disabled={!!editingId} />
+						<input
+							type="radio"
+							name="connection-kind"
+							value={kind.value}
+							checked={form.kind === kind.value}
+							disabled={!!editingId}
+							onchange={() => changeKind(kind.value)}
+						/>
 						<span class="choice-title">{kind.title}</span>
 						<span class="choice-text">{kind.text}</span>
 					</label>

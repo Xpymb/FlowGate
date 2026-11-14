@@ -65,6 +65,22 @@
 	const all = $derived(routes.data ?? []);
 	const noConnections = $derived(connections.data?.length === 0);
 	const selectedList = $derived(catalog.find((list) => list.name === form.listName.trim()));
+	/** Варианты отбора строк по меткам выбранного списка; текущее значение сохраняется, даже если метки уже нет. */
+	const filterOptions = $derived.by(() => {
+		const options = [{ value: '', label: 'Все строки' }];
+		const attrs = [
+			...new Set((selectedList?.attributes ?? []).map((attr) => attr.replace(/^!/, '')))
+		].sort();
+		for (const attr of attrs) {
+			options.push({ value: attr, label: `Только с меткой @${attr}` });
+			options.push({ value: `!${attr}`, label: `Все, кроме @${attr}` });
+		}
+		const current = form.attributeFilter.trim();
+		if (current && !options.some((option) => option.value === current)) {
+			options.push({ value: current, label: `Текущий отбор: ${current}` });
+		}
+		return options;
+	});
 	const counts = $derived({
 		on: all.filter((route) => route.state === 'Enabled').length,
 		off: all.filter((route) => route.state === 'Disabled').length,
@@ -323,6 +339,11 @@
 		void routes.reload();
 	}
 
+	/** «только @ads» / «без @ads» вместо синтаксиса фильтра. */
+	function filterLabel(filter: string): string {
+		return filter.startsWith('!') ? `без @${filter.slice(1)}` : `только @${filter}`;
+	}
+
 	function partsLabel(parts: number | string): string {
 		const count = toNumber(parts) ?? 1;
 		return count > 1 ? `, ${count} части` : '';
@@ -459,7 +480,7 @@
 											onclick={() => openEdit(route)}
 										>
 											{route.listName}{#if route.attributeFilter}<span class="attr"
-													>@{route.attributeFilter}</span
+													>{filterLabel(route.attributeFilter)}</span
 												>{/if}
 										</button>
 										{#if route.state === 'Pending' || !route.sourceName || showSources}
@@ -638,23 +659,24 @@
 							<span><b class="num">{selectedList.domains}</b> доменов</span>
 							<span><b class="num">{selectedList.ipv4}</b> IPv4</span>
 							<span><b class="num">{selectedList.ipv6}</b> IPv6</span>
-							{#if selectedList.attributes.length}
-								<span class="muted"
-									>атрибуты: {selectedList.attributes.map((attr) => `@${attr}`).join(' ')}</span
-								>
-							{/if}
 						</div>
 					{:else if form.listName.trim() && !catalogLoading && !editing}
 						<span class="hint warn-text">Список не найден в источнике.</span>
 					{/if}
 				{/snippet}
 			</Field>
-			<Field
-				label="Фильтр атрибутов"
-				hint="Необязательно. ads — только строки с @ads, !ads — все, кроме них."
-			>
-				<input bind:value={form.attributeFilter} placeholder="без фильтра" spellcheck="false" />
-			</Field>
+			{#if filterOptions.length > 1}
+				<Field
+					label="Строки списка"
+					hint="В списке есть строки с метками, например @ads — реклама. Можно взять все строки, только помеченные или все, кроме помеченных."
+				>
+					<select bind:value={form.attributeFilter}>
+						{#each filterOptions as option (option.value)}
+							<option value={option.value}>{option.label}</option>
+						{/each}
+					</select>
+				</Field>
+			{/if}
 		</div>
 
 		<div class="step">

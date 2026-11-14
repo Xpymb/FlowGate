@@ -67,7 +67,10 @@
 
 <div class="preview">
 	{#if editableFilter}
-		<Field label="Фильтр атрибутов" hint="ads — только строки с @ads, !ads — все, кроме них">
+		<Field
+			label="Отбор по метке"
+			hint="Строки списков могут иметь метки, например @ads. ads — только строки с @ads, !ads — все, кроме них, пусто — все строки."
+		>
 			<input
 				value={attrs}
 				placeholder="без фильтра"
@@ -75,7 +78,7 @@
 			/>
 		</Field>
 	{:else if attrs}
-		<p class="muted">Фильтр атрибутов: <code>@{attrs}</code></p>
+		<p class="muted">Отбор по метке: <code>{attrs}</code></p>
 	{/if}
 
 	{#if error}

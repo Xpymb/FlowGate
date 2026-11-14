@@ -55,9 +55,10 @@
 		text-decoration: none;
 	}
 
+	/* Кнопки выровнены по строке заголовка: высота описания не сдвигает их от страницы к странице. */
 	.line {
 		display: flex;
-		align-items: flex-end;
+		align-items: flex-start;
 		gap: 16px 24px;
 		flex-wrap: wrap;
 	}
@@ -85,6 +86,7 @@
 	}
 
 	.actions {
+		margin-top: -2px;
 		display: flex;
 		align-items: center;
 		gap: 8px;

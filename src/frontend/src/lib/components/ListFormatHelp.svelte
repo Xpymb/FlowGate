@@ -123,6 +123,7 @@ t.me
 	section {
 		display: grid;
 		gap: 10px;
+		min-width: 0;
 	}
 
 	h3 {
@@ -135,8 +136,13 @@ t.me
 		gap: 12px;
 	}
 
+	.example > * {
+		min-width: 0;
+	}
+
 	.tree,
 	.file {
+		overflow-x: auto;
 		border: 1px solid var(--line);
 		border-radius: var(--r-sm);
 		background: var(--surface-2);
@@ -184,6 +190,7 @@ t.me
 	}
 
 	td {
+		overflow-wrap: anywhere;
 		padding: 7px 20px 7px 0;
 		border-top: 1px solid var(--line);
 		vertical-align: top;

@@ -183,7 +183,7 @@
 			</div>
 			<div class="panel">
 				<div class="table-scroll">
-					<table class="table">
+					<table class="table cards">
 						<thead>
 							<tr>
 								<th>Соединение</th>
@@ -197,7 +197,7 @@
 							{#each visible as item (item.id)}
 								{@const state = interfaceState(item)}
 								<tr>
-									<td>
+									<td class="primary">
 										<button class="name" onclick={() => openEdit(item)}>{item.name}</button>
 										<div class="sub">
 											{connectionKinds[item.kind] ?? item.kind}
@@ -211,17 +211,17 @@
 											<div class="problem small"><Icon name="alert" size={13} />{problem}</div>
 										{/each}
 									</td>
-									<td>
+									<td data-label="Сервер">
 										{#if item.serverName}
 											<a href={resolve('/servers/[id]', { id: item.serverId })}>{item.serverName}</a
 											>
 										{:else}<Badge tone="danger">сервер удалён</Badge>{/if}
 									</td>
-									<td>
+									<td data-label="Интерфейс">
 										<Copyable value={item.interfaceName} />
 										<div class="sub mono">порт {item.port}</div>
 									</td>
-									<td>
+									<td data-label="Состояние">
 										<Badge tone={state.tone} dot>{state.label}</Badge>
 										{#if item.kind === 'Wireguard' && item.interface?.lastHandshakeSecondsAgo != null}
 											<div class="sub">

@@ -114,6 +114,8 @@
 html {
 	-webkit-text-size-adjust: 100%;
 	text-size-adjust: 100%;
+	/* Место под полосу прокрутки зарезервировано: контент не сдвигается, когда она появляется. */
+	scrollbar-gutter: stable;
 }
 
 body {
@@ -438,6 +440,10 @@ input[type='radio'] {
 	gap: 20px;
 }
 
+.stack > * {
+	min-width: 0;
+}
+
 .row {
 	display: flex;
 	align-items: center;
@@ -683,4 +689,144 @@ dl.props dd {
 .choice-text {
 	color: var(--muted);
 	font-size: 12.5px;
+}
+
+/* ---------- Узкие экраны ---------- */
+
+.panel-head {
+	flex-wrap: wrap;
+}
+
+.segmented {
+	max-width: 100%;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+
+.segmented label,
+.segmented button {
+	flex: none;
+	white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+	dl.props {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 2px;
+	}
+
+	dl.props dd + dt {
+		margin-top: 10px;
+	}
+
+	.panel-head {
+		padding: 12px 16px;
+	}
+
+	.panel-body {
+		padding: 16px;
+	}
+}
+
+/*
+ * Таблица-карточки: на узком экране каждая строка — карточка. Первая строка карточки — чекбокс, переключатель,
+ * главная ячейка (.primary) и меню действий; остальные ячейки — «подпись — значение» из data-label.
+ */
+@media (max-width: 720px) {
+	.table.cards,
+	.table.cards tbody {
+		display: block;
+	}
+
+	.table.cards thead {
+		display: none;
+	}
+
+	.table.cards tr {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px 12px;
+		padding: 14px 16px;
+		border-bottom: 1px solid var(--line);
+	}
+
+	.table.cards tbody tr:last-child {
+		border-bottom: 0;
+	}
+
+	.table.cards tbody tr:hover td {
+		background: none;
+	}
+
+	.table.cards tr.selected {
+		background: var(--accent-soft);
+	}
+
+	.table.cards td {
+		display: block;
+		padding: 0;
+		border: 0;
+		background: none;
+	}
+
+	.table.cards td.check-cell,
+	.table.cards td.switch-cell {
+		order: 0;
+		width: auto;
+	}
+
+	.table.cards td.primary {
+		order: 1;
+		flex: 1 1 0;
+		min-width: 0;
+	}
+
+	.table.cards td.actions-cell {
+		order: 2;
+		width: auto;
+		margin-left: auto;
+	}
+
+	.table.cards td[data-label] {
+		order: 3;
+		display: grid;
+		grid-template-columns: minmax(96px, 35%) minmax(0, 1fr);
+		gap: 4px 12px;
+		justify-items: start;
+		align-items: center;
+		flex-basis: 100%;
+		font-size: 13.5px;
+	}
+
+	.table.cards td[data-label]::before {
+		content: attr(data-label);
+		grid-column: 1;
+		grid-row: 1;
+		color: var(--muted);
+	}
+
+	.table.cards td[data-label] > * {
+		grid-column: 2;
+		max-width: 100%;
+	}
+
+	.table.cards td[data-label] .sub {
+		margin-top: 0;
+	}
+
+	.table.cards td.num {
+		text-align: left;
+	}
+
+	.table.cards td[colspan] {
+		flex-basis: 100%;
+	}
+}
+
+@media (max-width: 720px) {
+	.table.cards td.actions-cell > .row {
+		flex-wrap: wrap;
+		justify-content: flex-end;
+	}
 }

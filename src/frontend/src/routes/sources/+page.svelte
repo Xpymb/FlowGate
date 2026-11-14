@@ -116,7 +116,7 @@
 		{/if}
 		<div class="panel">
 			<div class="table-scroll">
-				<table class="table">
+				<table class="table cards">
 					<thead>
 						<tr>
 							<th>Источник</th>
@@ -132,7 +132,7 @@
 							{@const last = source.lastRefresh}
 							{@const status = label(refreshStatuses, last?.status)}
 							<tr>
-								<td>
+								<td class="primary">
 									<a class="name" href={resolve('/sources/[id]', { id: source.id })}
 										>{source.name}</a
 									>
@@ -140,25 +140,25 @@
 										{sourceKinds[source.kind] ?? source.kind}{source.builtIn ? ' · встроенный' : ''}
 									</div>
 								</td>
-								<td class="origin">
+								<td data-label="Откуда" class="origin">
 									<span class="mono small">{sourceOrigin(source)}</span>
 									{#if source.revision}<div class="sub mono">
 											{source.revision.slice(0, 12)}
 										</div>{/if}
 								</td>
-								<td class="num">
+								<td data-label="Списков" class="num">
 									{#if source.downloaded}{source.listCount}{:else}<Badge tone="warn"
 											>не загружен</Badge
 										>{/if}
 								</td>
-								<td class="num">
+								<td data-label="Маршрутов" class="num">
 									{#if Number(source.routeCount) > 0}
 										<a href={resolve(`/routes?q=${encodeURIComponent(source.name)}`)}
 											>{source.routeCount}</a
 										>
 									{:else}<span class="faint">0</span>{/if}
 								</td>
-								<td>
+								<td data-label="Обновление">
 									{#if last}
 										<Badge tone={status.tone} dot>{status.label}</Badge>
 										<div class="sub">{formatDateTime(last.at)}</div>

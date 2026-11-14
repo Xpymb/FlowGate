@@ -351,6 +351,10 @@
 		align-items: start;
 	}
 
+	.layout > * {
+		min-width: 0;
+	}
+
 	@media (min-width: 1100px) {
 		.layout.with-side {
 			grid-template-columns: minmax(0, 1fr) 300px;
@@ -380,6 +384,10 @@
 	.link {
 		display: flex;
 		gap: 8px;
+	}
+
+	.link input {
+		min-width: 0;
 	}
 
 	.editor-body {

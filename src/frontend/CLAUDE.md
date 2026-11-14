@@ -15,6 +15,9 @@
   `.segmented`, `.choices`) — в `src/app.css`, светлая и тёмная тема (`data-theme` + система, `#lib/theme.svelte.js`).
   Стили компонентов — в `<style>`. Шрифты Onest и JetBrains Mono — пакетами `@fontsource-variable/*`, без CDN.
 - Ход операции у кнопки — `aria-busy={busy}` (спиннер вместо текста), не смена надписи.
+- Таблицы — `<table class="table cards">`: на ширине ≤ 720 px строка становится карточкой. Главная ячейка —
+  `class="primary"`, прочие — `data-label="Подпись"`; `check-cell`, `switch-cell`, `actions-cell` встают в первую строку
+  карточки. Отдельных мобильных компонентов не делать. Элементы сеток с длинным содержимым — `min-width: 0`.
 - Тексты интерфейса — на русском.
 - Данные страницы — `new Resource(() => unwrap(api.GET(...)))` + `<Loadable resource={...}>`; действия — `attempt()` из
   `#lib/toast.svelte.js` (ошибка → уведомление); фоновые задачи — `trackJob()` из `#lib/jobs.svelte.js` (панель хода

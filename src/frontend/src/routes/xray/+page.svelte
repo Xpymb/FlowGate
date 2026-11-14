@@ -331,7 +331,7 @@
 					/>
 				{:else}
 					<div class="table-scroll">
-						<table class="table">
+						<table class="table cards">
 							<thead>
 								<tr>
 									<th>Версия</th>
@@ -343,13 +343,15 @@
 							<tbody>
 								{#each list as release (release.tag)}
 									<tr>
-										<td>
+										<td class="primary">
 											<span class="mono version">{release.version}</span>
 											{#if release.isLatest}<Badge tone="accent">последняя</Badge>{/if}
 											{#if release.isPrerelease}<Badge tone="warn">предварительная</Badge>{/if}
 										</td>
-										<td class="muted">{formatDateTime(release.publishedAt)}</td>
-										<td class="num muted">{formatBytes(release.sizeBytes)}</td>
+										<td data-label="Опубликована" class="muted"
+											>{formatDateTime(release.publishedAt)}</td
+										>
+										<td data-label="Размер" class="num muted">{formatBytes(release.sizeBytes)}</td>
 										<td class="actions-cell">
 											{#if release.isInstalled}
 												<Badge tone="ok" dot>установлена</Badge>

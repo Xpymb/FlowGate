@@ -222,7 +222,7 @@
 
 			<div class="panel">
 				<div class="table-scroll">
-					<table class="table">
+					<table class="table cards">
 						<thead>
 							<tr>
 								<th class="check-cell">
@@ -252,13 +252,13 @@
 											onchange={() => selection.toggle(server.id)}
 										/>
 									</td>
-									<td class="name">
+									<td class="primary name">
 										<a href={resolve('/servers/[id]', { id: server.id })}>{server.name}</a>
 									</td>
-									<td><span class="proto">{server.protocol}</span></td>
-									<td><Copyable value={endpoint(server)} /></td>
-									<td class="muted">{server.network} · {server.security}</td>
-									<td>
+									<td data-label="Протокол"><span class="proto">{server.protocol}</span></td>
+									<td data-label="Адрес"><Copyable value={endpoint(server)} /></td>
+									<td data-label="Транспорт" class="muted">{server.network} · {server.security}</td>
+									<td data-label="Источник">
 										{#if manual}<Badge>вручную</Badge>
 										{:else}<Badge tone="accent">{sourceName(server)}</Badge>{/if}
 									</td>

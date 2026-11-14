@@ -426,7 +426,7 @@
 
 			<div class="panel">
 				<div class="table-scroll">
-					<table class="table">
+					<table class="table cards">
 						<thead>
 							<tr>
 								<th class="check-cell">
@@ -473,7 +473,7 @@
 											onchange={() => toggle(route)}
 										/>
 									</td>
-									<td>
+									<td class="primary">
 										<div class="list-line">
 											<button
 												class="list"
@@ -506,7 +506,7 @@
 											</div>
 										{/if}
 									</td>
-									<td>
+									<td data-label="Соединение">
 										{#if route.connectionName}
 											<span class="conn" title="Интерфейс Keenetic: {route.interfaceName ?? '—'}">
 												{route.connectionName}
@@ -522,8 +522,8 @@
 											<Badge tone="danger">соединение удалено</Badge>
 										{/if}
 									</td>
-									<td><Copyable value={route.groupName} /></td>
-									<td>
+									<td data-label="Группа"><Copyable value={route.groupName} /></td>
+									<td data-label="Применение">
 										{#if apply}
 											<Badge tone={applyStatus.tone} dot>{applyStatus.label}</Badge>
 											<div class="sub" title="Последняя синхронизация: {formatDateTime(apply.at)}">
@@ -786,6 +786,7 @@
 
 	.conn {
 		display: inline-flex;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: 6px;
 		color: var(--ink-2);

@@ -438,7 +438,7 @@
 				/>
 			{:else}
 				<div class="table-scroll">
-					<table class="table">
+					<table class="table cards">
 						<thead>
 							<tr>
 								<th>Список</th>
@@ -454,7 +454,7 @@
 							{#each lists.slice(0, visibleLimit) as list (list.name)}
 								{@const used = routed.get(list.name)}
 								<tr>
-									<td>
+									<td class="primary">
 										<button class="list-name mono" onclick={() => openPreview(list.name)}
 											>{list.name}</button
 										>
@@ -464,13 +464,15 @@
 											</a>
 										{/if}
 									</td>
-									<td class="num">{list.domains}</td>
-									<td class="num">{list.ipv4}</td>
-									<td class="num">{list.ipv6}</td>
-									<td class="num" class:faint={(toNumber(list.skipped) ?? 0) === 0}
-										>{list.skipped}</td
+									<td data-label="Доменов" class="num">{list.domains}</td>
+									<td data-label="IPv4" class="num">{list.ipv4}</td>
+									<td data-label="IPv6" class="num">{list.ipv6}</td>
+									<td
+										data-label="Пропущено"
+										class="num"
+										class:faint={(toNumber(list.skipped) ?? 0) === 0}>{list.skipped}</td
 									>
-									<td class="attrs">
+									<td data-label="Метки" class="attrs">
 										{#each list.attributes as attr (attr)}
 											<button
 												class="attr"
@@ -612,7 +614,13 @@
 		font-size: 12.5px;
 	}
 
+	.facts > div {
+		min-width: 0;
+	}
+
 	.fact-value {
+		min-width: 0;
+		overflow-wrap: anywhere;
 		display: flex;
 		align-items: center;
 		gap: 8px;
@@ -722,8 +730,22 @@
 	}
 
 	@media (max-width: 720px) {
+		.facts {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		.facts > div {
+			border-left: 0;
+			border-top: 1px solid var(--line);
+			padding: 12px 16px;
+		}
+
+		.facts > div:first-child {
+			border-top: 0;
+		}
+
 		.facts .wide {
-			grid-column: auto;
+			grid-column: 1 / -1;
 		}
 
 		.locals li {

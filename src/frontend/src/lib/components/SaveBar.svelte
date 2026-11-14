@@ -84,6 +84,19 @@
 	}
 
 	@media (max-width: 640px) {
+		.save-bar {
+			flex-wrap: wrap;
+			padding: 10px 12px;
+		}
+
+		.state {
+			flex-basis: 100%;
+		}
+
+		.save-bar .btn.primary {
+			margin-left: auto;
+		}
+
 		.kbd {
 			display: none;
 		}

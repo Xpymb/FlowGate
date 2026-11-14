@@ -635,6 +635,17 @@
 		}
 	}
 
+	@media (max-width: 480px) {
+		.side dl.props {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 2px;
+		}
+
+		.side dl.props dd + dt {
+			margin-top: 8px;
+		}
+	}
+
 	@media (max-width: 900px) {
 		.flow {
 			grid-template-columns: 1fr;

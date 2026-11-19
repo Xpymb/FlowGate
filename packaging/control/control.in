@@ -1,6 +1,6 @@
 Package: flowgate
 Version: @VERSION@
-Depends: busybox, nginx-ssl
+Depends: busybox, lighttpd, lighttpd-mod-proxy, lighttpd-mod-rewrite, lighttpd-mod-setenv, lighttpd-mod-deflate
 Section: net
 Architecture: @ARCHITECTURE@
 Installed-Size: @INSTALLED_SIZE@

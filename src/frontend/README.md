@@ -1,7 +1,7 @@
 # FlowGate — фронт
 
 SPA на SvelteKit 3 + Svelte 5 + TypeScript (`adapter-static`, режим SPA). На роутере статику из `dist/` и `/api` отдаёт
-свой экземпляр nginx (`packaging/files/nginx.conf`), бэкенд слушает только `127.0.0.1:8091`.
+общий lighttpd из Entware (`packaging/files/lighttpd.conf`), бэкенд слушает только `127.0.0.1:8091`.
 
 ```bash
 npm ci

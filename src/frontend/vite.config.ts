@@ -16,7 +16,8 @@ export default defineConfig({
 				pages: 'dist',
 				assets: 'dist',
 				fallback: '200.html',
-				precompress: true
+				// Сжимает шлюз (mod_deflate в lighttpd): .gz и .br рядом с файлами не нужны.
+				precompress: false
 			})
 		})
 	],

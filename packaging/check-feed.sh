@@ -38,15 +38,16 @@ for file in opt/bin/flowgate opt/etc/init.d/S99flowgate opt/share/flowgate/upgra
 done
 [ -f "$work/data/opt/share/flowgate/appsettings.json" ] || fail "нет appsettings.json"
 [ -d "$work/data/opt/share/flowgate/www" ] || fail "нет каталога www"
-[ -f "$work/data/opt/share/flowgate/nginx.conf" ] || fail "нет nginx.conf"
-grep -q "^Depends:.*nginx-ssl" "$work/control/control" || fail "в Depends нет nginx-ssl"
+gateway_conf="$work/data/opt/etc/lighttpd/conf.d/90-flowgate.conf"
+[ -f "$gateway_conf" ] || fail "нет conf.d/90-flowgate.conf (шлюз lighttpd)"
+grep -q "^Depends:.*lighttpd-mod-proxy" "$work/control/control" || fail "в Depends нет lighttpd-mod-proxy"
 if [ -n "$(ls -A "$work/data/opt/share/flowgate/www")" ]; then
-    [ -f "$work/data/opt/share/flowgate/www/200.html" ] || fail "в www нет 200.html (SPA fallback для nginx)"
+    [ -f "$work/data/opt/share/flowgate/www/200.html" ] || fail "в www нет 200.html (SPA fallback шлюза)"
 else
     echo "check-feed: www пуст — пакет без фронта" >&2
 fi
 if grep -rlq $'\r' "$work/control" "$work/data/opt/etc" "$work/data/opt/share/flowgate/upgrade.sh" \
-    "$work/data/opt/share/flowgate/nginx.conf"; then
+    "$gateway_conf"; then
     fail "скрипты с CRLF"
 fi
 

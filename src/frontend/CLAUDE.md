@@ -9,7 +9,7 @@
 - API: `#lib/api/client.js` (openapi-fetch, пути относительные `/api/...`), `unwrap()` бросает `ApiError` с полями бэкенда
   `{errorCode, message, traceId}`. Типы — только из `schema.d.ts` (генерируется, руками не править).
 - Долгие операции: бэкенд отвечает 202 + `JobDto` → `waitForJob()` из `#lib/jobs.js` (опрос `/api/jobs/{id}`).
-- 401 означает «нет сессии» (отвечает nginx через `auth_request`): middleware клиента ставит `session.unauthorized`.
+- 401 означает «нет сессии» (отвечает бэкенд): middleware клиента ставит `session.unauthorized`.
 - Числа в DTO типизированы как `number | string` (OpenAPI .NET) — приводить через `toNumber()` / форматтеры `#lib/format.js`.
 - Без UI-китов: токены и общие классы (`.btn primary|ghost|danger|sm|icon`, `.panel`, `.table`, `.form`, `.check`,
   `.segmented`, `.choices`) — в `src/app.css`, светлая и тёмная тема (`data-theme` + система, `#lib/theme.svelte.js`).

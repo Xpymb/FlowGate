@@ -99,6 +99,18 @@ if ! opkg upgrade flowgate; then
 fi
 
 "$INIT" status >/dev/null || "$INIT" start
+
+# В прежних версиях шлюзом был nginx-ssl. Его S80nginx падает на занятом :80 и останавливает запуск служб при загрузке, поэтому
+# удаляем пакет, если его поставили зависимостью. Если nginx-ssl нужен другому пакету, opkg откажет в удалении.
+if awk '/^Package: / { pkg = $2 } pkg == "nginx-ssl" && /^Auto-Installed: yes/ { found = 1 } END { exit !found }' \
+    /opt/lib/opkg/status 2>/dev/null; then
+    if opkg remove nginx-ssl; then
+        echo "удалён nginx-ssl: шлюз FlowGate теперь работает на lighttpd"
+    else
+        echo "nginx-ssl оставлен: он нужен другим пакетам"
+    fi
+fi
+
 after=$(installed_version)
 if [ "$before" = "$after" ]; then
     echo "ok $after (уже последняя)"

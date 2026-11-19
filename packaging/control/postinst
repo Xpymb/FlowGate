@@ -1,7 +1,52 @@
 #!/bin/sh
 [ -z "${IPKG_INSTROOT:-}" ] || exit 0
 
+LIGHTTPD=/opt/sbin/lighttpd
+LIGHTTPD_INIT=/opt/etc/init.d/S80lighttpd
+LIGHTTPD_CONF=/opt/etc/lighttpd/lighttpd.conf
+CONF_D=/opt/etc/lighttpd/conf.d
+GATEWAY_CONF=$CONF_D/90-flowgate.conf
+PORT_CONF=$CONF_D/05-default-port.conf
+CHECK_LOG=/tmp/flowgate/lighttpd-check.log
+OLD_NGINX=/tmp/flowgate/nginx
+
 mkdir -p /opt/etc/flowgate /tmp/flowgate
 chmod 700 /opt/etc/flowgate
+
+# Шлюз прежних версий (свой экземпляр nginx на :8090) освобождает порт для lighttpd.
+if [ -f "$OLD_NGINX/nginx.pid" ]; then
+    pid=$(cat "$OLD_NGINX/nginx.pid")
+    kill -QUIT "$pid" 2>/dev/null
+    waited=0
+    while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 5 ]; do
+        sleep 1
+        waited=$((waited + 1))
+    done
+    kill -TERM "$pid" 2>/dev/null
+fi
+rm -rf "$OLD_NGINX"
+
+# В прошивке есть свой lighttpd (/usr/sbin, WebDAV): без полного пути pidof и killall в S80lighttpd цепляют и его.
+sed -i -E 's/^PROCS=lighttpd$/PROCS=\/opt\/sbin\/lighttpd/' "$LIGHTTPD_INIT"
+
+# Без server.port lighttpd слушает :80, занятый веб-интерфейсом Keenetic: S80lighttpd падает, и ndm не запускает
+# следующие службы. Файл остаётся и после удаления FlowGate; другие пакеты переопределяют порт своими conf.d.
+if ! grep -qs '^[[:space:]]*server\.port' "$LIGHTTPD_CONF" "$CONF_D"/*.conf; then
+    cat >"$PORT_CONF" <<'EOF'
+# Создан FlowGate: без server.port lighttpd слушал бы :80, занятый веб-интерфейсом Keenetic.
+# Пакеты со своим портом (server.port := ...) идут в conf.d позже и переопределяют его.
+server.port := 8081
+EOF
+fi
+
+# Сломанный конфиг уронил бы общий lighttpd вместе с чужими сайтами: тогда шлюз FlowGate не включаем.
+if "$LIGHTTPD" -tt -f "$LIGHTTPD_CONF" >"$CHECK_LOG" 2>&1; then
+    rm -f "$CHECK_LOG"
+    "$LIGHTTPD_INIT" restart
+else
+    rm -f "$GATEWAY_CONF"
+    echo "FlowGate: конфигурация lighttpd не прошла проверку, шлюз :8090 не включён (см. $CHECK_LOG)"
+fi
+
 /opt/etc/init.d/S99flowgate restart
 exit 0

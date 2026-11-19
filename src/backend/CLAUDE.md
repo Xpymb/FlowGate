@@ -5,8 +5,8 @@
 FlowGate — менеджер Xray для роутеров Keenetic (aarch64, KeeneticOS 5): WebUI, установка и обновление Xray,
 подписки, соединения socks/http/wireguard как интерфейсы Keenetic, штатные DNS-маршруты KeeneticOS со списками
 доменов v2fly. Бэкенд — один NativeAOT-бинарник на роутере, слушает только `127.0.0.1:8091` и отдаёт REST API. Фронт
-(`src/frontend`, SvelteKit SPA) и `/api` наружу отдаёт шлюз — свой экземпляр nginx из Entware на `:8090`
-(`packaging/files/nginx.conf`). Статику бэкенд не раздаёт.
+(`src/frontend`, SvelteKit SPA) и `/api` наружу отдаёт шлюз — общий lighttpd из Entware, сокет `:8090`
+(`packaging/files/lighttpd.conf`). Статику бэкенд не раздаёт.
 
 Факты о роутере, проверенные на железе (команды NDMS, коды ошибок RCI, лимиты, память), — в
 [`docs/keenetic-findings.md`](../../docs/keenetic-findings.md). Перед работой с NDMS читай его.
@@ -210,8 +210,8 @@ Shared.* ──► Exceptions, Shared.Options, Shared.Changes (не на Service
 подписчика своя очередь на 64 темы с вытеснением старых). Публикуют: `JsonFileStore` после каждой записи (тема — имя
 файла без расширения: `dns-routes`, `connections`, …), `JobRunner` (`jobs`), `XrayProcessService` (`xray`). Данные в
 событии не передаются — UI перечитывает их через REST. Новое хранилище через `IJsonFileStoreFactory` публикует само;
-состояние вне файлов (живые данные Keenetic) в поток не попадает. nginx: `location = /api/events` без буферизации,
-бэкенд дополнительно ставит `X-Accel-Buffering: no`.
+состояние вне файлов (живые данные Keenetic) в поток не попадает. lighttpd отдаёт `/api` потоком
+(`server.stream-response-body = 2`), бэкенд дополнительно ставит `X-Accel-Buffering: no`.
 
 ### Хранение
 
@@ -251,13 +251,18 @@ JSON-файлы в `FlowGate:DataDirectory` (на роутере `/opt/etc/flowg
 - Пакет `flowgate_<версия>_aarch64-3.10.ipk` (tar.gz, как в Entware) собирает `packaging/build-ipk.sh` через
   `packaging/ipk.py` (режимы и владелец задаются явно, сборка воспроизводима); `packaging/check-feed.sh` проверяет
   результат. Скрипты пакета — только LF (`.gitattributes`), сборщик отклоняет CRLF.
-- Раскладка: `/opt/bin/flowgate`, `/opt/share/flowgate/{appsettings.json,nginx.conf,www/,upgrade.sh}` (рабочий каталог
-  службы), `/opt/etc/init.d/S99flowgate`. `Depends: busybox, nginx-ssl`.
-- Шлюз: `S99flowgate` запускает бэкенд, затем `nginx -p /tmp/flowgate/nginx/ -c /opt/share/flowgate/nginx.conf`
-  (останавливает в обратном порядке, `status` — по обоим). Штатные `/opt/etc/nginx` и `S80nginx` не используются
-  (`S80nginx` падает на занятом `:80` Keenetic без вреда). В конфиге обязательно `user nobody nobody;` — группы `nogroup` на
-  роутере нет. Статика сжата при сборке (`gzip_static`), `try_files $uri /200.html` для клиентской маршрутизации.
-  Гейт `auth_request /_auth` → `/api/auth/check` заготовлен и включится вместе с авторизацией (этап 7). Данные `/opt/etc/flowgate` и Xray `/opt/sbin/flowgate-xray` в пакет не входят и
+- Раскладка: `/opt/bin/flowgate`, `/opt/share/flowgate/{appsettings.json,www/,upgrade.sh}` (рабочий каталог службы),
+  `/opt/etc/init.d/S99flowgate`, `/opt/etc/lighttpd/conf.d/90-flowgate.conf`. `Depends: busybox, lighttpd,
+  lighttpd-mod-{proxy,rewrite,setenv,deflate}`.
+- Шлюз — общий экземпляр lighttpd (`S80lighttpd`), как у `nfqws-keenetic-web`: наш `90-flowgate.conf` описывает только
+  `$SERVER["socket"] == ":8090"` (статика, `url.rewrite-if-not-file` → `/200.html`, `/api` → `127.0.0.1:8091`), сжатие —
+  `mod_deflate` на лету. `S99flowgate` управляет только бэкендом. ndm запускает `/opt/etc/init.d/S*` по очереди и
+  **останавливается на первом упавшем скрипте** — поэтому nginx (его `S80nginx` всегда падает на занятом `:80`) убран.
+  `postinst`: правит `PROCS=/opt/sbin/lighttpd` в `S80lighttpd` (иначе `killall` цепляет lighttpd прошивки), создаёт
+  `conf.d/05-default-port.conf` (`server.port := 8081`), если основной порт никто не задал (по умолчанию :80), проверяет
+  конфигурацию `lighttpd -tt` (при ошибке убирает свой conf.d, чтобы не уронить чужие сайты) и перезапускает
+  `S80lighttpd`. `upgrade.sh` удаляет `nginx-ssl` прежних версий, если тот стоит зависимостью. Авторизации и лимита на
+  `/api/auth/login` в шлюзе нет (этап 7 — в бэкенде). Данные `/opt/etc/flowgate` и Xray `/opt/sbin/flowgate-xray` в пакет не входят и
   при `upgrade`/`remove` не трогаются. Журнал службы — `/tmp/flowgate/flowgate.log`.
 - opkg вызывает `prerm remove` и при `--force-reinstall`, поэтому `flowgate cleanup` (`ICleanupService`) не теряет
   настройки: удаляет из Keenetic свои интерфейсы, группы `fg-*` и правила, а маршрутам ставит `Provisioned=false` с

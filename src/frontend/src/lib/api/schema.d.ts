@@ -818,11 +818,7 @@ export interface components {
         };
         /** @description Через какой сервер сейчас идёт трафик соединения */
         ConnectionRoutingDto: {
-            /**
-             * @description `Active` — выбор балансировщика Xray известен; `Direct` — живой сервер один, балансировщика нет;
-             *                 `Blocked` — серверов нет, трафик блокируется; `Unsupported` — установленная версия Xray не даёт API
-             *                 балансировщика; `Unavailable` — сейчас узнать нельзя (Xray не запущен, API не ответил)
-             */
+            /** @description `Active`, `Direct` (сервер один), `Blocked`, `Unsupported` (Xray без API) или `Unavailable` */
             status: string;
             /** @description Сервер, через который идёт трафик, при `Active` и `Direct` */
             activeServerId: null | string;

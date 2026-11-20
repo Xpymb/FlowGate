@@ -2671,7 +2671,7 @@
         "properties": {
           "status": {
             "type": "string",
-            "description": "`Active` — выбор балансировщика Xray известен; `Direct` — живой сервер один, балансировщика нет;\r\n            `Blocked` — серверов нет, трафик блокируется; `Unsupported` — установленная версия Xray не даёт API\r\n            балансировщика; `Unavailable` — сейчас узнать нельзя (Xray не запущен, API не ответил)"
+            "description": "`Active`, `Direct` (сервер один), `Blocked`, `Unsupported` (Xray без API) или `Unavailable`"
           },
           "activeServerId": {
             "type": [

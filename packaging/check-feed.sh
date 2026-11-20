@@ -14,45 +14,45 @@ fail() {
     exit 1
 }
 
-[ -f "$ipk" ] || fail "нет $ipk"
+[ -f "$ipk" ] || fail "missing $ipk"
 [ "$(tar -tzf "$ipk" | sort | tr '\n' ' ')" = "./control.tar.gz ./data.tar.gz ./debian-binary " ] \
-    || fail "неверный состав ipk: $(tar -tzf "$ipk" | tr '\n' ' ')"
+    || fail "unexpected ipk contents: $(tar -tzf "$ipk" | tr '\n' ' ')"
 
 tar -xzf "$ipk" -C "$work"
-[ "$(cat "$work/debian-binary")" = "2.0" ] || fail "debian-binary не 2.0"
+[ "$(cat "$work/debian-binary")" = "2.0" ] || fail "debian-binary is not 2.0"
 
 mkdir "$work/control" "$work/data"
 tar -xzf "$work/control.tar.gz" -C "$work/control"
 tar -xzf "$work/data.tar.gz" -C "$work/data"
 
-grep -qx "Version: $version" "$work/control/control" || fail "в control нет Version: $version"
-grep -qx "Architecture: aarch64-3.10" "$work/control/control" || fail "в control нет Architecture: aarch64-3.10"
+grep -qx "Version: $version" "$work/control/control" || fail "control has no Version: $version"
+grep -qx "Architecture: aarch64-3.10" "$work/control/control" || fail "control has no Architecture: aarch64-3.10"
 executable() {
     tar -tvzf "$1" | awk -v name="./$2" '$NF == name && $1 == "-rwxr-xr-x" { found = 1 } END { exit !found }'
 }
 for script in preinst postinst prerm postrm; do
-    executable "$work/control.tar.gz" "$script" || fail "$script отсутствует или не 755"
+    executable "$work/control.tar.gz" "$script" || fail "$script is missing or not 755"
 done
 for file in opt/bin/flowgate opt/etc/init.d/S99flowgate opt/share/flowgate/upgrade.sh; do
-    executable "$work/data.tar.gz" "$file" || fail "$file отсутствует или не 755"
+    executable "$work/data.tar.gz" "$file" || fail "$file is missing or not 755"
 done
-[ -f "$work/data/opt/share/flowgate/appsettings.json" ] || fail "нет appsettings.json"
-[ -d "$work/data/opt/share/flowgate/www" ] || fail "нет каталога www"
+[ -f "$work/data/opt/share/flowgate/appsettings.json" ] || fail "missing appsettings.json"
+[ -d "$work/data/opt/share/flowgate/www" ] || fail "missing www directory"
 gateway_conf="$work/data/opt/etc/lighttpd/conf.d/90-flowgate.conf"
-[ -f "$gateway_conf" ] || fail "нет conf.d/90-flowgate.conf (шлюз lighttpd)"
-grep -q "^Depends:.*lighttpd-mod-proxy" "$work/control/control" || fail "в Depends нет lighttpd-mod-proxy"
+[ -f "$gateway_conf" ] || fail "missing conf.d/90-flowgate.conf (lighttpd gateway)"
+grep -q "^Depends:.*lighttpd-mod-proxy" "$work/control/control" || fail "Depends has no lighttpd-mod-proxy"
 if [ -n "$(ls -A "$work/data/opt/share/flowgate/www")" ]; then
-    [ -f "$work/data/opt/share/flowgate/www/200.html" ] || fail "в www нет 200.html (SPA fallback шлюза)"
+    [ -f "$work/data/opt/share/flowgate/www/200.html" ] || fail "www has no 200.html (gateway SPA fallback)"
 else
-    echo "check-feed: www пуст — пакет без фронта" >&2
+    echo "check-feed: www is empty, package has no frontend" >&2
 fi
 if grep -rlq $'\r' "$work/control" "$work/data/opt/etc" "$work/data/opt/share/flowgate/upgrade.sh" \
     "$gateway_conf"; then
-    fail "скрипты с CRLF"
+    fail "scripts have CRLF line endings"
 fi
 
 expected=$(sha256sum "$ipk" | cut -d' ' -f1)
-grep -q "^SHA256sum: $expected$" "$feed_dir/Packages" || fail "SHA256sum в Packages не совпадает"
-[ "$(gzip -dc "$feed_dir/Packages.gz" | sha256sum)" = "$(sha256sum < "$feed_dir/Packages")" ] || fail "Packages.gz не совпадает с Packages"
+grep -q "^SHA256sum: $expected$" "$feed_dir/Packages" || fail "SHA256sum in Packages does not match"
+[ "$(gzip -dc "$feed_dir/Packages.gz" | sha256sum)" = "$(sha256sum < "$feed_dir/Packages")" ] || fail "Packages.gz does not match Packages"
 
-echo "check-feed: $ipk в порядке"
+echo "check-feed: $ipk OK"

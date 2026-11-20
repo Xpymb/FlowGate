@@ -61,7 +61,7 @@ def add_directory(archive: tarfile.TarFile, name: str) -> None:
 def read_text_file(path: str) -> bytes:
     data = open(path, "rb").read()
     if b"\r" in data:
-        sys.exit(f"{path}: строки с CRLF, нужен LF")
+        sys.exit(f"{path}: CRLF line endings, LF required")
     return data
 
 
@@ -99,14 +99,14 @@ def data_entries(data_dir: str):
 
 def build(arguments) -> None:
     if not VERSION_PATTERN.match(arguments.version):
-        sys.exit(f"версия {arguments.version!r} не в формате X.Y.Z")
+        sys.exit(f"version {arguments.version!r} is not in X.Y.Z format")
     data, installed_size = data_entries(arguments.data)
     template = read_text_file(os.path.join(arguments.control, "control.in")).decode("utf-8")
     control = (template.replace("@VERSION@", arguments.version)
                .replace("@ARCHITECTURE@", ARCHITECTURE)
                .replace("@INSTALLED_SIZE@", str(installed_size)))
     if "@" in control:
-        sys.exit("в control.in остались незаменённые поля @...@")
+        sys.exit("control.in has unreplaced @...@ fields")
     package = re.search(r"^Package:\s*(\S+)", control, re.MULTILINE).group(1)
     control_entries = [("dir", "./", None, 0), ("file", "./control", control.encode("utf-8"), 0o644)]
     for name in sorted(os.listdir(arguments.control)):

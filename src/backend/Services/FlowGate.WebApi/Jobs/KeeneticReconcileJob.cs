@@ -70,18 +70,18 @@ public sealed class KeeneticReconcileJob : BackgroundService
             var interfaces = await _connections.ReconcileAsync(stoppingToken);
             if (interfaces.Repaired > 0)
             {
-                _logger.LogInformation("Сверка Keenetic: исправлено интерфейсов {Count}", interfaces.Repaired);
+                _logger.LogInformation("Keenetic reconcile: repaired {Count} interfaces", interfaces.Repaired);
             }
 
             var commands = await _routes.ReconcileAsync(interfaces.RecreatedInterfaces.ToHashSet(StringComparer.OrdinalIgnoreCase), stoppingToken);
             if (commands > 0)
             {
-                _logger.LogInformation("Сверка Keenetic: DNS-маршруты исправлены, команд {Count}", commands);
+                _logger.LogInformation("Keenetic reconcile: DNS routes repaired with {Count} commands", commands);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning("Сверка Keenetic не удалась: {Error}", ex.Message);
+            _logger.LogWarning("Keenetic reconcile failed: {Error}", ex.Message);
         }
     }
 }

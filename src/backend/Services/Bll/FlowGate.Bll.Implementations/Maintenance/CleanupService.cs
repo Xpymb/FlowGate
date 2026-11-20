@@ -55,11 +55,11 @@ public sealed class CleanupService : ICleanupService
 
         if (!dryRun)
         {
-            await RunStepAsync("остановка xray", errors, () => _xray.KillStrangersAsync(cancellationToken));
+            await RunStepAsync("stop xray", errors, () => _xray.KillStrangersAsync(cancellationToken));
         }
 
         var dnsCommands = new List<string>();
-        await RunStepAsync("DNS-маршруты и группы", errors, async () =>
+        await RunStepAsync("dns routes and groups", errors, async () =>
         {
             var state = await _dns.GetStateAsync(cancellationToken);
             dnsCommands.AddRange(DnsRoutePlanner.RemoveAll(state));
@@ -76,7 +76,7 @@ public sealed class CleanupService : ICleanupService
         commands.AddRange(dnsCommands);
 
         var interfaceCommands = new List<string>();
-        await RunStepAsync("интерфейсы", errors, async () =>
+        await RunStepAsync("interfaces", errors, async () =>
         {
             var all = await _interfaces.GetAllAsync(cancellationToken);
             interfaceCommands.AddRange(all.Values
@@ -101,7 +101,7 @@ public sealed class CleanupService : ICleanupService
         if (!dryRun)
         {
             _logger.LogInformation(
-                "Keenetic очищен от объектов FlowGate: правил {Routes}, групп {Groups}, интерфейсов {Interfaces}, ошибок {Errors}",
+                "Keenetic cleaned of FlowGate objects: rules {Routes}, groups {Groups}, interfaces {Interfaces}, errors {Errors}",
                 report.Routes,
                 report.Groups,
                 report.Interfaces,
@@ -131,7 +131,7 @@ public sealed class CleanupService : ICleanupService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogError(ex, "Очистка Keenetic: шаг «{Step}» не выполнен", step);
+            _logger.LogError(ex, "Keenetic cleanup: step '{Step}' failed", step);
             errors.Add($"{step}: {ex.Message}");
         }
     }

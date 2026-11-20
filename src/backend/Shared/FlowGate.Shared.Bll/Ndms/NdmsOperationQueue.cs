@@ -49,7 +49,7 @@ public sealed class NdmsOperationQueue : INdmsOperationQueue, IDisposable
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw TimeoutError(operationName, "в ожидании очереди");
+            throw TimeoutError(operationName, "while waiting in queue", "в ожидании очереди");
         }
 
         var running = Stopwatch.StartNew();
@@ -57,7 +57,7 @@ public sealed class NdmsOperationQueue : INdmsOperationQueue, IDisposable
         {
             var result = await operation(timeoutSource.Token);
             _logger.LogInformation(
-                "NDMS: «{Operation}» выполнена за {ElapsedMs} мс (ожидание очереди {WaitMs} мс)",
+                "NDMS: '{Operation}' completed in {ElapsedMs} ms (queue wait {WaitMs} ms)",
                 operationName,
                 running.ElapsedMilliseconds,
                 waiting.ElapsedMilliseconds - running.ElapsedMilliseconds);
@@ -65,7 +65,7 @@ public sealed class NdmsOperationQueue : INdmsOperationQueue, IDisposable
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && timeoutSource.IsCancellationRequested)
         {
-            throw TimeoutError(operationName, "во время выполнения");
+            throw TimeoutError(operationName, "while running", "во время выполнения");
         }
         finally
         {
@@ -94,13 +94,13 @@ public sealed class NdmsOperationQueue : INdmsOperationQueue, IDisposable
     /// <inheritdoc />
     public void Dispose() => _gate.Dispose();
 
-    private KeeneticUnavailableException TimeoutError(string operationName, string stage)
+    private KeeneticUnavailableException TimeoutError(string operationName, string logStage, string stage)
     {
         _logger.LogWarning(
-            "NDMS: «{Operation}» превысила таймаут {TimeoutSeconds} с {Stage}",
+            "NDMS: '{Operation}' timed out after {TimeoutSeconds} s {Stage}",
             operationName,
             _timeout.TotalSeconds,
-            stage);
+            logStage);
 
         return new KeeneticUnavailableException(
             $"Операция «{operationName}» не уложилась в {_timeout.TotalSeconds:0} с ({stage})");

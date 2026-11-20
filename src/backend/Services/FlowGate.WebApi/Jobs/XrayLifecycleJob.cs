@@ -55,7 +55,7 @@ public sealed class XrayLifecycleJob : IHostedService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка запуска Xray при старте FlowGate");
+            _logger.LogError(ex, "Failed to start Xray on FlowGate startup");
         }
     }
 }

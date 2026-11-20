@@ -58,7 +58,7 @@ public sealed class XrayUpdateCheckJob : BackgroundService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning("Проверка обновлений Xray не удалась: {Error}", ex.Message);
+            _logger.LogWarning("Xray update check failed: {Error}", ex.Message);
         }
     }
 }

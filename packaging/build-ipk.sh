@@ -17,7 +17,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 python=${PYTHON:-$(command -v python3 || command -v python)}
 
 for file in flowgate appsettings.json; do
-    [ -f "$build_dir/$file" ] || { echo "нет $build_dir/$file" >&2; exit 1; }
+    [ -f "$build_dir/$file" ] || { echo "missing $build_dir/$file" >&2; exit 1; }
 done
 
 stage=$(mktemp -d)

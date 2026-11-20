@@ -96,9 +96,9 @@ public sealed class SettingsService : ISettingsService
             cancellationToken);
 
         _logger.LogInformation(
-            "Настройки сохранены: логи Xray {LogLevel}, прокси обновлений {Proxy}",
+            "Settings saved: Xray log level {LogLevel}, update proxy {Proxy}",
             saved.XrayLogLevel,
-            saved.UpdateProxy.Enabled ? $"через сервер {saved.UpdateProxy.ServerId}" : "выключен");
+            saved.UpdateProxy.Enabled ? $"via server {saved.UpdateProxy.ServerId}" : "disabled");
 
         if (!string.Equals(before.XrayLogLevel, saved.XrayLogLevel, StringComparison.Ordinal)
             || !string.Equals(before.UpdateProxy.ServerId, saved.UpdateProxy.ServerId, StringComparison.Ordinal))

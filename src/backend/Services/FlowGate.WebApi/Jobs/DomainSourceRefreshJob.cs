@@ -65,7 +65,7 @@ public sealed class DomainSourceRefreshJob : BackgroundService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning("Плановое обновление источников не удалось: {Error}", ex.Message);
+            _logger.LogWarning("Scheduled domain source refresh failed: {Error}", ex.Message);
         }
     }
 }

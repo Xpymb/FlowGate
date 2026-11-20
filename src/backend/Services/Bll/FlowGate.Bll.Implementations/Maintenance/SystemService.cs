@@ -121,7 +121,7 @@ public sealed class SystemService : ISystemService
 
         if (check.IsNewerThan(_currentVersion) && check.LatestVersion != _lastCheck?.LatestVersion)
         {
-            _logger.LogInformation("Доступна новая версия FlowGate {Version}", check.LatestVersion);
+            _logger.LogInformation("New FlowGate version available: {Version}", check.LatestVersion);
         }
 
         _lastCheck = check;
@@ -172,7 +172,7 @@ public sealed class SystemService : ISystemService
                 $"Не удалось запустить обновление (код {result.ExitCode}): {result.StandardError.Trim()}");
         }
 
-        _logger.LogInformation("Запущено обновление FlowGate {Version} через opkg", AppVersion.Current);
+        _logger.LogInformation("FlowGate {Version} upgrade via opkg started", AppVersion.Current);
         context.Report("Обновление запущено: FlowGate перезапустится, итог появится в состоянии системы");
     }
 

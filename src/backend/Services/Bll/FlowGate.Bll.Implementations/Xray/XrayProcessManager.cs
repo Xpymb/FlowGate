@@ -64,7 +64,7 @@ public sealed class XrayProcessManager : IXrayProcessManager, IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             _table.Kill(pid);
-            _logger.LogWarning("Остановлен посторонний процесс Xray (pid {Pid}), запущенный не этим FlowGate", pid);
+            _logger.LogWarning("Killed stray Xray process (pid {Pid}) not started by this FlowGate", pid);
         }
 
         return Task.FromResult(strangers.Count);

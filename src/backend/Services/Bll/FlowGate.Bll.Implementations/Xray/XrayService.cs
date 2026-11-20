@@ -151,7 +151,7 @@ public sealed class XrayService : IXrayService
 
         if (!_versionProvider.IsInstalled)
         {
-            _logger.LogInformation("Xray не установлен: установите его из интерфейса FlowGate");
+            _logger.LogInformation("Xray is not installed: install it from the FlowGate UI");
             return;
         }
 
@@ -167,7 +167,7 @@ public sealed class XrayService : IXrayService
         }
         catch (XrayOperationException ex)
         {
-            _logger.LogError(ex, "Xray не запущен при старте FlowGate: {Error}", ex.Message);
+            _logger.LogError(ex, "Xray did not start on FlowGate startup: {Error}", ex.Message);
         }
     }
 
@@ -182,7 +182,7 @@ public sealed class XrayService : IXrayService
 
         if (installed is not null && check.LatestVersion is { } latest && latest > installed)
         {
-            _logger.LogInformation("Доступна новая версия Xray {Latest} (установлена {Installed})", latest, installed);
+            _logger.LogInformation("New Xray version available: {Latest} (installed {Installed})", latest, installed);
         }
     }
 

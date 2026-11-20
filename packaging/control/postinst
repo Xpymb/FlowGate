@@ -33,8 +33,8 @@ sed -i -E 's/^PROCS=lighttpd$/PROCS=\/opt\/sbin\/lighttpd/' "$LIGHTTPD_INIT"
 # следующие службы. Файл остаётся и после удаления FlowGate; другие пакеты переопределяют порт своими conf.d.
 if ! grep -qs '^[[:space:]]*server\.port' "$LIGHTTPD_CONF" "$CONF_D"/*.conf; then
     cat >"$PORT_CONF" <<'EOF'
-# Создан FlowGate: без server.port lighttpd слушал бы :80, занятый веб-интерфейсом Keenetic.
-# Пакеты со своим портом (server.port := ...) идут в conf.d позже и переопределяют его.
+# Created by FlowGate: without server.port lighttpd would listen on :80, which the Keenetic web UI uses.
+# Packages with their own port (server.port := ...) come later in conf.d and override it.
 server.port := 8081
 EOF
 fi
@@ -45,7 +45,7 @@ if "$LIGHTTPD" -tt -f "$LIGHTTPD_CONF" >"$CHECK_LOG" 2>&1; then
     "$LIGHTTPD_INIT" restart
 else
     rm -f "$GATEWAY_CONF"
-    echo "FlowGate: конфигурация lighttpd не прошла проверку, шлюз :8090 не включён (см. $CHECK_LOG)"
+    echo "FlowGate: lighttpd configuration check failed, gateway :8090 not enabled (see $CHECK_LOG)"
 fi
 
 /opt/etc/init.d/S99flowgate restart

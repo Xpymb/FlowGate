@@ -16,10 +16,10 @@ public sealed record FlowGateCommand(FlowGateCommandKind Kind, bool DryRun, stri
     ///     Справка по командной строке
     /// </summary>
     public const string Usage = """
-        Использование:
-          flowgate [--urls <адрес>] [--Секция:Ключ=значение ...]   запустить FlowGate
-          flowgate cleanup [--dry-run] [--Секция:Ключ=значение ...] удалить объекты FlowGate из конфигурации Keenetic
-          flowgate help                                            эта справка
+        Usage:
+          flowgate [--urls <address>] [--Section:Key=value ...]    run FlowGate
+          flowgate cleanup [--dry-run] [--Section:Key=value ...]  remove FlowGate objects from the Keenetic configuration
+          flowgate help                                           show this help
         """;
 
     /// <summary>
@@ -46,7 +46,7 @@ public sealed record FlowGateCommand(FlowGateCommandKind Kind, bool DryRun, stri
                 rest.Where(arg => !string.Equals(arg, DryRunOption, StringComparison.Ordinal)).ToArray(),
                 Error: null),
             "help" or "--help" => new FlowGateCommand(FlowGateCommandKind.Help, DryRun: false, rest, Error: null),
-            var unknown => new FlowGateCommand(FlowGateCommandKind.Invalid, DryRun: false, rest, $"Неизвестная команда «{unknown}»"),
+            var unknown => new FlowGateCommand(FlowGateCommandKind.Invalid, DryRun: false, rest, $"Unknown command '{unknown}'"),
         };
     }
 }

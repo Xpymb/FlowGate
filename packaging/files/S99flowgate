@@ -21,7 +21,7 @@ running() {
 
 start() {
     if running; then
-        echo "FlowGate уже запущен (pid $(cat "$PID"))"
+        echo "FlowGate is already running (pid $(cat "$PID"))"
         return 0
     fi
     mkdir -p "$LOG_DIR" "$DATA" /opt/var/run
@@ -30,17 +30,17 @@ start() {
         -c "exec $BIN --FlowGate:DataDirectory=$DATA >>$LOG 2>&1"
     sleep 1
     if running; then
-        echo "FlowGate запущен (pid $(cat "$PID"))"
+        echo "FlowGate started (pid $(cat "$PID"))"
         return 0
     fi
-    echo "FlowGate не запустился, см. $LOG"
+    echo "FlowGate failed to start, see $LOG"
     return 1
 }
 
 stop() {
     if ! running; then
         rm -f "$PID"
-        echo "FlowGate не запущен"
+        echo "FlowGate is not running"
         return 0
     fi
     pid=$(cat "$PID")
@@ -52,9 +52,9 @@ stop() {
     done
     if kill -0 "$pid" 2>/dev/null; then
         kill -KILL "$pid" 2>/dev/null
-        echo "FlowGate остановлен принудительно"
+        echo "FlowGate killed"
     else
-        echo "FlowGate остановлен"
+        echo "FlowGate stopped"
     fi
     rm -f "$PID"
 }
@@ -72,14 +72,14 @@ case "$1" in
         ;;
     status)
         if running; then
-            echo "FlowGate запущен (pid $(cat "$PID"))"
+            echo "FlowGate is running (pid $(cat "$PID"))"
             exit 0
         fi
-        echo "FlowGate не запущен"
+        echo "FlowGate is not running"
         exit 1
         ;;
     *)
-        echo "Использование: $0 {start|stop|restart|status}"
+        echo "Usage: $0 {start|stop|restart|status}"
         exit 1
         ;;
 esac

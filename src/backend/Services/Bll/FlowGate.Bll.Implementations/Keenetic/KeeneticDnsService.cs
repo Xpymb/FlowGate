@@ -77,7 +77,7 @@ public sealed class KeeneticDnsService : IKeeneticDnsService
                 }
 
                 await _rciClient.SaveConfigurationAsync(token);
-                _logger.LogDebug("{Operation}: выполнено команд {Count}", operationName, commands.Count);
+                _logger.LogDebug("{Operation}: {Count} commands executed", operationName, commands.Count);
             },
             cancellationToken);
     }

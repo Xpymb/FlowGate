@@ -56,7 +56,7 @@ public sealed class KeeneticInterfaceService : IKeeneticInterfaceService
                 var result = await _rciClient.ExecuteAsync(commands, token);
                 result.EnsureSuccess(ignoreMissing ? command => command.HasErrorCode(RciErrorCodes.ArgumentParseError) : null);
                 await _rciClient.SaveConfigurationAsync(token);
-                _logger.LogDebug("{Operation}: выполнено команд {Count}", operationName, commands.Count);
+                _logger.LogDebug("{Operation}: {Count} commands executed", operationName, commands.Count);
             },
             cancellationToken);
     }

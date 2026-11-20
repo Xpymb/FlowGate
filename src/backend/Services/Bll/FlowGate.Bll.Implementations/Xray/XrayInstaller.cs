@@ -138,11 +138,11 @@ public sealed class XrayInstaller : IXrayInstaller
 
             if (previous is null)
             {
-                _logger.LogInformation("Xray {Version} установлен", release.Version);
+                _logger.LogInformation("Xray {Version} installed", release.Version);
             }
             else
             {
-                _logger.LogInformation("Xray обновлён {Previous} → {Version}", previous, release.Version);
+                _logger.LogInformation("Xray updated {Previous} → {Version}", previous, release.Version);
             }
 
             context.Report($"Готово: установлен Xray {release.Version}");
@@ -193,7 +193,7 @@ public sealed class XrayInstaller : IXrayInstaller
             }
             catch (XrayOperationException restoreError)
             {
-                _logger.LogError(restoreError, "Прежняя версия Xray {Previous} тоже не запустилась", previous);
+                _logger.LogError(restoreError, "Previous Xray version {Previous} also failed to start", previous);
             }
 
             throw new XrayOperationException(
@@ -301,7 +301,7 @@ public sealed class XrayInstaller : IXrayInstaller
         }
         catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException)
         {
-            _logger.LogWarning(ex, "Не удалось узнать свободное место в {Path}, проверка пропущена", existing);
+            _logger.LogWarning(ex, "Failed to get free space in {Path}, check skipped", existing);
             return;
         }
 
@@ -335,7 +335,7 @@ public sealed class XrayInstaller : IXrayInstaller
         }
         catch (IOException ex)
         {
-            _logger.LogWarning(ex, "Не удалось удалить рабочий каталог {Path}", path);
+            _logger.LogWarning(ex, "Failed to delete work directory {Path}", path);
         }
     }
 }

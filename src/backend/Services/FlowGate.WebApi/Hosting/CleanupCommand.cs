@@ -31,7 +31,7 @@ public static class CleanupCommand
 
         if (dryRun)
         {
-            await output.WriteLineAsync(report.Commands.Count == 0 ? "Удалять нечего" : "Команды NDMS:");
+            await output.WriteLineAsync(report.Commands.Count == 0 ? "Nothing to remove" : "NDMS commands:");
             foreach (var command in report.Commands)
             {
                 await output.WriteLineAsync("  " + command);
@@ -39,10 +39,10 @@ public static class CleanupCommand
         }
 
         await output.WriteLineAsync(
-            $"{(dryRun ? "Будет удалено" : "Удалено")}: правил {report.Routes}, групп {report.Groups}, интерфейсов {report.Interfaces}");
+            $"{(dryRun ? "To be removed" : "Removed")}: rules {report.Routes}, groups {report.Groups}, interfaces {report.Interfaces}");
         foreach (var error in report.Errors)
         {
-            await output.WriteLineAsync("Ошибка: " + error);
+            await output.WriteLineAsync("Error: " + error);
         }
 
         return report.Succeeded ? 0 : 1;

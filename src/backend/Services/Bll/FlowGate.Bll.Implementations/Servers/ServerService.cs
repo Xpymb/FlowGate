@@ -121,7 +121,7 @@ public sealed class ServerService : IServerService
         var server = new Server(NewId(), name, outbound, ServerSourceKind.Manual, null, ServerImportKey.Compute(outbound), now, now);
 
         await _servers.AddAsync([server], cancellationToken);
-        _logger.LogInformation("Сервер {ServerId} «{Name}» добавлен", server.Id, server.Name);
+        _logger.LogInformation("Server {ServerId} '{Name}' added", server.Id, server.Name);
         return server.ToDetailsDto();
     }
 
@@ -145,7 +145,7 @@ public sealed class ServerService : IServerService
             throw new EntityNotFoundException(EntityName, id);
         }
 
-        _logger.LogInformation("Сервер {ServerId} «{Name}» изменён", updated.Id, updated.Name);
+        _logger.LogInformation("Server {ServerId} '{Name}' updated", updated.Id, updated.Name);
 
         try
         {
@@ -153,7 +153,7 @@ public sealed class ServerService : IServerService
         }
         catch (XrayOperationException ex)
         {
-            _logger.LogWarning("Конфигурация Xray после изменения сервера {ServerId} не применена: {Error}", updated.Id, ex.Message);
+            _logger.LogWarning("Xray configuration not applied after server {ServerId} change: {Error}", updated.Id, ex.Message);
         }
 
         return updated.ToDetailsDto();
@@ -181,7 +181,7 @@ public sealed class ServerService : IServerService
         }
 
         await _servers.DeleteAsync(id, cancellationToken);
-        _logger.LogInformation("Сервер {ServerId} «{Name}» удалён", existing.Id, existing.Name);
+        _logger.LogInformation("Server {ServerId} '{Name}' deleted", existing.Id, existing.Name);
     }
 
     /// <inheritdoc />
@@ -216,7 +216,7 @@ public sealed class ServerService : IServerService
         }
 
         await _servers.AddAsync(added, cancellationToken);
-        _logger.LogInformation("Импорт серверов: добавлено {Added}, пропущено {Skipped}, отклонено {Rejected}", added.Count, skipped, batch.Rejected.Count);
+        _logger.LogInformation("Server import: {Added} added, {Skipped} skipped, {Rejected} rejected", added.Count, skipped, batch.Rejected.Count);
 
         return new ServerImportResultDto(
             added.Select(server => server.ToDto()).ToList(),

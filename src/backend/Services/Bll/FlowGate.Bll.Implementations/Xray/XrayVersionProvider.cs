@@ -63,12 +63,12 @@ public sealed class XrayVersionProvider : IXrayVersionProvider
                 return version;
             }
 
-            _logger.LogWarning("Не удалось определить версию Xray: код {ExitCode}, вывод {Output}", result.ExitCode, result.CombinedOutput);
+            _logger.LogWarning("Failed to detect Xray version: exit code {ExitCode}, output {Output}", result.ExitCode, result.CombinedOutput);
             return null;
         }
         catch (Exception ex) when (ex is TimeoutException or System.ComponentModel.Win32Exception or IOException)
         {
-            _logger.LogWarning(ex, "Не удалось запустить {Binary} version", _binaryPath);
+            _logger.LogWarning(ex, "Failed to run {Binary} version", _binaryPath);
             return null;
         }
         finally

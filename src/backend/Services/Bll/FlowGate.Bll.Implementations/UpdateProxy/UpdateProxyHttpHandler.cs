@@ -117,7 +117,7 @@ public sealed class UpdateProxyHttpHandler : HttpMessageHandler
         catch (HttpRequestException ex) when (retryDirect && IsRetriable(request))
         {
             _logger.LogWarning(
-                "Запрос к {Host} через прокси обновлений не удался ({Error}), повтор напрямую",
+                "Request to {Host} via update proxy failed ({Error}), retrying directly",
                 request.RequestUri?.Host,
                 ex.HttpRequestError);
             return await _direct.SendAsync(request, cancellationToken);

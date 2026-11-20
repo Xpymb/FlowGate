@@ -217,6 +217,89 @@ public sealed class ConnectionServiceTests : IDisposable
     }
 
     /// <summary>
+    ///     Смена сервера нескольким соединениям — одна пересборка Xray, Keenetic не трогается
+    /// </summary>
+    [Fact]
+    public async Task ChangeServerAsync_SeveralConnections_AppliesXrayOnce()
+    {
+        await _servers.AddAsync([ConnectionTestData.Server("srv-nl")], Token);
+        var first = await _sut.CreateAsync(new ConnectionCreateRequest("A", "socks", "srv-de"), Token);
+        var second = await _sut.CreateAsync(new ConnectionCreateRequest("B", "http", "srv-de"), Token);
+        _keenetic.ClearCommands();
+        _xrayConfig.ClearReceivedCalls();
+
+        var result = await _sut.ChangeServerAsync(new ConnectionServerChangeRequest([first.Id, second.Id], "srv-nl"), Token);
+
+        Assert.All(result, connection => Assert.Equal("srv-nl", connection.ServerId));
+        Assert.Equal(2, result.Count);
+        Assert.All(await _connections.GetAllAsync(Token), connection => Assert.Equal("srv-nl", connection.ServerId));
+        Assert.Empty(_keenetic.Commands);
+        await _xrayConfig.Received(1).ApplyAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    ///     Xray отклонил конфигурацию — все соединения остаются на прежнем сервере
+    /// </summary>
+    [Fact]
+    public async Task ChangeServerAsync_XrayRejects_RestoresAll()
+    {
+        await _servers.AddAsync([ConnectionTestData.Server("srv-nl")], Token);
+        var first = await _sut.CreateAsync(new ConnectionCreateRequest("A", "socks", "srv-de"), Token);
+        var second = await _sut.CreateAsync(new ConnectionCreateRequest("B", "http", "srv-de"), Token);
+        _xrayConfig.ApplyAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new XrayOperationException("bad"));
+
+        await Assert.ThrowsAsync<XrayOperationException>(
+            () => _sut.ChangeServerAsync(new ConnectionServerChangeRequest([first.Id, second.Id], "srv-nl"), Token));
+
+        Assert.All(await _connections.GetAllAsync(Token), connection => Assert.Equal("srv-de", connection.ServerId));
+    }
+
+    /// <summary>
+    ///     Неизвестное соединение — 404, ничего не меняется
+    /// </summary>
+    [Fact]
+    public async Task ChangeServerAsync_UnknownConnection_ThrowsNotFound()
+    {
+        await _servers.AddAsync([ConnectionTestData.Server("srv-nl")], Token);
+        var created = await _sut.CreateAsync(new ConnectionCreateRequest("A", "socks", "srv-de"), Token);
+        _xrayConfig.ClearReceivedCalls();
+
+        await Assert.ThrowsAsync<EntityNotFoundException>(
+            () => _sut.ChangeServerAsync(new ConnectionServerChangeRequest([created.Id, "con-missing"], "srv-nl"), Token));
+
+        Assert.Equal("srv-de", (await _connections.GetAsync(created.Id, Token))!.ServerId);
+        await _xrayConfig.DidNotReceive().ApplyAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    ///     Соединения уже на этом сервере — Xray не пересобирается
+    /// </summary>
+    [Fact]
+    public async Task ChangeServerAsync_AlreadyOnServer_SkipsXray()
+    {
+        var created = await _sut.CreateAsync(new ConnectionCreateRequest("A", "socks", "srv-de"), Token);
+        _xrayConfig.ClearReceivedCalls();
+
+        var result = await _sut.ChangeServerAsync(new ConnectionServerChangeRequest([created.Id], "srv-de"), Token);
+
+        Assert.Equal("srv-de", Assert.Single(result).ServerId);
+        await _xrayConfig.DidNotReceive().ApplyAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    ///     Пустой список или несуществующий сервер — ошибка проверки
+    /// </summary>
+    [Fact]
+    public async Task ChangeServerAsync_InvalidRequest_ThrowsValidation()
+    {
+        var created = await _sut.CreateAsync(new ConnectionCreateRequest("A", "socks", "srv-de"), Token);
+
+        await Assert.ThrowsAsync<RequestValidationException>(() => _sut.ChangeServerAsync(new ConnectionServerChangeRequest([], "srv-de"), Token));
+        await Assert.ThrowsAsync<RequestValidationException>(
+            () => _sut.ChangeServerAsync(new ConnectionServerChangeRequest([created.Id], "srv-missing"), Token));
+    }
+
+    /// <summary>
     ///     Удаление убирает интерфейс из Keenetic и соединение из хранилища
     /// </summary>
     [Fact]

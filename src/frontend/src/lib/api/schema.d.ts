@@ -421,6 +421,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/connections/change-server": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Перевести несколько соединений на один сервер */
+        post: operations["ChangeConnectionsServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/domain-sources": {
         parameters: {
             query?: never;
@@ -768,6 +785,13 @@ export interface components {
              * @description Для WireGuard: сколько секунд назад было рукопожатие, null — ни разу
              */
             lastHandshakeSecondsAgo: null | number | string;
+        };
+        /** @description Перевод нескольких соединений на один сервер */
+        ConnectionServerChangeRequest: {
+            /** @description Идентификаторы соединений */
+            connectionIds: string[];
+            /** @description Сервер, через который пойдёт трафик */
+            serverId: string;
         };
         /** @description Изменение соединения. Вид соединения не меняется: для этого создайте новое */
         ConnectionUpdateRequest: {
@@ -2709,6 +2733,48 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    ChangeConnectionsServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectionServerChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionDto"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

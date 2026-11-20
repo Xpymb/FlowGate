@@ -51,6 +51,18 @@ public interface IConnectionService
     Task<ConnectionDto> UpdateAsync(string id, ConnectionUpdateRequest request, CancellationToken cancellationToken);
 
     /// <summary>
+    ///     Переводит несколько соединений на один сервер одной пересборкой конфигурации Xray. Соединения, уже
+    ///     использующие этот сервер, не меняются
+    /// </summary>
+    /// <param name="request">Соединения и сервер</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    /// <returns>Соединения из запроса в их текущем виде</returns>
+    /// <exception cref="RequestValidationException">Если список пуст или сервера нет</exception>
+    /// <exception cref="EntityNotFoundException">Если какого-то соединения нет</exception>
+    /// <exception cref="XrayOperationException">Если Xray отклонил конфигурацию; соединения при этом не меняются</exception>
+    Task<IReadOnlyList<ConnectionDto>> ChangeServerAsync(ConnectionServerChangeRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
     ///     Удаляет соединение вместе с его интерфейсом Keenetic
     /// </summary>
     /// <param name="id">Идентификатор</param>

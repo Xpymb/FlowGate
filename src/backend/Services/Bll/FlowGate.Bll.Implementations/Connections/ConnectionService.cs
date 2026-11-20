@@ -206,6 +206,64 @@ public sealed class ConnectionService : IConnectionService, IDisposable
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<ConnectionDto>> ChangeServerAsync(ConnectionServerChangeRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var ids = (request.ConnectionIds ?? []).Distinct(StringComparer.Ordinal).ToList();
+        if (ids.Count == 0)
+        {
+            throw new RequestValidationException("Выберите соединения");
+        }
+
+        List<Connection> changed;
+        await _sync.WaitAsync(cancellationToken);
+        try
+        {
+            var all = (await _connections.GetAllAsync(cancellationToken)).ToDictionary(connection => connection.Id, StringComparer.Ordinal);
+            var missing = ids.FirstOrDefault(id => !all.ContainsKey(id));
+            if (missing is not null)
+            {
+                throw new EntityNotFoundException(EntityName, missing);
+            }
+
+            await EnsureServerExistsAsync(request.ServerId, cancellationToken);
+
+            var originals = ids.Select(id => all[id])
+                .Where(connection => !string.Equals(connection.ServerId, request.ServerId, StringComparison.Ordinal))
+                .ToList();
+            var now = _timeProvider.GetUtcNow();
+            changed = originals.Select(connection => connection with { ServerId = request.ServerId, UpdatedAt = now }).ToList();
+
+            if (changed.Count > 0)
+            {
+                await _connections.UpdateManyAsync(changed, cancellationToken);
+                try
+                {
+                    await _xrayConfig.ApplyAsync(cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    await _connections.UpdateManyAsync(originals, CancellationToken.None);
+                    throw;
+                }
+            }
+        }
+        finally
+        {
+            _sync.Release();
+        }
+
+        if (changed.Count > 0)
+        {
+            _logger.LogInformation("Соединения ({Count}) переведены на сервер {ServerId}", changed.Count, request.ServerId);
+        }
+
+        var result = await GetAllAsync(cancellationToken);
+        return result.Where(connection => ids.Contains(connection.Id, StringComparer.Ordinal)).ToList();
+    }
+
+    /// <inheritdoc />
     public async Task DeleteAsync(string id, CancellationToken cancellationToken)
     {
         Connection connection;

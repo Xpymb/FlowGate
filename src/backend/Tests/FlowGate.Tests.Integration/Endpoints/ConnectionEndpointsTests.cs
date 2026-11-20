@@ -79,6 +79,30 @@ public sealed class ConnectionEndpointsTests : IDisposable
     }
 
     /// <summary>
+    ///     Массовая смена сервера: оба соединения переходят на новый сервер, outbound в xray.json — его
+    /// </summary>
+    [Fact]
+    public async Task ChangeServer_TwoConnections_MovesBoth()
+    {
+        using var client = _factory.CreateClient();
+        var oldServerId = await CreateServerAsync(client);
+        var newServerId = await CreateServerAsync(client, "Нидерланды", "trojan://p@nl.example.net:443?sni=nl.example.net#NL");
+        var first = await ApiJson.PostAsync(client, "/api/connections", new { name = "A", kind = "Socks", serverId = oldServerId }, HttpStatusCode.Created);
+        var second = await ApiJson.PostAsync(client, "/api/connections", new { name = "B", kind = "Http", serverId = oldServerId }, HttpStatusCode.Created);
+        var ids = new[] { first.GetProperty("id").GetString(), second.GetProperty("id").GetString() };
+
+        var result = await ApiJson.PostAsync(client, "/api/connections/change-server", new { connectionIds = ids, serverId = newServerId }, HttpStatusCode.OK);
+        var missing = await ApiJson.PostAsync(client, "/api/connections/change-server", new { connectionIds = new[] { "con-missing" }, serverId = newServerId }, HttpStatusCode.NotFound);
+        var config = await File.ReadAllTextAsync(Path.Combine(_factory.DataDirectory, "xray.json"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, result.GetArrayLength());
+        Assert.All(result.EnumerateArray(), item => Assert.Equal(newServerId, item.GetProperty("serverId").GetString()));
+        Assert.Equal("ENTITY_NOT_FOUND", missing.GetProperty("errorCode").GetString());
+        Assert.Contains("nl.example.net", config, StringComparison.Ordinal);
+        Assert.DoesNotContain("de.example.net", config, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     Неизвестное соединение — 404
     /// </summary>
     [Fact]
@@ -94,11 +118,11 @@ public sealed class ConnectionEndpointsTests : IDisposable
     /// <inheritdoc />
     public void Dispose() => _factory.Dispose();
 
-    private static async Task<string> CreateServerAsync(HttpClient client)
+    private static async Task<string> CreateServerAsync(HttpClient client, string name = "Германия", string link = TrojanLink)
     {
-        var draft = await ApiJson.PostAsync(client, "/api/servers/parse", new { text = TrojanLink }, HttpStatusCode.OK);
+        var draft = await ApiJson.PostAsync(client, "/api/servers/parse", new { text = link }, HttpStatusCode.OK);
         var outbound = JsonNode.Parse(draft.GetProperty("outbound").GetRawText());
-        var created = await ApiJson.PostAsync(client, "/api/servers", new { name = "Германия", outbound }, HttpStatusCode.Created);
+        var created = await ApiJson.PostAsync(client, "/api/servers", new { name, outbound }, HttpStatusCode.Created);
         return created.GetProperty("server").GetProperty("id").GetString()!;
     }
 }

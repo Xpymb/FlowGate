@@ -65,7 +65,6 @@ builder.Services.AddGitHubReleasesClient()
     .UseUpdateProxy(() => new SocketsHttpHandler { AllowAutoRedirect = true, PooledConnectionLifetime = TimeSpan.FromMinutes(5) });
 
 builder.Services.AddHostedService<XrayLifecycleJob>();
-builder.Services.AddHostedService<UpdateProxyLifecycleJob>();
 builder.Services.AddHostedService<XrayUpdateCheckJob>();
 builder.Services.AddHostedService<SubscriptionRefreshJob>();
 builder.Services.AddHostedService<KeeneticReconcileJob>();

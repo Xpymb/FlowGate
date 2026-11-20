@@ -5,6 +5,7 @@ using NSubstitute;
 using FlowGate.Bll.Implementations.Settings;
 using FlowGate.Bll.Interfaces.UpdateProxy;
 using FlowGate.Bll.Interfaces.Xray;
+using FlowGate.Contracts.Settings;
 using FlowGate.Contracts.UpdateProxy;
 using FlowGate.Dal.Implementations.Servers;
 using FlowGate.Dal.Implementations.Settings;
@@ -54,7 +55,7 @@ public sealed class SettingsServiceTests : IDisposable
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
     /// <summary>
-    ///     Без файла настроек: прокси выключен, интервалы — из конфигурации, встроенные домены видны
+    ///     Без файла настроек: прокси выключен, интервалы — из конфигурации
     /// </summary>
     [Fact]
     public async Task GetAsync_NoFile_ReturnsDefaults()
@@ -63,13 +64,12 @@ public sealed class SettingsServiceTests : IDisposable
 
         Assert.Equal("warning", settings.XrayLogLevel);
         Assert.False(settings.UpdateProxy.Enabled);
-        Assert.Equal(UpdateProxyDomains.BuiltIn, settings.UpdateProxy.BuiltInDomains);
         Assert.Equal(new UpdateIntervalDto(null, 12, 12, 720), settings.Intervals.XrayUpdateCheck);
         Assert.Equal(new UpdateIntervalDto(null, 24, 24, 168), settings.Intervals.SubscriptionDefault);
     }
 
     /// <summary>
-    ///     Сохранение: домены приводятся к формату Xray, прокси сбрасывается, уровень логов применяется к конфигу Xray
+    ///     Сохранение: уровень логов и сервер прокси применяются к конфигу Xray одним вызовом
     /// </summary>
     [Fact]
     public async Task UpdateAsync_Valid_SavesAndApplies()
@@ -77,31 +77,55 @@ public sealed class SettingsServiceTests : IDisposable
         var saved = await _sut.UpdateAsync(
             new SettingsSaveRequest(
                 "Info",
-                new UpdateProxySaveRequest(true, "srv-de", ["Example.com", "full:cdn.example.org", "example.com", " "]),
+                new UpdateProxySaveRequest(true, " srv-de "),
                 new UpdateIntervalsSaveRequest(SubscriptionDefaultHours: 6, SystemUpdateCheckHours: 48)),
             Token);
 
         Assert.Equal("info", saved.XrayLogLevel);
-        Assert.Equal(["domain:example.com", "full:cdn.example.org"], saved.UpdateProxy.ExtraDomains);
+        Assert.Equal("srv-de", saved.UpdateProxy.ServerId);
         Assert.Equal(new UpdateIntervalDto(6, 24, 6, 168), saved.Intervals.SubscriptionDefault);
         Assert.Equal(48, saved.Intervals.SystemUpdateCheck.EffectiveHours);
 
         var stored = await _settings.GetAsync(Token);
         Assert.True(stored.UpdateProxy.Enabled);
         Assert.Equal("srv-de", stored.UpdateProxy.ServerId);
-        await _updateProxy.Received(1).InvalidateAsync(Arg.Any<CancellationToken>());
         await _xrayConfig.Received(1).ApplyAsync(Arg.Any<CancellationToken>());
     }
 
     /// <summary>
-    ///     Те же значения повторно — ни конфиг Xray, ни прокси не трогаются
+    ///     Те же значения повторно — конфиг Xray не трогается
     /// </summary>
     [Fact]
     public async Task UpdateAsync_Unchanged_DoesNotApply()
     {
         await _sut.UpdateAsync(new SettingsSaveRequest("warning", new UpdateProxySaveRequest(false), new UpdateIntervalsSaveRequest()), Token);
 
-        await _updateProxy.DidNotReceive().InvalidateAsync(Arg.Any<CancellationToken>());
+        await _xrayConfig.DidNotReceive().ApplyAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    ///     Сменился только сервер прокси — inbound в основном Xray пересобирается
+    /// </summary>
+    [Fact]
+    public async Task UpdateAsync_ProxyServerChanged_Applies()
+    {
+        await _settings.UpdateAsync(settings => settings with { UpdateProxy = new UpdateProxySettings { Enabled = true } }, Token);
+
+        await _sut.UpdateAsync(new SettingsSaveRequest("warning", new UpdateProxySaveRequest(true, "srv-de"), new UpdateIntervalsSaveRequest()), Token);
+
+        await _xrayConfig.Received(1).ApplyAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    ///     Переключение прокси при том же сервере — Xray не перезапускается: inbound в конфиге есть в обоих случаях
+    /// </summary>
+    [Fact]
+    public async Task UpdateAsync_OnlyEnabledToggled_DoesNotApply()
+    {
+        await _settings.UpdateAsync(settings => settings with { UpdateProxy = new UpdateProxySettings { Enabled = true, ServerId = "srv-de" } }, Token);
+
+        await _sut.UpdateAsync(new SettingsSaveRequest("warning", new UpdateProxySaveRequest(false, "srv-de"), new UpdateIntervalsSaveRequest()), Token);
+
         await _xrayConfig.DidNotReceive().ApplyAsync(Arg.Any<CancellationToken>());
     }
 
@@ -114,11 +138,11 @@ public sealed class SettingsServiceTests : IDisposable
         var ex = await Assert.ThrowsAsync<RequestValidationException>(() => _sut.UpdateAsync(
             new SettingsSaveRequest(
                 "verbose",
-                new UpdateProxySaveRequest(true, null, ["https://example.com/x"]),
+                new UpdateProxySaveRequest(true, null),
                 new UpdateIntervalsSaveRequest(SubscriptionDefaultHours: 500, XrayUpdateCheckHours: 0)),
             Token));
 
-        Assert.Equal(5, ex.Details!.Count);
+        Assert.Equal(4, ex.Details!.Count);
         Assert.False((await _settings.GetAsync(Token)).UpdateProxy.Enabled);
     }
 
@@ -142,7 +166,7 @@ public sealed class SettingsServiceTests : IDisposable
     public async Task GetUpdateProxyStatusAsync_MapsState()
     {
         _updateProxy.GetStatusAsync(Arg.Any<CancellationToken>())
-            .Returns(new UpdateProxyStatus(UpdateProxyState.Unavailable, 10790, null, null, 0, "сервер не выбран"));
+            .Returns(new UpdateProxyStatus(UpdateProxyState.Unavailable, 10790, "сервер не выбран"));
 
         var status = await _sut.GetUpdateProxyStatusAsync(Token);
 

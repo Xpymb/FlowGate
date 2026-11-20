@@ -116,7 +116,7 @@ Shared.* ──► Exceptions, Shared.Options, Shared.Changes (не на Service
 
 - Xray — **дочерний процесс** FlowGate (`IXrayProcessService`): автозапуск, перезапуск после падения с паузой
   1→2→4…→60 с.
-- Все долгоживущие xray (основной, прокси обновлений) запускаются через `IXrayProcessManager`: он помнит pid своих
+- Долгоживущий xray один — основной; он запускается через `IXrayProcessManager`: он помнит pid своих
   процессов, при старте FlowGate и в `flowgate cleanup` убивает остальные процессы нашего бинарника (`/proc/<pid>/exe`,
   включая подменённый `… (deleted)`). Не периодически: короткие `xray run -test`/`version`/`wg` идут мимо менеджера.
 - Любая операция, которая трогает бинарник или конфиг при работающем процессе, идёт через
@@ -177,15 +177,16 @@ Shared.* ──► Exceptions, Shared.Options, Shared.Changes (не на Service
   `settings.json` (`AppSettings`); новые поля — init-свойства со значениями по умолчанию, чтобы старые файлы читались.
   Интервал `null` — значение из опций (`UpdateIntervals`). Джобы проверки версий тикают раз в час и вызывают
   `CheckForUpdatesIfDueAsync`; подписки и источники берут интервал из настроек на каждом тике планировщика.
-- Прокси обновлений (`IUpdateProxyService`) — **второй экземпляр Xray** со своим `update-proxy.json` в
-  `Xray:WorkDirectory`. Основной Xray и его `RunExclusiveAsync` не участвуют. Модель (`UpdateProxyXrayModel`): http-inbound
-  `127.0.0.1:UpdateProxy:Port`, outbound выбранного сервера, правило `domain` → сервер, остальное → `direct`. Домены
-  (`UpdateProxyDomains`) — встроенные (GitHub, github.io, Entware), `full:` хостов подписок и прямых ссылок источников,
-  свои домены пользователя.
-- Аренды: `AcquireAsync(via)` запускает экземпляр (ждёт порт), после последней аренды он **сразу** останавливается.
-  Операция обновления (задачи подписки, источника, установки Xray) держит одну аренду на всё время через
-  `UpdateRoute.RunAsync` → `UpdateProxyScope` (AsyncLocal); запрос вне области (проверка версий) берёт аренду на себя.
-  Изменился набор доменов — новый конфиг получает следующая операция. Упавший экземпляр поднимает следующая аренда.
+- Прокси обновлений — **inbound основного Xray**, отдельного экземпляра нет. `ConnectionXrayConfigSource` добавляет к
+  модели соединений (`UpdateProxyXrayModel.Append`) http-inbound `127.0.0.1:UpdateProxy:Port` и outbound выбранного
+  сервера, **весь** трафик inbound → сервер (списка доменов нет: через inbound ходят только клиенты обновлений и opkg).
+  Inbound есть, пока `UpdateProxy.ServerId` указывает на существующий сервер, независимо от `Enabled` — переключение
+  прокси Xray не перезапускает; смена сервера (`SettingsService`), правка сервера (`ServerService.UpdateAsync`) и
+  обновление подписки вызывают `IXrayConfigService.ApplyAsync`.
+- `IUpdateProxyService.ResolveAsync(via)` сам Xray не запускает: прокси доступен, если сервер найден, основной Xray в
+  `Running` и порт принимает соединения; иначе причина — в `/api/settings/update-proxy/status`. Путь выбирается один раз
+  на операцию (задачи подписки, источника, установки Xray) через `UpdateRoute.RunAsync` → `UpdateProxyScope`
+  (AsyncLocal); запрос вне области (проверка версий) выбирает путь сам.
 - `UpdateVia` (`?via=` у `POST /subscriptions/{id}/refresh`, `/domain-sources/{id}/refresh`, `/xray/install`):
   `Auto` — по настройкам, недоступен → напрямую с причиной в `/api/settings/update-proxy/status`; `Proxy` — через
   выбранный сервер даже при выключенном прокси, недоступен → ошибка задачи, без перехода на прямую загрузку; `Direct`.
@@ -193,8 +194,9 @@ Shared.* ──► Exceptions, Shared.Options, Shared.Changes (не на Service
   в `Auto` сбой прокси на GET/HEAD — один повтор напрямую. RCI Keenetic через прокси не ходит. В интеграционных тестах
   первичные обработчики подменяются фейками, прокси там не участвует.
 - Сервер, выбранный для прокси, удалить нельзя (409).
-- Самообновление: служба (и её xray) на время opkg останавливается, поэтому FlowGate готовит
-  `update-proxy-upgrade.json` на `UpdateProxy:UpgradePort` и передаёт `upgrade.sh` `--xray --proxy-config --proxy-port`.
+- Самообновление — единственный случай отдельного экземпляра: служба (и её xray) на время opkg останавливается,
+  поэтому FlowGate готовит `update-proxy-upgrade.json` на `UpdateProxy:UpgradePort` и передаёт `upgrade.sh`
+  `--xray --proxy-config --proxy-port`.
   Скрипт сам запускает xray и задаёт `http_proxy`/`https_proxy` для opkg (wget-ssl). `S99flowgate` эти переменные
   сбрасывает, чтобы служба их не унаследовала.
 

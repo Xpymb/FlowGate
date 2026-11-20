@@ -4440,16 +4440,6 @@
               "string"
             ],
             "description": "Сервер; обязателен, если прокси включён"
-          },
-          "extraDomains": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "string"
-            },
-            "description": "Свои домены: `example.com`, `domain:example.com` или `full:cdn.example.com`"
           }
         },
         "description": "Настройки прокси обновлений"
@@ -4457,9 +4447,7 @@
       "UpdateProxySettingsDto": {
         "required": [
           "enabled",
-          "serverId",
-          "extraDomains",
-          "builtInDomains"
+          "serverId"
         ],
         "type": "object",
         "properties": {
@@ -4473,38 +4461,21 @@
               "string"
             ],
             "description": "Сервер, через который идут обновления"
-          },
-          "extraDomains": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Свои домены в формате Xray"
-          },
-          "builtInDomains": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Встроенные домены (GitHub, feed); хосты подписок и прямых ссылок источников добавляются сами"
           }
         },
-        "description": "Загрузка обновлений (подписки, источники, релизы Xray, пакет FlowGate) через отдельный экземпляр Xray"
+        "description": "Загрузка обновлений (подписки, источники, релизы Xray, пакет FlowGate) через выбранный сервер в основном Xray"
       },
       "UpdateProxyStatusDto": {
         "required": [
           "state",
           "port",
-          "processId",
-          "startedAt",
-          "activeRequests",
           "reason"
         ],
         "type": "object",
         "properties": {
           "state": {
             "type": "string",
-            "description": "`Disabled`, `Idle` (запустится по запросу), `Running`, `Unavailable` (обновления идут напрямую)"
+            "description": "`Disabled`, `Ready` (inbound в основном Xray), `Unavailable` (обновления идут напрямую)"
           },
           "port": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -4513,33 +4484,6 @@
               "string"
             ],
             "description": "Порт HTTP-inbound на 127.0.0.1",
-            "format": "int32"
-          },
-          "processId": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "null",
-              "integer",
-              "string"
-            ],
-            "description": "Pid экземпляра Xray",
-            "format": "int32"
-          },
-          "startedAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "description": "Когда запущен",
-            "format": "date-time"
-          },
-          "activeRequests": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "description": "Запросов через прокси сейчас",
             "format": "int32"
           },
           "reason": {

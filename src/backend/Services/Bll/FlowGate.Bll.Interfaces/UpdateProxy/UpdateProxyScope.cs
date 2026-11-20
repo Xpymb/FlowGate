@@ -3,8 +3,8 @@ using FlowGate.SharedContracts.Dto.Settings;
 namespace FlowGate.Bll.Interfaces.UpdateProxy;
 
 /// <summary>
-///     Область одной операции обновления (задачи): все HTTP-запросы клиентов обновлений внутри неё идут выбранным путём
-///     и через одну аренду прокси. Область привязана к асинхронному контексту, поэтому входить в неё нужно синхронным
+///     Область одной операции обновления (задачи): все HTTP-запросы клиентов обновлений внутри неё идут одним путём,
+///     выбранным в начале операции. Область привязана к асинхронному контексту, поэтому входить в неё нужно синхронным
 ///     <see cref="Enter"/> в теле операции
 /// </summary>
 public sealed class UpdateProxyScope : IDisposable
@@ -14,10 +14,10 @@ public sealed class UpdateProxyScope : IDisposable
     private readonly UpdateProxyScope? _parent;
     private bool _disposed;
 
-    private UpdateProxyScope(UpdateVia via, UpdateProxyLease? lease, UpdateProxyScope? parent)
+    private UpdateProxyScope(UpdateVia via, Uri? proxyUri, UpdateProxyScope? parent)
     {
         Via = via;
-        Lease = lease;
+        ProxyUri = proxyUri;
         _parent = parent;
     }
 
@@ -32,19 +32,19 @@ public sealed class UpdateProxyScope : IDisposable
     public UpdateVia Via { get; }
 
     /// <summary>
-    ///     Аренда прокси на всю операцию или null — запросы идут напрямую
+    ///     Адрес прокси на всю операцию или null — запросы идут напрямую
     /// </summary>
-    public UpdateProxyLease? Lease { get; }
+    public Uri? ProxyUri { get; }
 
     /// <summary>
-    ///     Входит в область; аренда отпускается при выходе
+    ///     Входит в область
     /// </summary>
     /// <param name="via">Путь</param>
-    /// <param name="lease">Аренда, полученная <see cref="IUpdateProxyService.AcquireAsync(UpdateVia, CancellationToken)"/>, или null</param>
+    /// <param name="proxyUri">Адрес, полученный <see cref="IUpdateProxyService.ResolveAsync(UpdateVia, CancellationToken)"/>, или null</param>
     /// <returns>Область; выход — <see cref="Dispose"/></returns>
-    public static UpdateProxyScope Enter(UpdateVia via, UpdateProxyLease? lease)
+    public static UpdateProxyScope Enter(UpdateVia via, Uri? proxyUri)
     {
-        var scope = new UpdateProxyScope(via, lease, CurrentScope.Value);
+        var scope = new UpdateProxyScope(via, proxyUri, CurrentScope.Value);
         CurrentScope.Value = scope;
         return scope;
     }
@@ -62,7 +62,5 @@ public sealed class UpdateProxyScope : IDisposable
         {
             CurrentScope.Value = _parent;
         }
-
-        Lease?.Dispose();
     }
 }

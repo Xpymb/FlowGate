@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { api } from '#lib/api/client.js';
 	import { unwrap } from '#lib/api/errors.js';
-	import { formatDateTime, toNumber } from '#lib/format.js';
+	import { toNumber } from '#lib/format.js';
 	import { hoursLabel, intervalOptions, label, updateProxyStates } from '#lib/labels.js';
 	import { Resource } from '#lib/resource.svelte.js';
 	import { attempt } from '#lib/toast.svelte.js';
@@ -84,7 +84,6 @@
 			xrayLogLevel: value.xrayLogLevel,
 			proxyEnabled: value.updateProxy.enabled,
 			serverId: value.updateProxy.serverId ?? '',
-			extraDomains: value.updateProxy.extraDomains.join('\n'),
 			intervals: {
 				subscriptionDefault: hours(value.intervals.subscriptionDefault),
 				domainSourceRefresh: hours(value.intervals.domainSourceRefresh),
@@ -103,11 +102,7 @@
 			xrayLogLevel: current.xrayLogLevel,
 			updateProxy: {
 				enabled: current.proxyEnabled,
-				serverId: current.serverId || null,
-				extraDomains: current.extraDomains
-					.split(/[\s,]+/)
-					.map((domain) => domain.trim())
-					.filter(Boolean)
+				serverId: current.serverId || null
 			},
 			intervals: {
 				subscriptionDefaultHours: hours('subscriptionDefault'),
@@ -148,9 +143,8 @@
 					<div class="panel-body">
 						<p class="lead">
 							Загрузка подписок, источников списков, выпусков Xray и обновлений FlowGate выполняется
-							через отдельный экземпляр Xray с выбранным сервером. Экземпляр запускается по
-							требованию и останавливается после периода простоя; основной Xray не затрагивается.
-							При недоступности прокси загрузка выполняется напрямую.
+							через выбранный сервер: основной Xray держит для этого локальный HTTP-прокси. Если
+							Xray остановлен или сервер недоступен, загрузка выполняется напрямую.
 						</p>
 						<Field label="Использовать прокси" layout="split" group>
 							<label class="check">
@@ -173,35 +167,9 @@
 								{/each}
 							</select>
 						</Field>
-						<Field
-							label="Дополнительные домены"
-							layout="split"
-							hint="По одному в строке: example.com — домен с поддоменами, full:host — только указанный хост. Хосты подписок и источников добавляются автоматически."
-						>
-							<textarea
-								bind:value={form.extraDomains}
-								rows="4"
-								disabled={!form.proxyEnabled}
-								placeholder="example.com&#10;full:cdn.example.org"></textarea>
-							{#snippet extra()}
-								<details class="builtin">
-									<summary>Встроенные домены: {current.updateProxy.builtInDomains.length}</summary>
-									<div class="domains">
-										{#each current.updateProxy.builtInDomains as domain (domain)}
-											<code>{domain}</code>
-										{/each}
-									</div>
-								</details>
-							{/snippet}
-						</Field>
 						{#if status.data}
 							<div class="proxy-status">
 								<span>Порт <code>127.0.0.1:{status.data.port}</code></span>
-								{#if status.data.processId}
-									<span>pid <code>{status.data.processId}</code></span>
-									<span>запущен {formatDateTime(status.data.startedAt)}</span>
-									<span>активных загрузок: {status.data.activeRequests}</span>
-								{/if}
 							</div>
 							{#if status.data.reason}<p class="error-text small">{status.data.reason}</p>{/if}
 						{/if}
@@ -253,24 +221,6 @@
 <style>
 	.lead {
 		margin-bottom: 20px;
-		color: var(--muted);
-	}
-
-	.builtin summary {
-		color: var(--accent-text);
-		font-size: 12.5px;
-		cursor: pointer;
-	}
-
-	.domains {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 4px 12px;
-		margin-top: 8px;
-	}
-
-	.domains code {
-		font-size: 12px;
 		color: var(--muted);
 	}
 

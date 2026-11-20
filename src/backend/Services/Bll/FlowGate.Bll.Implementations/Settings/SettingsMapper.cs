@@ -25,11 +25,7 @@ public static class SettingsMapper
         return new SettingsDto(
             settings.XrayLogLevel,
             XrayConfigModel.LogLevels,
-            new UpdateProxySettingsDto(
-                settings.UpdateProxy.Enabled,
-                settings.UpdateProxy.ServerId,
-                settings.UpdateProxy.ExtraDomains,
-                UpdateProxyDomains.BuiltIn),
+            new UpdateProxySettingsDto(settings.UpdateProxy.Enabled, settings.UpdateProxy.ServerId),
             new UpdateIntervalsDto(
                 Interval(intervals.SubscriptionDefaultHours, defaults.SubscriptionDefaultHours, UpdateIntervalSettings.MaxSubscriptionHours),
                 Interval(intervals.DomainSourceRefreshHours, defaults.DomainSourceRefreshHours, UpdateIntervalSettings.MaxHours),
@@ -45,13 +41,7 @@ public static class SettingsMapper
     public static UpdateProxyStatusDto ToDto(UpdateProxyStatus status)
     {
         ArgumentNullException.ThrowIfNull(status);
-        return new UpdateProxyStatusDto(
-            status.State.ToString(),
-            status.Port,
-            status.ProcessId,
-            status.StartedAt,
-            status.ActiveRequests,
-            status.Reason);
+        return new UpdateProxyStatusDto(status.State.ToString(), status.Port, status.Reason);
     }
 
     private static UpdateIntervalDto Interval(int? hours, int defaultHours, int maxHours) =>

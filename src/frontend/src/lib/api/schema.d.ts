@@ -1551,44 +1551,23 @@ export interface components {
             enabled: boolean;
             /** @description Сервер; обязателен, если прокси включён */
             serverId?: null | string;
-            /** @description Свои домены: `example.com`, `domain:example.com` или `full:cdn.example.com` */
-            extraDomains?: null | string[];
         };
-        /** @description Загрузка обновлений (подписки, источники, релизы Xray, пакет FlowGate) через отдельный экземпляр Xray */
+        /** @description Загрузка обновлений (подписки, источники, релизы Xray, пакет FlowGate) через выбранный сервер в основном Xray */
         UpdateProxySettingsDto: {
             /** @description Включено */
             enabled: boolean;
             /** @description Сервер, через который идут обновления */
             serverId: null | string;
-            /** @description Свои домены в формате Xray */
-            extraDomains: string[];
-            /** @description Встроенные домены (GitHub, feed); хосты подписок и прямых ссылок источников добавляются сами */
-            builtInDomains: string[];
         };
         /** @description Состояние прокси обновлений */
         UpdateProxyStatusDto: {
-            /** @description `Disabled`, `Idle` (запустится по запросу), `Running`, `Unavailable` (обновления идут напрямую) */
+            /** @description `Disabled`, `Ready` (inbound в основном Xray), `Unavailable` (обновления идут напрямую) */
             state: string;
             /**
              * Format: int32
              * @description Порт HTTP-inbound на 127.0.0.1
              */
             port: number | string;
-            /**
-             * Format: int32
-             * @description Pid экземпляра Xray
-             */
-            processId: null | number | string;
-            /**
-             * Format: date-time
-             * @description Когда запущен
-             */
-            startedAt: null | string;
-            /**
-             * Format: int32
-             * @description Запросов через прокси сейчас
-             */
-            activeRequests: number | string;
             /** @description Почему недоступен или последний сбой */
             reason: null | string;
         };

@@ -9,9 +9,9 @@ using FlowGate.SharedContracts.Dto.Settings;
 namespace FlowGate.Bll.Implementations.UpdateProxy;
 
 /// <summary>
-///     Первичный обработчик HTTP-клиентов обновлений. Внутри <see cref="UpdateProxyScope"/> запрос идёт путём и арендой
-///     операции; вне её — через прокси, если он включён и доступен (аренда держится, пока читается тело ответа), иначе
-///     напрямую. Сбой самого прокси на GET/HEAD в режиме <see cref="UpdateVia.Auto"/> — один повтор напрямую
+///     Первичный обработчик HTTP-клиентов обновлений. Внутри <see cref="UpdateProxyScope"/> запрос идёт путём операции;
+///     вне её — через прокси, если он включён и доступен, иначе напрямую. Сбой самого прокси на GET/HEAD в режиме
+///     <see cref="UpdateVia.Auto"/> — один повтор напрямую
 /// </summary>
 public sealed class UpdateProxyHttpHandler : HttpMessageHandler
 {
@@ -77,15 +77,15 @@ public sealed class UpdateProxyHttpHandler : HttpMessageHandler
 
         if (UpdateProxyScope.Current is { } scope)
         {
-            return scope.Lease is { } scopeLease
-                ? await SendProxiedAsync(request, scopeLease, ownsLease: false, retryDirect: scope.Via == UpdateVia.Auto, cancellationToken)
+            return scope.ProxyUri is { } scopeProxy
+                ? await SendProxiedAsync(request, scopeProxy, retryDirect: scope.Via == UpdateVia.Auto, cancellationToken)
                 : await _direct.SendAsync(request, cancellationToken);
         }
 
-        var lease = await _proxy.AcquireAsync(UpdateVia.Auto, cancellationToken);
-        return lease is null
+        var proxyUri = await _proxy.ResolveAsync(UpdateVia.Auto, cancellationToken);
+        return proxyUri is null
             ? await _direct.SendAsync(request, cancellationToken)
-            : await SendProxiedAsync(request, lease, ownsLease: true, retryDirect: true, cancellationToken);
+            : await SendProxiedAsync(request, proxyUri, retryDirect: true, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -106,45 +106,22 @@ public sealed class UpdateProxyHttpHandler : HttpMessageHandler
 
     private async Task<HttpResponseMessage> SendProxiedAsync(
         HttpRequestMessage request,
-        UpdateProxyLease lease,
-        bool ownsLease,
+        Uri proxyUri,
         bool retryDirect,
         CancellationToken cancellationToken)
     {
-        HttpResponseMessage response;
         try
         {
-            response = await Proxied(lease.ProxyUri).SendAsync(request, cancellationToken);
+            return await Proxied(proxyUri).SendAsync(request, cancellationToken);
         }
         catch (HttpRequestException ex) when (retryDirect && IsRetriable(request))
         {
-            if (ownsLease)
-            {
-                lease.Dispose();
-            }
-
             _logger.LogWarning(
                 "Запрос к {Host} через прокси обновлений не удался ({Error}), повтор напрямую",
                 request.RequestUri?.Host,
                 ex.HttpRequestError);
             return await _direct.SendAsync(request, cancellationToken);
         }
-        catch
-        {
-            if (ownsLease)
-            {
-                lease.Dispose();
-            }
-
-            throw;
-        }
-
-        if (ownsLease)
-        {
-            response.Content = new LeasedContent(response.Content, lease);
-        }
-
-        return response;
     }
 
     private HttpMessageInvoker Proxied(Uri proxyUri)
@@ -157,123 +134,4 @@ public sealed class UpdateProxyHttpHandler : HttpMessageHandler
 
     private static bool IsRetriable(HttpRequestMessage request) =>
         request.Method == HttpMethod.Get || request.Method == HttpMethod.Head;
-
-    private sealed class LeasedContent : HttpContent
-    {
-        private readonly HttpContent _inner;
-        private readonly UpdateProxyLease _lease;
-
-        public LeasedContent(HttpContent inner, UpdateProxyLease lease)
-        {
-            _inner = inner;
-            _lease = lease;
-            foreach (var header in inner.Headers)
-            {
-                Headers.TryAddWithoutValidation(header.Key, header.Value);
-            }
-        }
-
-        protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
-            await SerializeToStreamAsync(stream, context, CancellationToken.None);
-
-        protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken cancellationToken)
-        {
-            try
-            {
-                await _inner.CopyToAsync(stream, cancellationToken);
-            }
-            finally
-            {
-                _lease.Dispose();
-            }
-        }
-
-        protected override async Task<Stream> CreateContentReadStreamAsync() =>
-            await CreateContentReadStreamAsync(CancellationToken.None);
-
-        protected override async Task<Stream> CreateContentReadStreamAsync(CancellationToken cancellationToken) =>
-            new LeasedStream(await _inner.ReadAsStreamAsync(cancellationToken), _lease);
-
-        protected override bool TryComputeLength(out long length)
-        {
-            length = 0;
-            return false;
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                _inner.Dispose();
-                _lease.Dispose();
-            }
-
-            base.Dispose(disposing);
-        }
-    }
-
-    private sealed class LeasedStream : Stream
-    {
-        private readonly Stream _inner;
-        private readonly UpdateProxyLease _lease;
-
-        public LeasedStream(Stream inner, UpdateProxyLease lease)
-        {
-            _inner = inner;
-            _lease = lease;
-        }
-
-        public override bool CanRead => _inner.CanRead;
-
-        public override bool CanSeek => false;
-
-        public override bool CanWrite => false;
-
-        public override long Length => throw new NotSupportedException();
-
-        public override long Position
-        {
-            get => throw new NotSupportedException();
-            set => throw new NotSupportedException();
-        }
-
-        public override void Flush()
-        {
-        }
-
-        public override int Read(byte[] buffer, int offset, int count) => Released(_inner.Read(buffer, offset, count));
-
-        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
-            Released(await _inner.ReadAsync(buffer.AsMemory(offset, count), cancellationToken));
-
-        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
-            Released(await _inner.ReadAsync(buffer, cancellationToken));
-
-        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
-
-        public override void SetLength(long value) => throw new NotSupportedException();
-
-        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                _inner.Dispose();
-                _lease.Dispose();
-            }
-
-            base.Dispose(disposing);
-        }
-
-        private int Released(int read)
-        {
-            if (read == 0)
-            {
-                _lease.Dispose();
-            }
-
-            return read;
-        }
-    }
 }

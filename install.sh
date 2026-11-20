@@ -15,23 +15,23 @@ fail() {
     exit 1
 }
 
-command -v opkg >/dev/null 2>&1 || fail "не найден opkg: нужен Entware (https://help.keenetic.com/hc/ru/articles/360021214160)"
+command -v opkg >/dev/null 2>&1 || fail "opkg not found: Entware is required (https://help.keenetic.com/hc/en-us/articles/360021214160)"
 case "$(uname -m)" in
     aarch64|arm64) ;;
-    *) fail "поддерживается только aarch64, у роутера $(uname -m)" ;;
+    *) fail "only aarch64 is supported, router is $(uname -m)" ;;
 esac
 
-echo "FlowGate: ставлю wget-ssl и ca-bundle (opkg скачивает feed по HTTPS)"
-opkg update >/dev/null || fail "opkg update не выполнен"
-opkg install wget-ssl ca-bundle || fail "не удалось установить wget-ssl и ca-bundle"
+echo "FlowGate: installing wget-ssl and ca-bundle (opkg fetches the feed over HTTPS)"
+opkg update >/dev/null || fail "opkg update failed"
+opkg install wget-ssl ca-bundle || fail "failed to install wget-ssl and ca-bundle"
 
 mkdir -p /opt/etc/opkg
 printf 'src/gz flowgate %s\n' "$FEED_URL" >"$FEED_FILE.new"
 mv -f "$FEED_FILE.new" "$FEED_FILE"
-echo "FlowGate: подключён feed $FEED_URL"
+echo "FlowGate: feed added $FEED_URL"
 
-opkg update || { rm -f "$FEED_FILE"; fail "opkg update с feed FlowGate не выполнен, feed отключён"; }
-opkg install flowgate || fail "opkg install flowgate не выполнен"
+opkg update || { rm -f "$FEED_FILE"; fail "opkg update with the FlowGate feed failed, feed removed"; }
+opkg install flowgate || fail "opkg install flowgate failed"
 
 address=$(ip -4 addr show br0 2>/dev/null | sed -n 's/.*inet \([0-9.]*\).*/\1/p' | head -n 1)
-echo "FlowGate установлен: http://${address:-<адрес роутера>}:8090"
+echo "FlowGate installed: http://${address:-<router address>}:8090"

@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
 
+using FlowGate.Contracts.Servers;
+
 namespace FlowGate.Contracts.Connections;
 
 /// <summary>
@@ -32,6 +34,28 @@ public sealed record Connection(
     public const string DescriptionPrefix = "FlowGate: ";
 
     /// <summary>
+    ///     Наибольшее число резервных серверов у соединения
+    /// </summary>
+    public const int MaxFallbacks = 3;
+
+    /// <summary>
+    ///     Резервные серверы по убыванию приоритета: Xray уводит на них трафик, если основной не отвечает
+    /// </summary>
+    public IReadOnlyList<string> FallbackServerIds { get; init; } = [];
+
+    /// <summary>
+    ///     Основной сервер и резервные по порядку; индекс — слот кандидата
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<string> CandidateServerIds => [ServerId, .. FallbackServerIds];
+
+    /// <summary>
+    ///     Тег балансировщика Xray, если у соединения есть резервные серверы
+    /// </summary>
+    [JsonIgnore]
+    public string BalancerTag => "bal-" + Id;
+
+    /// <summary>
     ///     Тег inbound в конфигурации Xray
     /// </summary>
     [JsonIgnore]
@@ -42,6 +66,31 @@ public sealed record Connection(
     /// </summary>
     [JsonIgnore]
     public string OutboundTag => "out-" + Id;
+
+    /// <summary>
+    ///     Возвращает тег outbound кандидата: у основного (слот 0) — <see cref="OutboundTag"/>, у резервных —
+    ///     <c>out-&lt;id&gt;-&lt;слот&gt;</c>
+    /// </summary>
+    /// <param name="slot">Слот кандидата в <see cref="CandidateServerIds"/></param>
+    /// <returns>Тег outbound</returns>
+    public string CandidateOutboundTag(int slot) => slot == 0 ? OutboundTag : $"{OutboundTag}-{slot}";
+
+    /// <summary>
+    ///     Возвращает кандидатов, чьи серверы существуют, по убыванию приоритета: при двух и больше трафик
+    ///     распределяет балансировщик Xray, при одном — прямое правило, без кандидатов — <c>block</c>
+    /// </summary>
+    /// <param name="servers">Серверы по идентификатору</param>
+    /// <returns>Кандидаты со слотами и тегами outbound</returns>
+    public IReadOnlyList<ConnectionCandidate> AliveCandidates(IReadOnlyDictionary<string, Server> servers)
+    {
+        ArgumentNullException.ThrowIfNull(servers);
+
+        return CandidateServerIds
+            .Select((serverId, slot) => (slot, server: servers.GetValueOrDefault(serverId)))
+            .Where(item => item.server is not null)
+            .Select(item => new ConnectionCandidate(item.slot, CandidateOutboundTag(item.slot), item.server!))
+            .ToList();
+    }
 
     /// <summary>
     ///     Описание интерфейса Keenetic

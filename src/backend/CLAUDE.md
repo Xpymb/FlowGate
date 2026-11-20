@@ -138,6 +138,10 @@ Shared.* ──► Exceptions, Shared.Options, Shared.Changes (не на Service
   пароля и смене формата; если в ответе есть отклонённые узлы, пропавшие серверы сохраняются (`Partial`); 0 принятых —
   `Failed`, каталог не трогается.
 - URL подписки содержит токен: в логи и ошибки — только хост, в репозиторий и фикстуры — никогда.
+- Пинг (`POST /api/servers/ping`, `IServerPingService`): временный `xray run` через `IXrayProcessManager` (убивается в
+  `finally`, при остановке FlowGate и не считается чужим), на каждый сервер socks-inbound `127.0.0.1:<свободный порт>`
+  (`PingXrayModel`), через него GET `Ping:Url` (`IOutboundProbe`, socks5 в `SocketsHttpHandler`). Задержка — до
+  заголовков ответа вместе с рукопожатием. Один пинг одновременно, до `Ping:MaxServersPerRequest` серверов за запрос.
 - Предпросмотр без записи (мастер настройки): `POST /api/subscriptions/preview` (загрузка по настройкам прокси) и
   `POST /api/servers/preview` отдают серверы с `importKey` — тем же ключом, что получит `ServerDto` после сохранения.
 
@@ -152,7 +156,20 @@ Shared.* ──► Exceptions, Shared.Options, Shared.Changes (не на Service
   пропавшие (создаёт заново) и разошедшиеся поля (`FindDrift`).
 - Ключи WG — `xray wg` (нужен установленный Xray). Порт, имя интерфейса и адрес WG выбирает `ConnectionAllocator`.
 - Создание откатывается целиком: Xray отклонил — соединение не сохраняется; Keenetic отклонил — `no interface`, удаление
-  записи, пересборка Xray. Сервер, выбранный в соединении, удалить нельзя (409).
+  записи, пересборка Xray. Сервер, выбранный в соединении основным или резервным, удалить нельзя (409).
+- Резервные серверы (`Connection.FallbackServerIds`, до 3, init-свойство) переключает сам Xray, FlowGate не участвует.
+  Кандидаты — основной и резервные, у которых сервер существует; outbound `out-<id>` (слот 0) и `out-<id>-<слот>`.
+  Кандидат один — прямое правило. Кандидатов ≥2 — балансировщик `bal-<id>` (`leastLoad`, `expected: 1`, `costs`
+  `^tag$` = 1/100/10⁴/10⁶ по рангу, `fallbackTag` — первый кандидат) и общий `burstObservatory` (опции
+  `Connections:FallbackProbe*`). Порядок не строгий: `leastLoad` сравнивает отклонение RTT × √cost. Массовая смена
+  сервера убирает новый основной из резервных.
+- «Сейчас через» (`ConnectionDto.Routing`): с первым балансировщиком в конфиг добавляется `api` (`RoutingService` на
+  `127.0.0.1:Xray:ApiPort`), `IXrayBalancerStatusProvider` вызывает `xray api bi -s … -json bal-…` (кеш 10 с) и
+  разбирает ответ `XrayBalancerInfoParser` (объект на тег по порядку аргументов, `principleTarget.tag[0]`, override
+  важнее; без тегов команда не работает, хоть справка и обещает). Другая версия Xray не ломает конфиг: если
+  `xray run -test` отклонил вариант с `api`, `XrayConfigService.WriteAsync` пишет вариант без него
+  (`IXrayApiState.Rejected`), колонка — `Unsupported`. Неизвестная команда, формат или закрытый порт API при
+  работающем Xray — тоже `Unsupported`; Xray не запущен, таймаут, `cannot find tag` — `Unavailable`.
 
 ### Источники списков и DNS-маршруты
 

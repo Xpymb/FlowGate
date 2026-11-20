@@ -166,12 +166,12 @@ public sealed class ServerService : IServerService
         EnsureManual(existing, "удалить");
 
         var users = (await _connections.GetAllAsync(cancellationToken))
-            .Where(connection => connection.ServerId == id)
+            .Where(connection => connection.CandidateServerIds.Contains(id, StringComparer.Ordinal))
             .Select(connection => $"«{connection.Name}»")
             .ToList();
         if (users.Count > 0)
         {
-            throw new ConflictException($"Сервер выбран в соединениях {string.Join(", ", users)}: сначала выберите в них другой сервер");
+            throw new ConflictException($"Сервер выбран основным или резервным в соединениях {string.Join(", ", users)}: сначала уберите его из них");
         }
 
         var settings = await _settings.GetAsync(cancellationToken);

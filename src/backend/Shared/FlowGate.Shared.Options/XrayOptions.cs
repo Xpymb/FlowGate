@@ -71,4 +71,10 @@ public sealed class XrayOptions
     /// </summary>
     [Range(1, 720)]
     public int UpdateCheckIntervalHours { get; set; } = 24;
+
+    /// <summary>
+    ///     Порт API основного Xray на <c>127.0.0.1</c>: через него FlowGate узнаёт выбор балансировщиков соединений
+    /// </summary>
+    [Range(1024, 65535)]
+    public int ApiPort { get; set; } = 10792;
 }

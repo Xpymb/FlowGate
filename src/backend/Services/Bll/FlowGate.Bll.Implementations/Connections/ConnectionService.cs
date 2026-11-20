@@ -7,6 +7,7 @@ using FlowGate.Bll.Interfaces.Xray;
 using FlowGate.Contracts.Connections;
 using FlowGate.Contracts.Keenetic;
 using FlowGate.Contracts.Servers;
+using FlowGate.Contracts.Xray;
 using FlowGate.Dal.Interfaces.Connections;
 using FlowGate.Dal.Interfaces.DnsRoutes;
 using FlowGate.Dal.Interfaces.Servers;
@@ -31,6 +32,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
     private readonly IKeeneticInterfaceService _interfaces;
     private readonly IWireguardKeyGenerator _keyGenerator;
     private readonly IXrayConfigService _xrayConfig;
+    private readonly IXrayBalancerStatusProvider _balancers;
     private readonly ConnectionOptions _options;
     private readonly KeeneticInterfaceParameters _interfaceParameters;
     private readonly TimeProvider _timeProvider;
@@ -46,6 +48,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
     /// <param name="interfaces">Интерфейсы Keenetic</param>
     /// <param name="keyGenerator">Ключи WireGuard</param>
     /// <param name="xrayConfig">Применение конфигурации Xray</param>
+    /// <param name="balancers">Выбор балансировщиков Xray: через какой сервер сейчас идёт трафик</param>
     /// <param name="options">Настройки соединений</param>
     /// <param name="timeProvider">Источник времени</param>
     /// <param name="logger">Логгер</param>
@@ -57,6 +60,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         IKeeneticInterfaceService interfaces,
         IWireguardKeyGenerator keyGenerator,
         IXrayConfigService xrayConfig,
+        IXrayBalancerStatusProvider balancers,
         IOptions<ConnectionOptions> options,
         TimeProvider timeProvider,
         ILogger<ConnectionService> logger)
@@ -67,6 +71,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         _interfaces = interfaces ?? throw new ArgumentNullException(nameof(interfaces));
         _keyGenerator = keyGenerator ?? throw new ArgumentNullException(nameof(keyGenerator));
         _xrayConfig = xrayConfig ?? throw new ArgumentNullException(nameof(xrayConfig));
+        _balancers = balancers ?? throw new ArgumentNullException(nameof(balancers));
         ArgumentNullException.ThrowIfNull(options);
         _options = options.Value;
         _interfaceParameters = new KeeneticInterfaceParameters(_options.ListenAddress, _options.WireguardMtu, _options.WireguardKeepaliveSeconds);
@@ -85,7 +90,8 @@ public sealed class ConnectionService : IConnectionService, IDisposable
 
         var servers = await GetServersAsync(cancellationToken);
         var interfaces = await TryGetInterfacesAsync(cancellationToken);
-        return connections.Select(connection => connection.ToDto(servers.GetValueOrDefault(connection.ServerId), interfaces)).ToList();
+        var balancers = await TryGetBalancersAsync(connections, servers, cancellationToken);
+        return connections.Select(connection => connection.ToDto(servers, interfaces, balancers)).ToList();
     }
 
     /// <inheritdoc />
@@ -109,9 +115,10 @@ public sealed class ConnectionService : IConnectionService, IDisposable
             var existing = await _connections.GetAllAsync(cancellationToken);
             var name = ValidateName(request.Name, existing, exceptId: null);
             await EnsureServerExistsAsync(request.ServerId, cancellationToken);
+            var fallbacks = await ValidateFallbacksAsync(request.FallbackServerIds, request.ServerId, current: null, cancellationToken);
 
             var interfaces = await _interfaces.GetAllAsync(cancellationToken);
-            connection = await AllocateAsync(name, kind, request.ServerId, existing, interfaces, cancellationToken);
+            connection = await AllocateAsync(name, kind, request.ServerId, existing, interfaces, cancellationToken) with { FallbackServerIds = fallbacks };
 
             await _connections.AddAsync(connection, cancellationToken);
             try
@@ -171,10 +178,19 @@ public sealed class ConnectionService : IConnectionService, IDisposable
                 await EnsureServerExistsAsync(request.ServerId, cancellationToken);
             }
 
-            updated = current with { Name = name, ServerId = request.ServerId, UpdatedAt = _timeProvider.GetUtcNow() };
+            var fallbacks = await ValidateFallbacksAsync(request.FallbackServerIds, request.ServerId, current, cancellationToken);
+            var routingChanged = serverChanged || !fallbacks.SequenceEqual(current.FallbackServerIds, StringComparer.Ordinal);
+
+            updated = current with
+            {
+                Name = name,
+                ServerId = request.ServerId,
+                FallbackServerIds = fallbacks,
+                UpdatedAt = _timeProvider.GetUtcNow(),
+            };
             await _connections.UpdateAsync(updated, cancellationToken);
 
-            if (serverChanged)
+            if (routingChanged)
             {
                 try
                 {
@@ -201,7 +217,12 @@ public sealed class ConnectionService : IConnectionService, IDisposable
             _sync.Release();
         }
 
-        _logger.LogInformation("Соединение {ConnectionId} «{Name}» изменено, сервер {ServerId}", updated.Id, updated.Name, updated.ServerId);
+        _logger.LogInformation(
+            "Соединение {ConnectionId} «{Name}» изменено, сервер {ServerId}, резервных {Fallbacks}",
+            updated.Id,
+            updated.Name,
+            updated.ServerId,
+            updated.FallbackServerIds.Count);
         return await ToDtoAsync(updated, cancellationToken);
     }
 
@@ -233,7 +254,14 @@ public sealed class ConnectionService : IConnectionService, IDisposable
                 .Where(connection => !string.Equals(connection.ServerId, request.ServerId, StringComparison.Ordinal))
                 .ToList();
             var now = _timeProvider.GetUtcNow();
-            changed = originals.Select(connection => connection with { ServerId = request.ServerId, UpdatedAt = now }).ToList();
+            changed = originals
+                .Select(connection => connection with
+                {
+                    ServerId = request.ServerId,
+                    FallbackServerIds = connection.FallbackServerIds.Where(id => !string.Equals(id, request.ServerId, StringComparison.Ordinal)).ToList(),
+                    UpdatedAt = now,
+                })
+                .ToList();
 
             if (changed.Count > 0)
             {
@@ -421,9 +449,10 @@ public sealed class ConnectionService : IConnectionService, IDisposable
 
     private async Task<ConnectionDto> ToDtoAsync(Connection connection, CancellationToken cancellationToken)
     {
-        var server = await _servers.GetAsync(connection.ServerId, cancellationToken);
+        var servers = await GetServersAsync(cancellationToken);
         var interfaces = await TryGetInterfacesAsync(cancellationToken);
-        return connection.ToDto(server, interfaces);
+        var balancers = await TryGetBalancersAsync([connection], servers, cancellationToken);
+        return connection.ToDto(servers, interfaces, balancers);
     }
 
     private async Task<IReadOnlyDictionary<string, KeeneticInterfaceState>?> TryGetInterfacesAsync(CancellationToken cancellationToken)
@@ -439,6 +468,26 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         }
     }
 
+    private async Task<XrayBalancerStatus> TryGetBalancersAsync(
+        IReadOnlyList<Connection> connections,
+        IReadOnlyDictionary<string, Server> servers,
+        CancellationToken cancellationToken)
+    {
+        var tags = connections
+            .Where(connection => connection.AliveCandidates(servers).Count > 1)
+            .Select(connection => connection.BalancerTag)
+            .ToList();
+        try
+        {
+            return await _balancers.GetAsync(tags, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning("Выбор балансировщиков Xray недоступен: {Error}", ex.Message);
+            return XrayBalancerStatus.Without(XrayBalancerSupport.Unavailable);
+        }
+    }
+
     private async Task<Dictionary<string, Server>> GetServersAsync(CancellationToken cancellationToken) =>
         (await _servers.GetAllAsync(cancellationToken)).ToDictionary(server => server.Id, StringComparer.Ordinal);
 
@@ -448,6 +497,44 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         {
             throw new RequestValidationException("Выберите существующий сервер");
         }
+    }
+
+    private async Task<IReadOnlyList<string>> ValidateFallbacksAsync(
+        IReadOnlyList<string>? requested,
+        string serverId,
+        Connection? current,
+        CancellationToken cancellationToken)
+    {
+        var fallbacks = (requested ?? []).Select(id => id?.Trim() ?? string.Empty).ToList();
+        if (fallbacks.Count > Connection.MaxFallbacks)
+        {
+            throw new RequestValidationException($"Резервных серверов не больше {Connection.MaxFallbacks}");
+        }
+
+        if (fallbacks.Any(string.IsNullOrEmpty))
+        {
+            throw new RequestValidationException("Выберите резервный сервер");
+        }
+
+        if (fallbacks.Contains(serverId, StringComparer.Ordinal))
+        {
+            throw new RequestValidationException("Основной сервер не может быть резервным");
+        }
+
+        if (fallbacks.Distinct(StringComparer.Ordinal).Count() != fallbacks.Count)
+        {
+            throw new RequestValidationException("Резервные серверы не должны повторяться");
+        }
+
+        var servers = await GetServersAsync(cancellationToken);
+        var kept = current?.FallbackServerIds ?? [];
+        var missing = fallbacks.FirstOrDefault(id => !servers.ContainsKey(id) && !kept.Contains(id, StringComparer.Ordinal));
+        if (missing is not null)
+        {
+            throw new RequestValidationException("Выберите существующий резервный сервер");
+        }
+
+        return fallbacks;
     }
 
     private async Task<Connection> GetExistingAsync(string id, CancellationToken cancellationToken) =>

@@ -7,6 +7,7 @@
 	import { errorMessage, unwrap } from '#lib/api/errors.js';
 	import { ask } from '#lib/confirm.svelte.js';
 	import { formatDateTime } from '#lib/format.js';
+	import { pingLabel, pinging, pings, pingServers } from '#lib/ping.svelte.js';
 	import { attempt, attemptOk } from '#lib/toast.svelte.js';
 	import { guardUnsaved } from '#lib/unsaved.svelte.js';
 	import type { components } from '#lib/api/schema.js';
@@ -118,6 +119,10 @@
 		warnings = draft.warnings;
 		validation = undefined;
 		link = '';
+	}
+
+	async function ping() {
+		await attempt(() => pingServers([id]).then(() => true));
 	}
 
 	async function validate() {
@@ -278,6 +283,24 @@
 						{:else}
 							<Badge tone="danger" dot>есть ошибки</Badge>
 						{/if}
+					{/if}
+					{#if !isNew && pings[id]}
+						{@const result = pings[id]}
+						{@const label = pingLabel(result)}
+						<span title={result.error}><Badge tone={label.tone} dot>{label.label}</Badge></span>
+					{/if}
+					{#if !isNew}
+						<button
+							class="btn sm"
+							aria-busy={!!pinging[id]}
+							disabled={dirty}
+							title={dirty
+								? 'Сохраните изменения: пингуется сохранённый outbound'
+								: 'HTTP-запрос через сервер во временном Xray'}
+							onclick={ping}
+						>
+							<Icon name="play" size={14} />Пинг
+						</button>
 					{/if}
 					<button class="btn sm" aria-busy={validating} onclick={validate}>
 						<Icon name="check" size={14} />Проверить конфигурацию

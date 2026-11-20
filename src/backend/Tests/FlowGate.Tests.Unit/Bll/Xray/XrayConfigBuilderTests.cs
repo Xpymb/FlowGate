@@ -126,6 +126,22 @@ public class XrayConfigBuilderTests
             { new XrayConfigModel("info", [socks], [], []), "нет правила" },
             { new XrayConfigModel("info", [socks], [], [new XrayRoutingRule(["in"], "missing")]), "несуществующий outbound" },
             { new XrayConfigModel("info", [], [], [new XrayRoutingRule(["ghost"], "direct")]), "несуществующий inbound" },
+            {
+                new XrayConfigModel("info", [socks], [], [XrayRoutingRule.ToBalancer(["in"], "bal")])
+                {
+                    Balancers = [new XrayBalancer("bal", ["out"], "direct", new Dictionary<string, double>(), 0)],
+                },
+                "несуществующий outbound «out»"
+            },
+            { new XrayConfigModel("info", [socks], [], [XrayRoutingRule.ToBalancer(["in"], "ghost")]), "несуществующий балансировщик" },
+            { new XrayConfigModel("info", [socks], [], [new XrayRoutingRule(["in"], "direct", BalancerTag: "bal")]), "ровно один" },
+            {
+                new XrayConfigModel("info", [socks], [new XrayOutbound("api", new JsonObject())], [new XrayRoutingRule(["in"], "direct")])
+                {
+                    Api = new XrayApi("127.0.0.1:10792", ["RoutingService"]),
+                },
+                "зарезервирован для API"
+            },
         };
     }
 

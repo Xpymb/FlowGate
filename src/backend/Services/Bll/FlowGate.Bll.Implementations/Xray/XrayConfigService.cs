@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using FlowGate.Bll.Interfaces.Xray;
+using FlowGate.Contracts.Xray;
 using FlowGate.Dal.Interfaces.Settings;
 using FlowGate.Dal.Interfaces.Xray;
 using FlowGate.Exceptions;
@@ -27,6 +28,7 @@ public sealed class XrayConfigService : IXrayConfigService
     private readonly ISettingsProvider _settings;
     private readonly IProcessRunner _processRunner;
     private readonly IXrayProcessService _process;
+    private readonly IXrayApiState _apiState;
     private readonly ILogger<XrayConfigService> _logger;
     private readonly string _binaryPath;
 
@@ -39,6 +41,7 @@ public sealed class XrayConfigService : IXrayConfigService
     /// <param name="settings">Пользовательские настройки (уровень логирования)</param>
     /// <param name="processRunner">Запуск <c>xray run -test</c></param>
     /// <param name="process">Процесс Xray</param>
+    /// <param name="apiState">Состояние API в действующем конфиге</param>
     /// <param name="options">Настройки Xray</param>
     /// <param name="logger">Логгер</param>
     /// <exception cref="ArgumentNullException">Если любой аргумент равен null</exception>
@@ -49,6 +52,7 @@ public sealed class XrayConfigService : IXrayConfigService
         ISettingsProvider settings,
         IProcessRunner processRunner,
         IXrayProcessService process,
+        IXrayApiState apiState,
         IOptions<XrayOptions> options,
         ILogger<XrayConfigService> logger)
     {
@@ -58,6 +62,7 @@ public sealed class XrayConfigService : IXrayConfigService
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _processRunner = processRunner ?? throw new ArgumentNullException(nameof(processRunner));
         _process = process ?? throw new ArgumentNullException(nameof(process));
+        _apiState = apiState ?? throw new ArgumentNullException(nameof(apiState));
         ArgumentNullException.ThrowIfNull(options);
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _binaryPath = Path.GetFullPath(options.Value.BinaryPath);
@@ -68,36 +73,46 @@ public sealed class XrayConfigService : IXrayConfigService
     {
         var settings = await _settings.GetAsync(cancellationToken);
         var model = await _source.GetModelAsync(settings.XrayLogLevel, cancellationToken);
-        var content = Serialize(_builder.Build(model));
-
+        var variants = Variants(model);
         var current = await _configFile.ReadAsync(cancellationToken);
-        if (current is not null && current.AsSpan().SequenceEqual(content))
+
+        for (var index = 0; index < variants.Count; index++)
         {
-            if (testBinaryPath is not null)
+            var (content, availability) = variants[index];
+            var last = index == variants.Count - 1;
+
+            if (current is not null && current.AsSpan().SequenceEqual(content))
             {
-                await TestAsync(testBinaryPath, _configFile.ConfigPath, cancellationToken);
+                if (testBinaryPath is not null && !await PassesAsync(testBinaryPath, _configFile.ConfigPath, last, cancellationToken))
+                {
+                    continue;
+                }
+
+                SetApiAvailability(availability);
+                return false;
             }
 
-            return false;
-        }
-
-        var candidate = await _configFile.WriteCandidateAsync(content, cancellationToken);
-        try
-        {
-            if (testBinaryPath is not null)
+            var candidate = await _configFile.WriteCandidateAsync(content, cancellationToken);
+            try
             {
-                await TestAsync(testBinaryPath, candidate, cancellationToken);
+                if (testBinaryPath is not null && !await PassesAsync(testBinaryPath, candidate, last, cancellationToken))
+                {
+                    continue;
+                }
+
+                _configFile.Commit(candidate);
+            }
+            finally
+            {
+                _configFile.Discard(candidate);
             }
 
-            _configFile.Commit(candidate);
-        }
-        finally
-        {
-            _configFile.Discard(candidate);
+            SetApiAvailability(availability);
+            _logger.LogInformation("Конфигурация Xray обновлена: {Inbounds} inbound, {Outbounds} outbound", model.Inbounds.Count, model.Outbounds.Count);
+            return true;
         }
 
-        _logger.LogInformation("Конфигурация Xray обновлена: {Inbounds} inbound, {Outbounds} outbound", model.Inbounds.Count, model.Outbounds.Count);
-        return true;
+        throw new InvalidOperationException("Нет вариантов конфигурации Xray");
     }
 
     /// <inheritdoc />
@@ -115,6 +130,44 @@ public sealed class XrayConfigService : IXrayConfigService
                 return changed;
             },
             cancellationToken);
+
+    private List<(byte[] Content, XrayApiAvailability Availability)> Variants(XrayConfigModel model)
+    {
+        if (model.Api is null)
+        {
+            return [(Serialize(_builder.Build(model)), XrayApiAvailability.NotNeeded)];
+        }
+
+        return
+        [
+            (Serialize(_builder.Build(model)), XrayApiAvailability.Enabled),
+            (Serialize(_builder.Build(model with { Api = null })), XrayApiAvailability.Rejected),
+        ];
+    }
+
+    private async Task<bool> PassesAsync(string binaryPath, string configPath, bool last, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await TestAsync(binaryPath, configPath, cancellationToken);
+            return true;
+        }
+        catch (XrayOperationException ex) when (!last)
+        {
+            _logger.LogWarning("Xray отклонил конфигурацию с API, пробую без API: {Error}", ex.Message);
+            return false;
+        }
+    }
+
+    private void SetApiAvailability(XrayApiAvailability availability)
+    {
+        if (availability == XrayApiAvailability.Rejected && _apiState.Availability != XrayApiAvailability.Rejected)
+        {
+            _logger.LogWarning("Установленный Xray не принимает API: выбор балансировщиков соединений недоступен");
+        }
+
+        _apiState.Availability = availability;
+    }
 
     private async Task TestAsync(string binaryPath, string configPath, CancellationToken cancellationToken)
     {

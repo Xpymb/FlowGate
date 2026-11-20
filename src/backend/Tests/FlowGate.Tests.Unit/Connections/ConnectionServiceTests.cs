@@ -7,6 +7,7 @@ using FlowGate.Bll.Implementations.Connections;
 using FlowGate.Bll.Implementations.Keenetic;
 using FlowGate.Bll.Interfaces.Xray;
 using FlowGate.Contracts.DnsRoutes;
+using FlowGate.Contracts.Xray;
 using FlowGate.Dal.Implementations.Connections;
 using FlowGate.Dal.Implementations.DnsRoutes;
 using FlowGate.Dal.Implementations.Servers;
@@ -33,6 +34,7 @@ public sealed class ConnectionServiceTests : IDisposable
     private readonly FakeKeeneticRci _keenetic = new();
     private readonly IXrayConfigService _xrayConfig = Substitute.For<IXrayConfigService>();
     private readonly IXrayVersionProvider _versionProvider = Substitute.For<IXrayVersionProvider>();
+    private readonly IXrayBalancerStatusProvider _balancers = Substitute.For<IXrayBalancerStatusProvider>();
     private readonly NdmsOperationQueue _queue;
     private readonly ServerProvider _servers;
     private readonly ConnectionProvider _connections;
@@ -50,6 +52,9 @@ public sealed class ConnectionServiceTests : IDisposable
         _routes = new DnsRouteProvider(storeFactory);
         _queue = new NdmsOperationQueue(Microsoft.Extensions.Options.Options.Create(new KeeneticOptions()), NullLogger<NdmsOperationQueue>.Instance);
         _versionProvider.IsInstalled.Returns(true);
+        _balancers
+            .GetAsync(Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+            .Returns(XrayBalancerStatus.Without(XrayBalancerSupport.NotNeeded));
 
         var rci = new KeeneticRciClient(new HttpClient(_keenetic.Handler) { BaseAddress = new Uri("http://127.0.0.1:79/rci/") });
         var interfaces = new KeeneticInterfaceService(rci, _queue, NullLogger<KeeneticInterfaceService>.Instance);
@@ -62,6 +67,7 @@ public sealed class ConnectionServiceTests : IDisposable
             interfaces,
             keyGenerator,
             _xrayConfig,
+            _balancers,
             Microsoft.Extensions.Options.Options.Create(new ConnectionOptions()),
             TimeProvider.System,
             NullLogger<ConnectionService>.Instance);
@@ -429,6 +435,163 @@ public sealed class ConnectionServiceTests : IDisposable
 
         Assert.Null(listed.ServerName);
         Assert.Contains(listed.Problems, problem => problem.Contains("Сервер удалён"));
+    }
+
+    /// <summary>
+    ///     Резервные серверы сохраняются по порядку и попадают в DTO с именами
+    /// </summary>
+    [Fact]
+    public async Task CreateAsync_WithFallbacks_StoresThemInOrder()
+    {
+        await _servers.AddAsync([ConnectionTestData.Server("srv-nl"), ConnectionTestData.Server("srv-fi")], Token);
+
+        var created = await _sut.CreateAsync(new ConnectionCreateRequest("A", "socks", "srv-de", ["srv-fi", "srv-nl"]), Token);
+
+        Assert.Equal(["srv-fi", "srv-nl"], created.Fallbacks.Select(fallback => fallback.ServerId));
+        Assert.All(created.Fallbacks, fallback => Assert.Equal("Германия", fallback.ServerName));
+        Assert.Equal(["srv-fi", "srv-nl"], (await _connections.GetAsync(created.Id, Token))!.FallbackServerIds);
+    }
+
+    /// <summary>
+    ///     Недопустимые резервные серверы — 400, соединение не создаётся
+    /// </summary>
+    /// <param name="fallbacks">Резервные серверы через запятую</param>
+    [Theory]
+    [InlineData("srv-nl,srv-fi,srv-se,srv-no")]
+    [InlineData("srv-nl,srv-nl")]
+    [InlineData("srv-de")]
+    [InlineData("srv-unknown")]
+    public async Task CreateAsync_InvalidFallbacks_ThrowsValidation(string fallbacks)
+    {
+        await _servers.AddAsync(
+            [ConnectionTestData.Server("srv-nl"), ConnectionTestData.Server("srv-fi"), ConnectionTestData.Server("srv-se"), ConnectionTestData.Server("srv-no")],
+            Token);
+
+        await Assert.ThrowsAsync<RequestValidationException>(
+            () => _sut.CreateAsync(new ConnectionCreateRequest("A", "socks", "srv-de", fallbacks.Split(',')), Token));
+
+        Assert.Empty(await _connections.GetAllAsync(Token));
+    }
+
+    /// <summary>
+    ///     Изменение только резервных серверов пересобирает конфигурацию Xray, Keenetic не трогается
+    /// </summary>
+    [Fact]
+    public async Task UpdateAsync_FallbacksChanged_AppliesXray()
+    {
+        await _servers.AddAsync([ConnectionTestData.Server("srv-nl")], Token);
+        var created = await _sut.CreateAsync(new ConnectionCreateRequest("A", "socks", "srv-de"), Token);
+        _keenetic.ClearCommands();
+        _xrayConfig.ClearReceivedCalls();
+
+        var updated = await _sut.UpdateAsync(created.Id, new ConnectionUpdateRequest("A", "srv-de", ["srv-nl"]), Token);
+
+        Assert.Equal("srv-nl", Assert.Single(updated.Fallbacks).ServerId);
+        Assert.Empty(_keenetic.Commands);
+        await _xrayConfig.Received(1).ApplyAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    ///     Без изменения сервера и резервных Xray не пересобирается
+    /// </summary>
+    [Fact]
+    public async Task UpdateAsync_SameFallbacks_SkipsXray()
+    {
+        await _servers.AddAsync([ConnectionTestData.Server("srv-nl")], Token);
+        var created = await _sut.CreateAsync(new ConnectionCreateRequest("A", "socks", "srv-de", ["srv-nl"]), Token);
+        _xrayConfig.ClearReceivedCalls();
+
+        await _sut.UpdateAsync(created.Id, new ConnectionUpdateRequest("B", "srv-de", ["srv-nl"]), Token);
+
+        await _xrayConfig.DidNotReceive().ApplyAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    ///     Массовая смена сервера убирает новый основной сервер из резервных
+    /// </summary>
+    [Fact]
+    public async Task ChangeServerAsync_NewServerWasFallback_RemovesItFromFallbacks()
+    {
+        await _servers.AddAsync([ConnectionTestData.Server("srv-nl"), ConnectionTestData.Server("srv-fi")], Token);
+        var created = await _sut.CreateAsync(new ConnectionCreateRequest("A", "socks", "srv-de", ["srv-nl", "srv-fi"]), Token);
+
+        await _sut.ChangeServerAsync(new ConnectionServerChangeRequest([created.Id], "srv-nl"), Token);
+
+        var stored = (await _connections.GetAsync(created.Id, Token))!;
+        Assert.Equal("srv-nl", stored.ServerId);
+        Assert.Equal(["srv-fi"], stored.FallbackServerIds);
+    }
+
+    /// <summary>
+    ///     Основной сервер удалён, резервный жив — проблема говорит, что трафик идёт через резервные
+    /// </summary>
+    [Fact]
+    public async Task GetAllAsync_PrimaryDeletedFallbackAlive_ReportsFallbackProblem()
+    {
+        await _servers.AddAsync([ConnectionTestData.Server("srv-nl")], Token);
+        await _sut.CreateAsync(new ConnectionCreateRequest("A", "socks", "srv-de", ["srv-nl"]), Token);
+        await _servers.DeleteAsync("srv-de", Token);
+
+        var listed = Assert.Single(await _sut.GetAllAsync(Token));
+
+        Assert.Contains(listed.Problems, problem => problem.Contains("через резервные"));
+    }
+
+    /// <summary>
+    ///     Без резервных серверов — Direct с основным, балансировщики не запрашиваются
+    /// </summary>
+    [Fact]
+    public async Task GetAllAsync_NoFallbacks_RoutingDirect()
+    {
+        await _sut.CreateAsync(new ConnectionCreateRequest("A", "socks", "srv-de"), Token);
+
+        var routing = Assert.Single(await _sut.GetAllAsync(Token)).Routing;
+
+        Assert.Equal(("Direct", "srv-de", 0), (routing.Status, routing.ActiveServerId, routing.ActiveSlot));
+        await _balancers.Received().GetAsync(Arg.Is<IReadOnlyList<string>>(tags => tags.Count == 0), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    ///     Балансировщик выбрал резервный — Active со слотом резервного; не выбрал ещё — основной (fallbackTag)
+    /// </summary>
+    [Fact]
+    public async Task GetAllAsync_BalancerSelectedFallback_RoutingActiveSlot()
+    {
+        await _servers.AddAsync([ConnectionTestData.Server("srv-nl"), ConnectionTestData.Server("srv-fi")], Token);
+        var first = await _sut.CreateAsync(new ConnectionCreateRequest("A", "socks", "srv-de", ["srv-nl", "srv-fi"]), Token);
+        var second = await _sut.CreateAsync(new ConnectionCreateRequest("B", "http", "srv-de", ["srv-nl"]), Token);
+        _balancers
+            .GetAsync(Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new XrayBalancerStatus(
+                XrayBalancerSupport.Supported,
+                new Dictionary<string, string?> { ["bal-" + first.Id] = $"out-{first.Id}-2", ["bal-" + second.Id] = null }));
+
+        var listed = (await _sut.GetAllAsync(Token)).ToDictionary(connection => connection.Id);
+
+        Assert.Equal(("Active", "srv-fi", 2), (listed[first.Id].Routing.Status, listed[first.Id].Routing.ActiveServerId, listed[first.Id].Routing.ActiveSlot));
+        Assert.Equal(("Active", "srv-de", 0), (listed[second.Id].Routing.Status, listed[second.Id].Routing.ActiveServerId, listed[second.Id].Routing.ActiveSlot));
+    }
+
+    /// <summary>
+    ///     Версия Xray без API — Unsupported; провайдер упал — Unavailable, список соединений всё равно отдаётся
+    /// </summary>
+    [Fact]
+    public async Task GetAllAsync_ApiUnsupportedOrFailing_ReportsStatus()
+    {
+        await _servers.AddAsync([ConnectionTestData.Server("srv-nl")], Token);
+        await _sut.CreateAsync(new ConnectionCreateRequest("A", "socks", "srv-de", ["srv-nl"]), Token);
+        _balancers
+            .GetAsync(Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+            .Returns(XrayBalancerStatus.Without(XrayBalancerSupport.Unsupported));
+        var unsupported = Assert.Single(await _sut.GetAllAsync(Token)).Routing;
+
+        _balancers
+            .GetAsync(Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+            .Returns<XrayBalancerStatus>(_ => throw new InvalidOperationException("boom"));
+        var failing = Assert.Single(await _sut.GetAllAsync(Token)).Routing;
+
+        Assert.Equal("Unsupported", unsupported.Status);
+        Assert.Equal("Unavailable", failing.Status);
     }
 
     /// <inheritdoc />

@@ -39,3 +39,7 @@
   (`/api/subscriptions/preview`, `/api/servers/preview`) и находится после сохранения по `importKey`. Шаги конвейера
   идемпотентны: «Повторить» продолжает с упавшего. Черновик — только в памяти (URL подписки с токеном).
 - `resolve()` принимает маршрут с query: `resolve(`/routes?${query}`)`.
+- Пинг серверов — `pingServers()` из `#lib/ping.svelte.js`: пачки по 20 в `/api/servers/ping`, результаты в памяти
+  сессии (`pings`), подпись и цвет — `pingLabel()`.
+- Колонка «Сейчас через» на «Соединениях» — `connectionRouting()` из `#lib/labels.js` по `ConnectionDto.routing`;
+  статус `Unsupported` (версия Xray без API балансировщика) показывается как «не поддерживается», а не как ошибка.

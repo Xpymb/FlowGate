@@ -103,6 +103,38 @@ public sealed class ConnectionEndpointsTests : IDisposable
     }
 
     /// <summary>
+    ///     Соединение с резервным сервером: в ответе резервный с именем, в xray.json — балансировщик и burstObservatory,
+    ///     удалить резервный сервер нельзя
+    /// </summary>
+    [Fact]
+    public async Task Create_WithFallback_BuildsBalancerAndProtectsServer()
+    {
+        using var client = _factory.CreateClient();
+        var primaryId = await CreateServerAsync(client);
+        var fallbackId = await CreateServerAsync(client, "Нидерланды", "trojan://p@nl.example.net:443?sni=nl.example.net#NL");
+
+        var created = await ApiJson.PostAsync(
+            client,
+            "/api/connections",
+            new { name = "A", kind = "Socks", serverId = primaryId, fallbackServerIds = new[] { fallbackId } },
+            HttpStatusCode.Created);
+        var invalid = await ApiJson.PostAsync(
+            client,
+            "/api/connections",
+            new { name = "B", kind = "Socks", serverId = primaryId, fallbackServerIds = new[] { primaryId } },
+            HttpStatusCode.BadRequest);
+        var delete = await ApiJson.DeleteAsync(client, $"/api/servers/{fallbackId}", HttpStatusCode.Conflict);
+        var config = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(_factory.DataDirectory, "xray.json"), TestContext.Current.CancellationToken))!;
+
+        var fallback = Assert.Single(created.GetProperty("fallbacks").EnumerateArray());
+        Assert.Equal(("Нидерланды", fallbackId), (fallback.GetProperty("serverName").GetString(), fallback.GetProperty("serverId").GetString()));
+        Assert.Equal("VALIDATION_ERROR", invalid.GetProperty("errorCode").GetString());
+        Assert.Equal("CONFLICT", delete.GetProperty("errorCode").GetString());
+        Assert.Equal("leastLoad", config["routing"]!["balancers"]![0]!["strategy"]!["type"]!.GetValue<string>());
+        Assert.NotNull(config["burstObservatory"]);
+    }
+
+    /// <summary>
     ///     Неизвестное соединение — 404
     /// </summary>
     [Fact]

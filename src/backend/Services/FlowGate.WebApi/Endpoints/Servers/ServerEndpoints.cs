@@ -65,6 +65,12 @@ public static class ServerEndpoints
             .WithSummary("Разобрать ссылки или Xray-JSON в список серверов без сохранения")
             .Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
 
+        servers.MapPost("/ping", PingAsync)
+            .WithName("PingServers")
+            .WithSummary("Пинг серверов: HTTP-запрос через outbound во временном Xray")
+            .Produces<ErrorResponse>(StatusCodes.Status400BadRequest)
+            .Produces<ErrorResponse>(StatusCodes.Status409Conflict);
+
         return routes;
     }
 
@@ -113,4 +119,10 @@ public static class ServerEndpoints
 
     private static Ok<ServerPreviewDto> Preview(IServerService servers, ServerImportRequest request) =>
         TypedResults.Ok(servers.Preview(request));
+
+    private static async Task<Ok<IReadOnlyList<ServerPingResultDto>>> PingAsync(
+        IServerPingService ping,
+        ServerPingRequest request,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await ping.PingAsync(request, cancellationToken));
 }

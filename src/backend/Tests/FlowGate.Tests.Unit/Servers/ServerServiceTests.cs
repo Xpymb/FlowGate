@@ -212,6 +212,24 @@ public sealed class ServerServiceTests : IDisposable
     }
 
     /// <summary>
+    ///     Сервер, выбранный резервным в соединении, удалить нельзя — 409 с именем соединения
+    /// </summary>
+    [Fact]
+    public async Task DeleteAsync_ServerUsedAsFallback_ThrowsConflict()
+    {
+        var created = await _sut.CreateAsync(new ServerSaveRequest("Германия", _sut.Parse(new ServerParseRequest(TrojanLink)).Outbound), TestContext.Current.CancellationToken);
+        var now = DateTimeOffset.UnixEpoch;
+        await _connections.AddAsync(
+            new Connection("con-1", "YouTube", ConnectionKind.Socks, "srv-other", 10800, "Proxy0", null, now, now) { FallbackServerIds = [created.Server.Id] },
+            TestContext.Current.CancellationToken);
+
+        var exception = await Assert.ThrowsAsync<ConflictException>(() => _sut.DeleteAsync(created.Server.Id, TestContext.Current.CancellationToken));
+
+        Assert.Contains("резервным", exception.Message);
+        Assert.NotNull(await _servers.GetAsync(created.Server.Id, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
     ///     Сервер, выбранный для прокси обновлений, удалить нельзя — 409
     /// </summary>
     [Fact]

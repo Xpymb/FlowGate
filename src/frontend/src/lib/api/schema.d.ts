@@ -313,6 +313,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/servers/ping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Пинг серверов: HTTP-запрос через outbound во временном Xray */
+        post: operations["PingServers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/subscriptions": {
         parameters: {
             query?: never;
@@ -730,6 +747,8 @@ export interface components {
             kind: string;
             /** @description Сервер, через который пойдёт трафик */
             serverId: string;
+            /** @description Резервные серверы по убыванию приоритета, до трёх; null — без резервных */
+            fallbackServerIds?: null | string[];
         };
         /** @description Соединение с состоянием интерфейса Keenetic */
         ConnectionDto: {
@@ -743,6 +762,10 @@ export interface components {
             serverId: string;
             /** @description Имя сервера или null, если сервер удалён */
             serverName: null | string;
+            /** @description Резервные серверы по убыванию приоритета: Xray переключается на них, если основной не отвечает */
+            fallbacks: components["schemas"]["ConnectionFallbackDto"][];
+            /** @description Через какой сервер сейчас идёт трафик */
+            routing: components["schemas"]["ConnectionRoutingDto"];
             /**
              * Format: int32
              * @description Порт inbound Xray
@@ -766,6 +789,13 @@ export interface components {
              */
             updatedAt: string;
         };
+        /** @description Резервный сервер соединения */
+        ConnectionFallbackDto: {
+            /** @description Сервер */
+            serverId: string;
+            /** @description Имя сервера или null, если сервер удалён */
+            serverName: null | string;
+        };
         /** @description Состояние интерфейса Keenetic соединения */
         ConnectionInterfaceDto: {
             /** @description Интерфейс есть в Keenetic */
@@ -786,6 +816,20 @@ export interface components {
              */
             lastHandshakeSecondsAgo: null | number | string;
         };
+        /** @description Через какой сервер сейчас идёт трафик соединения */
+        ConnectionRoutingDto: {
+            /** @description `Active`, `Direct` (сервер один), `Blocked`, `Unsupported` (Xray без API) или `Unavailable` */
+            status: string;
+            /** @description Сервер, через который идёт трафик, при `Active` и `Direct` */
+            activeServerId: null | string;
+            /** @description Его имя */
+            activeServerName: null | string;
+            /**
+             * Format: int32
+             * @description 0 — основной, 1..3 — номер резервного
+             */
+            activeSlot: null | number | string;
+        };
         /** @description Перевод нескольких соединений на один сервер */
         ConnectionServerChangeRequest: {
             /** @description Идентификаторы соединений */
@@ -799,6 +843,8 @@ export interface components {
             name: string;
             /** @description Сервер, через который пойдёт трафик */
             serverId: string;
+            /** @description Резервные серверы по убыванию приоритета, до трёх; null — без резервных */
+            fallbackServerIds?: null | string[];
         };
         /** @description Итог применения маршрута */
         DnsRouteApplyDto: {
@@ -1270,6 +1316,23 @@ export interface components {
         ServerParseRequest: {
             /** @description Ссылка (vless://, vmess://, trojan://, ss://, hysteria2://, hy2://) или Xray-JSON */
             text: string;
+        };
+        /** @description Пинг серверов */
+        ServerPingRequest: {
+            /** @description Серверы; за один запрос не больше `Ping:MaxServersPerRequest` */
+            serverIds: string[];
+        };
+        /** @description Результат пинга сервера: время HTTP-запроса через outbound вместе с установкой соединения */
+        ServerPingResultDto: {
+            /** @description Сервер */
+            serverId: string;
+            /**
+             * Format: int32
+             * @description Задержка в миллисекундах или null, если сервер не ответил
+             */
+            latencyMs: null | number | string;
+            /** @description Почему сервер не ответил; null при успехе */
+            error: null | string;
         };
         /** @description Серверы, найденные в тексте или подписке, без сохранения */
         ServerPreviewDto: {
@@ -2308,6 +2371,48 @@ export interface operations {
             };
             /** @description Bad Request */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    PingServers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServerPingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerPingResultDto"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

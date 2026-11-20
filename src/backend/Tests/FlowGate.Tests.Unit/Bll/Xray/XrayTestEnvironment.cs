@@ -50,13 +50,17 @@ public sealed class XrayTestEnvironment : IDisposable
         Processes = new XrayProcessManager(Launcher, ProcessTable, xrayOptions, NullLogger<XrayProcessManager>.Instance);
         Process = new XrayProcessService(xrayOptions, ConfigFile, Processes, Logs, TimeProvider, NullLogger<XrayProcessService>.Instance);
         VersionProvider = new XrayVersionProvider(xrayOptions, Runner, NullLogger<XrayVersionProvider>.Instance);
+        ConfigSource
+            .GetModelAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call => FlowGate.Contracts.Xray.XrayConfigModel.Empty(call.Arg<string>()));
         ConfigService = new XrayConfigService(
-            new EmptyXrayConfigSource(),
+            ConfigSource,
             new XrayConfigBuilder(),
             ConfigFile,
             Settings,
             Runner,
             Process,
+            ApiState,
             xrayOptions,
             NullLogger<XrayConfigService>.Instance);
 
@@ -150,6 +154,16 @@ public sealed class XrayTestEnvironment : IDisposable
     ///     Установленная версия
     /// </summary>
     public XrayVersionProvider VersionProvider { get; }
+
+    /// <summary>
+    ///     Источник модели конфигурации; по умолчанию пустая модель
+    /// </summary>
+    public FlowGate.Bll.Interfaces.Xray.IXrayConfigSource ConfigSource { get; } = Substitute.For<FlowGate.Bll.Interfaces.Xray.IXrayConfigSource>();
+
+    /// <summary>
+    ///     Состояние API Xray, которое ставит <see cref="ConfigService"/>
+    /// </summary>
+    public XrayApiState ApiState { get; } = new();
 
     /// <summary>
     ///     Конфигурация Xray

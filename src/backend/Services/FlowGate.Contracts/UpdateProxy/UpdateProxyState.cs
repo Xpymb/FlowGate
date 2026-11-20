@@ -11,17 +11,13 @@ public enum UpdateProxyState
     Disabled,
 
     /// <summary>
-    ///     Включён, экземпляр не запущен; запустится при первом запросе
+    ///     Включён, inbound работает в основном Xray
     /// </summary>
-    Idle,
+    Ready,
 
     /// <summary>
-    ///     Экземпляр работает
-    /// </summary>
-    Running,
-
-    /// <summary>
-    ///     Включён, но запустить не удалось: обновления идут напрямую, причина — в <see cref="UpdateProxyStatus.Reason"/>
+    ///     Включён, но недоступен (Xray не запущен, сервер не найден): обновления идут напрямую, причина — в
+    ///     <see cref="UpdateProxyStatus.Reason"/>
     /// </summary>
     Unavailable,
 }

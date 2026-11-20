@@ -5,8 +5,8 @@ using FlowGate.Contracts.Xray;
 namespace FlowGate.Contracts.UpdateProxy;
 
 /// <summary>
-///     Модель конфигурации прокси обновлений: HTTP-inbound на <c>127.0.0.1</c>, outbound выбранного сервера,
-///     домены обновлений — через сервер, всё остальное — напрямую
+///     Модель прокси обновлений: HTTP-inbound на <c>127.0.0.1</c> и outbound выбранного сервера, весь трафик inbound
+///     уходит через сервер. Через inbound ходят только клиенты обновлений FlowGate и opkg, поэтому список доменов не нужен
 /// </summary>
 public static class UpdateProxyXrayModel
 {
@@ -26,30 +26,32 @@ public static class UpdateProxyXrayModel
     public const string ListenAddress = "127.0.0.1";
 
     /// <summary>
-    ///     Строит модель
+    ///     Строит отдельную модель с одним прокси (экземпляр скрипта самообновления)
     /// </summary>
     /// <param name="logLevel">Уровень логирования Xray</param>
     /// <param name="outbound">Outbound сервера; копируется</param>
-    /// <param name="domains">Домены, которые идут через сервер</param>
     /// <param name="port">Порт HTTP-inbound</param>
     /// <returns>Модель для <c>IXrayConfigBuilder</c></returns>
-    public static XrayConfigModel Build(string logLevel, JsonObject outbound, IReadOnlyList<string> domains, int port)
+    public static XrayConfigModel Build(string logLevel, JsonObject outbound, int port) =>
+        Append(XrayConfigModel.Empty(logLevel), outbound, port);
+
+    /// <summary>
+    ///     Добавляет прокси обновлений к модели основного экземпляра
+    /// </summary>
+    /// <param name="model">Модель соединений</param>
+    /// <param name="outbound">Outbound сервера; копируется</param>
+    /// <param name="port">Порт HTTP-inbound</param>
+    /// <returns>Новая модель с inbound, outbound и правилом прокси в конце списков</returns>
+    public static XrayConfigModel Append(XrayConfigModel model, JsonObject outbound, int port)
     {
+        ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(outbound);
-        ArgumentNullException.ThrowIfNull(domains);
 
-        var rules = new List<XrayRoutingRule>();
-        if (domains.Count > 0)
+        return model with
         {
-            rules.Add(new XrayRoutingRule([InboundTag], OutboundTag, domains));
-        }
-
-        rules.Add(new XrayRoutingRule([InboundTag], XrayConfigModel.DirectTag));
-
-        return new XrayConfigModel(
-            logLevel,
-            [new XrayInbound(InboundTag, "http", ListenAddress, port, null, Sniffing: false)],
-            [new XrayOutbound(OutboundTag, (JsonObject)outbound.DeepClone())],
-            rules);
+            Inbounds = [.. model.Inbounds, new XrayInbound(InboundTag, "http", ListenAddress, port, null, Sniffing: false)],
+            Outbounds = [.. model.Outbounds, new XrayOutbound(OutboundTag, (JsonObject)outbound.DeepClone())],
+            Rules = [.. model.Rules, new XrayRoutingRule([InboundTag], OutboundTag)],
+        };
     }
 }

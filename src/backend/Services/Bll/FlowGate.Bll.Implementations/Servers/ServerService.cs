@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 
 using FlowGate.Bll.Interfaces.Servers;
+using FlowGate.Bll.Interfaces.Xray;
 using FlowGate.Contracts.Servers;
 using FlowGate.Dal.Interfaces.Connections;
 using FlowGate.Dal.Interfaces.Servers;
@@ -25,6 +26,7 @@ public sealed class ServerService : IServerService
     private readonly ISettingsProvider _settings;
     private readonly IServerImportParser _parser;
     private readonly IOutboundValidator _validator;
+    private readonly IXrayConfigService _xrayConfig;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<ServerService> _logger;
 
@@ -36,6 +38,7 @@ public sealed class ServerService : IServerService
     /// <param name="settings">Пользовательские настройки: сервер прокси обновлений удалить нельзя</param>
     /// <param name="parser">Разбор ссылок и Xray-JSON</param>
     /// <param name="validator">Проверка outbound</param>
+    /// <param name="xrayConfig">Конфигурация Xray: изменённый outbound попадает в работающий Xray</param>
     /// <param name="timeProvider">Источник времени</param>
     /// <param name="logger">Логгер</param>
     /// <exception cref="ArgumentNullException">Если любой аргумент равен null</exception>
@@ -45,6 +48,7 @@ public sealed class ServerService : IServerService
         ISettingsProvider settings,
         IServerImportParser parser,
         IOutboundValidator validator,
+        IXrayConfigService xrayConfig,
         TimeProvider timeProvider,
         ILogger<ServerService> logger)
     {
@@ -53,6 +57,7 @@ public sealed class ServerService : IServerService
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _parser = parser ?? throw new ArgumentNullException(nameof(parser));
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
+        _xrayConfig = xrayConfig ?? throw new ArgumentNullException(nameof(xrayConfig));
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -141,6 +146,16 @@ public sealed class ServerService : IServerService
         }
 
         _logger.LogInformation("Сервер {ServerId} «{Name}» изменён", updated.Id, updated.Name);
+
+        try
+        {
+            await _xrayConfig.ApplyAsync(cancellationToken);
+        }
+        catch (XrayOperationException ex)
+        {
+            _logger.LogWarning("Конфигурация Xray после изменения сервера {ServerId} не применена: {Error}", updated.Id, ex.Message);
+        }
+
         return updated.ToDetailsDto();
     }
 

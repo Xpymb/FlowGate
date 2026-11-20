@@ -6,6 +6,7 @@ using NSubstitute;
 
 using FlowGate.Bll.Implementations.Servers;
 using FlowGate.Bll.Interfaces.Servers;
+using FlowGate.Bll.Interfaces.Xray;
 using FlowGate.Contracts.Connections;
 using FlowGate.Contracts.Servers;
 using FlowGate.Contracts.Settings;
@@ -28,6 +29,7 @@ public sealed class ServerServiceTests : IDisposable
 
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "flowgate-tests", Guid.NewGuid().ToString("N"));
     private readonly IOutboundValidator _validator = Substitute.For<IOutboundValidator>();
+    private readonly IXrayConfigService _xrayConfig = Substitute.For<IXrayConfigService>();
     private readonly ServerProvider _servers;
     private readonly ConnectionProvider _connections;
     private readonly SettingsProvider _settings;
@@ -43,7 +45,7 @@ public sealed class ServerServiceTests : IDisposable
         _connections = new ConnectionProvider(storeFactory);
         _settings = new SettingsProvider(storeFactory);
         _validator.ValidateAsync(Arg.Any<JsonObject>(), Arg.Any<CancellationToken>()).Returns(new OutboundValidationResult([], CheckedByXray: true));
-        _sut = new ServerService(_servers, _connections, _settings, new ServerImportParser(), _validator, TimeProvider.System, NullLogger<ServerService>.Instance);
+        _sut = new ServerService(_servers, _connections, _settings, new ServerImportParser(), _validator, _xrayConfig, TimeProvider.System, NullLogger<ServerService>.Instance);
     }
 
     /// <summary>
@@ -92,6 +94,21 @@ public sealed class ServerServiceTests : IDisposable
         Assert.Equal(8443, updated.Server.Port);
         Assert.Equal("Германия 2", updated.Server.Name);
         Assert.Empty(await _servers.GetAllAsync(TestContext.Current.CancellationToken));
+        await _xrayConfig.Received(1).ApplyAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    ///     Xray отклонил конфигурацию после правки — сервер сохранён, ошибка не уходит в ответ
+    /// </summary>
+    [Fact]
+    public async Task UpdateAsync_ApplyFails_KeepsServer()
+    {
+        var created = await _sut.CreateAsync(new ServerSaveRequest("Германия", _sut.Parse(new ServerParseRequest(TrojanLink)).Outbound), TestContext.Current.CancellationToken);
+        _xrayConfig.ApplyAsync(Arg.Any<CancellationToken>()).Returns<Task<bool>>(_ => throw new XrayOperationException("rejected"));
+
+        var updated = await _sut.UpdateAsync(created.Server.Id, new ServerSaveRequest("Германия 2", created.Outbound), TestContext.Current.CancellationToken);
+
+        Assert.Equal("Германия 2", updated.Server.Name);
     }
 
     /// <summary>

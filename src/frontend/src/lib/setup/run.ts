@@ -166,8 +166,7 @@ async function enableUpdateProxy({ draft, progress }: Context): Promise<StepResu
 		xrayLogLevel: current.xrayLogLevel,
 		updateProxy: {
 			enabled: true,
-			serverId,
-			extraDomains: current.updateProxy.extraDomains
+			serverId
 		},
 		intervals: {
 			subscriptionDefaultHours: hours(current.intervals.subscriptionDefault.hours),

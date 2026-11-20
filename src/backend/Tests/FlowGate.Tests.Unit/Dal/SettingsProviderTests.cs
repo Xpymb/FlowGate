@@ -32,7 +32,6 @@ public sealed class SettingsProviderTests : IDisposable
         Assert.False(settings.XrayAutostart);
         Assert.Equal("info", settings.XrayLogLevel);
         Assert.False(settings.UpdateProxy.Enabled);
-        Assert.Empty(settings.UpdateProxy.ExtraDomains);
         Assert.Null(settings.Intervals.SubscriptionDefaultHours);
     }
 
@@ -55,21 +54,21 @@ public sealed class SettingsProviderTests : IDisposable
     }
 
     /// <summary>
-    ///     Прокси-блок без списка доменов (правка руками) — список пуст, а не null
+    ///     Файл прежней версии со списком своих доменов читается: поле пропускается, остальное сохраняется
     /// </summary>
     [Fact]
-    public async Task GetAsync_ProxyWithoutDomains_EmptyList()
+    public async Task GetAsync_ProxyWithLegacyDomains_IgnoresDomains()
     {
         Directory.CreateDirectory(_directory);
         await File.WriteAllTextAsync(
             Path.Combine(_directory, SettingsProvider.FileName),
-            """{ "xrayAutostart": true, "xrayLogLevel": "warning", "updateProxy": { "enabled": true, "serverId": "srv" } }""",
+            """{ "xrayAutostart": true, "xrayLogLevel": "warning", "updateProxy": { "enabled": true, "serverId": "srv", "extraDomains": ["domain:example.com"] } }""",
             Token);
 
         var settings = await CreateProvider().GetAsync(Token);
 
         Assert.True(settings.UpdateProxy.Enabled);
-        Assert.Empty(settings.UpdateProxy.ExtraDomains);
+        Assert.Equal("srv", settings.UpdateProxy.ServerId);
     }
 
     /// <inheritdoc />

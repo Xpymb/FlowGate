@@ -5,7 +5,6 @@ using FlowGate.Bll.Interfaces.Settings;
 using FlowGate.Bll.Interfaces.UpdateProxy;
 using FlowGate.Bll.Interfaces.Xray;
 using FlowGate.Contracts.Settings;
-using FlowGate.Contracts.UpdateProxy;
 using FlowGate.Contracts.Xray;
 using FlowGate.Dal.Interfaces.Servers;
 using FlowGate.Dal.Interfaces.Settings;
@@ -33,7 +32,7 @@ public sealed class SettingsService : ISettingsService
     /// <param name="settings">Хранилище настроек</param>
     /// <param name="servers">Хранилище серверов (проверка сервера прокси)</param>
     /// <param name="updateProxy">Прокси обновлений</param>
-    /// <param name="xrayConfig">Конфигурация Xray (уровень логирования)</param>
+    /// <param name="xrayConfig">Конфигурация Xray (уровень логирования, сервер прокси обновлений)</param>
     /// <param name="subscriptionOptions">Настройки подписок (интервал по умолчанию)</param>
     /// <param name="domainSourceOptions">Настройки источников (интервал по умолчанию)</param>
     /// <param name="xrayOptions">Настройки Xray (интервал проверки по умолчанию)</param>
@@ -101,12 +100,8 @@ public sealed class SettingsService : ISettingsService
             saved.XrayLogLevel,
             saved.UpdateProxy.Enabled ? $"через сервер {saved.UpdateProxy.ServerId}" : "выключен");
 
-        if (!before.UpdateProxy.SameAs(saved.UpdateProxy))
-        {
-            await _updateProxy.InvalidateAsync(cancellationToken);
-        }
-
-        if (!string.Equals(before.XrayLogLevel, saved.XrayLogLevel, StringComparison.Ordinal))
+        if (!string.Equals(before.XrayLogLevel, saved.XrayLogLevel, StringComparison.Ordinal)
+            || !string.Equals(before.UpdateProxy.ServerId, saved.UpdateProxy.ServerId, StringComparison.Ordinal))
         {
             await _xrayConfig.ApplyAsync(cancellationToken);
         }
@@ -139,30 +134,10 @@ public sealed class SettingsService : ISettingsService
             errors.Add($"Сервер {serverId} не найден");
         }
 
-        var raw = (request.ExtraDomains ?? []).Where(domain => !string.IsNullOrWhiteSpace(domain)).ToList();
-        if (raw.Count > UpdateProxyDomains.MaxExtraDomains)
-        {
-            errors.Add($"Своих доменов не больше {UpdateProxyDomains.MaxExtraDomains}");
-        }
-
-        var domains = new List<string>();
-        foreach (var domain in raw)
-        {
-            if (UpdateProxyDomains.Normalize(domain) is { } normalized)
-            {
-                domains.Add(normalized);
-            }
-            else
-            {
-                errors.Add($"«{domain.Trim()}» — не домен; допустимо example.com, domain:example.com, full:cdn.example.com");
-            }
-        }
-
         return new UpdateProxySettings
         {
             Enabled = request.Enabled,
             ServerId = serverId,
-            ExtraDomains = domains.Distinct(StringComparer.Ordinal).ToList(),
         };
     }
 

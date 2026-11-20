@@ -33,8 +33,7 @@ export const routeStates: Record<string, { label: string; tone: Tone }> = {
 
 export const updateProxyStates: Record<string, { label: string; tone: Tone }> = {
 	Disabled: { label: 'выключен', tone: 'muted' },
-	Idle: { label: 'в ожидании', tone: 'accent' },
-	Running: { label: 'работает', tone: 'ok' },
+	Ready: { label: 'готов', tone: 'ok' },
 	Unavailable: { label: 'недоступен', tone: 'warn' }
 };
 

@@ -5,8 +5,7 @@ using FlowGate.SharedContracts.Dto.Settings;
 namespace FlowGate.Bll.Implementations.UpdateProxy;
 
 /// <summary>
-///     Выполнение операции обновления в одной <see cref="UpdateProxyScope"/>: прокси поднимается на всю операцию и
-///     гасится сразу после неё
+///     Выполнение операции обновления в одной <see cref="UpdateProxyScope"/>: путь выбирается один раз на всю операцию
 /// </summary>
 public static class UpdateRoute
 {
@@ -30,8 +29,8 @@ public static class UpdateRoute
         ArgumentNullException.ThrowIfNull(proxy);
         ArgumentNullException.ThrowIfNull(action);
 
-        using var scope = UpdateProxyScope.Enter(via, await proxy.AcquireAsync(via, cancellationToken));
-        context?.Report(scope.Lease is null ? "Загрузка напрямую" : "Загрузка через прокси обновлений");
+        using var scope = UpdateProxyScope.Enter(via, await proxy.ResolveAsync(via, cancellationToken));
+        context?.Report(scope.ProxyUri is null ? "Загрузка напрямую" : "Загрузка через прокси обновлений");
         await action();
     }
 }

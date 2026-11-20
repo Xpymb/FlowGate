@@ -51,7 +51,7 @@ public sealed class SettingsEndpointsTests : IDisposable
             new
             {
                 xrayLogLevel = "info",
-                updateProxy = new { enabled = true, serverId, extraDomains = new[] { "example.com" } },
+                updateProxy = new { enabled = true, serverId },
                 intervals = new { xrayUpdateCheckHours = 6 },
             },
             Token);
@@ -60,7 +60,6 @@ public sealed class SettingsEndpointsTests : IDisposable
         var settings = await ApiJson.GetAsync(client, "/api/settings");
         Assert.Equal("info", settings.GetProperty("xrayLogLevel").GetString());
         Assert.Equal(serverId, settings.GetProperty("updateProxy").GetProperty("serverId").GetString());
-        Assert.Equal("domain:example.com", settings.GetProperty("updateProxy").GetProperty("extraDomains")[0].GetString());
         Assert.Equal(6, settings.GetProperty("intervals").GetProperty("xrayUpdateCheck").GetProperty("effectiveHours").GetInt32());
 
         await ApiJson.DeleteAsync(client, $"/api/servers/{serverId}", HttpStatusCode.Conflict);

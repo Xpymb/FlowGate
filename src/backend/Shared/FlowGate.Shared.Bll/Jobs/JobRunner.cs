@@ -57,8 +57,9 @@ public sealed class JobRunner : IJobRunner, IDisposable
 
         _logger.LogInformation("Job {JobId} '{Title}' started", job.Id, title);
         NotifyChanged();
+        var snapshot = job.ToSnapshot();
         job.Completion = Task.Run(() => RunAsync(job, work));
-        return job.ToSnapshot();
+        return snapshot;
     }
 
     /// <inheritdoc />

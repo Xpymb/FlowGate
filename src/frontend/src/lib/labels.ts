@@ -18,6 +18,46 @@ export const connectionKinds: Record<string, string> = {
 	Wireguard: 'WireGuard'
 };
 
+/** Ячейка «Сейчас через»: сервер, через который идёт трафик, или почему это неизвестно. */
+export function connectionRouting(routing: Schemas['ConnectionRoutingDto']): {
+	server?: { id: string; name: string };
+	badge?: string;
+	tone: Tone;
+	label: string;
+	hint?: string;
+} {
+	const slot = routing.activeSlot == null ? undefined : Number(routing.activeSlot);
+	const server =
+		routing.activeServerId && routing.activeServerName
+			? { id: routing.activeServerId, name: routing.activeServerName }
+			: undefined;
+	switch (routing.status) {
+		case 'Active':
+			return {
+				server,
+				badge: slot ? `резервный ${slot}` : 'основной',
+				tone: slot ? 'warn' : 'ok',
+				label: server?.name ?? '—'
+			};
+		case 'Direct':
+			return { server, badge: slot ? `резервный ${slot}` : undefined, tone: 'warn', label: '—' };
+		case 'Blocked':
+			return { tone: 'danger', label: 'трафик блокируется', hint: 'Нет ни одного сервера' };
+		case 'Unsupported':
+			return {
+				tone: 'muted',
+				label: 'не поддерживается',
+				hint: 'Установленная версия Xray не даёт API балансировщика'
+			};
+		default:
+			return {
+				tone: 'muted',
+				label: 'нет данных',
+				hint: 'Xray не запущен или его API не ответил'
+			};
+	}
+}
+
 export const sourceKinds: Record<string, string> = {
 	GitHubRepository: 'GitHub-репозиторий (формат v2fly)',
 	GeositeDat: 'geosite.dat',

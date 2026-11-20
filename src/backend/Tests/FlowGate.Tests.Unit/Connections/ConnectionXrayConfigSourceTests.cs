@@ -39,7 +39,8 @@ public sealed class ConnectionXrayConfigSourceTests : IDisposable
             servers,
             _settings,
             MsOptions.Create(new ConnectionOptions()),
-            MsOptions.Create(new UpdateProxyOptions { Port = ProxyPort }));
+            MsOptions.Create(new UpdateProxyOptions { Port = ProxyPort }),
+            MsOptions.Create(new XrayOptions()));
     }
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;

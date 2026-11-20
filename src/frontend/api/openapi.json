@@ -801,6 +801,60 @@
         }
       }
     },
+    "/api/servers/ping": {
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Пинг серверов: HTTP-запрос через outbound во временном Xray",
+        "operationId": "PingServers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerPingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServerPingResultDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/subscriptions": {
       "get": {
         "tags": [
@@ -2412,6 +2466,16 @@
           "serverId": {
             "type": "string",
             "description": "Сервер, через который пойдёт трафик"
+          },
+          "fallbackServerIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Резервные серверы по убыванию приоритета, до трёх; null — без резервных"
           }
         },
         "description": "Создание соединения"
@@ -2423,6 +2487,8 @@
           "kind",
           "serverId",
           "serverName",
+          "fallbacks",
+          "routing",
           "port",
           "interfaceName",
           "supportsUdp",
@@ -2455,6 +2521,17 @@
               "string"
             ],
             "description": "Имя сервера или null, если сервер удалён"
+          },
+          "fallbacks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConnectionFallbackDto"
+            },
+            "description": "Резервные серверы по убыванию приоритета: Xray переключается на них, если основной не отвечает"
+          },
+          "routing": {
+            "description": "Через какой сервер сейчас идёт трафик",
+            "$ref": "#/components/schemas/ConnectionRoutingDto"
           },
           "port": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -2503,6 +2580,27 @@
           }
         },
         "description": "Соединение с состоянием интерфейса Keenetic"
+      },
+      "ConnectionFallbackDto": {
+        "required": [
+          "serverId",
+          "serverName"
+        ],
+        "type": "object",
+        "properties": {
+          "serverId": {
+            "type": "string",
+            "description": "Сервер"
+          },
+          "serverName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Имя сервера или null, если сервер удалён"
+          }
+        },
+        "description": "Резервный сервер соединения"
       },
       "ConnectionInterfaceDto": {
         "required": [
@@ -2562,6 +2660,46 @@
         },
         "description": "Состояние интерфейса Keenetic соединения"
       },
+      "ConnectionRoutingDto": {
+        "required": [
+          "status",
+          "activeServerId",
+          "activeServerName",
+          "activeSlot"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "`Active` — выбор балансировщика Xray известен; `Direct` — живой сервер один, балансировщика нет;\r\n            `Blocked` — серверов нет, трафик блокируется; `Unsupported` — установленная версия Xray не даёт API\r\n            балансировщика; `Unavailable` — сейчас узнать нельзя (Xray не запущен, API не ответил)"
+          },
+          "activeServerId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Сервер, через который идёт трафик, при `Active` и `Direct`"
+          },
+          "activeServerName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Его имя"
+          },
+          "activeSlot": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "0 — основной, 1..3 — номер резервного",
+            "format": "int32"
+          }
+        },
+        "description": "Через какой сервер сейчас идёт трафик соединения"
+      },
       "ConnectionServerChangeRequest": {
         "required": [
           "connectionIds",
@@ -2597,6 +2735,16 @@
           "serverId": {
             "type": "string",
             "description": "Сервер, через который пойдёт трафик"
+          },
+          "fallbackServerIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Резервные серверы по убыванию приоритета, до трёх; null — без резервных"
           }
         },
         "description": "Изменение соединения. Вид соединения не меняется: для этого создайте новое"
@@ -3794,6 +3942,54 @@
           }
         },
         "description": "Запрос разбора ссылки"
+      },
+      "ServerPingRequest": {
+        "required": [
+          "serverIds"
+        ],
+        "type": "object",
+        "properties": {
+          "serverIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Серверы; за один запрос не больше `Ping:MaxServersPerRequest`"
+          }
+        },
+        "description": "Пинг серверов"
+      },
+      "ServerPingResultDto": {
+        "required": [
+          "serverId",
+          "latencyMs",
+          "error"
+        ],
+        "type": "object",
+        "properties": {
+          "serverId": {
+            "type": "string",
+            "description": "Сервер"
+          },
+          "latencyMs": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "Задержка в миллисекундах или null, если сервер не ответил",
+            "format": "int32"
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Почему сервер не ответил; null при успехе"
+          }
+        },
+        "description": "Результат пинга сервера: время HTTP-запроса через outbound вместе с установкой соединения"
       },
       "ServerPreviewDto": {
         "required": [

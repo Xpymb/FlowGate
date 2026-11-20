@@ -54,4 +54,34 @@ public sealed class ConnectionOptions
     /// </summary>
     [Range(1, 1440)]
     public int ReconcileIntervalMinutes { get; set; } = 10;
+
+    /// <summary>
+    ///     Адрес, который Xray запрашивает через серверы соединений с резервными серверами, чтобы понять, живы ли они
+    /// </summary>
+    [Required]
+    public string FallbackProbeUrl { get; set; } = "https://www.gstatic.com/generate_204";
+
+    /// <summary>
+    ///     Интервал проверок серверов соединений с резервными серверами, секунды
+    /// </summary>
+    [Range(10, 3600)]
+    public int FallbackProbeIntervalSeconds { get; set; } = 60;
+
+    /// <summary>
+    ///     Таймаут одной проверки, секунды
+    /// </summary>
+    [Range(1, 60)]
+    public int FallbackProbeTimeoutSeconds { get; set; } = 30;
+
+    /// <summary>
+    ///     Сколько последних проверок учитывает балансировщик
+    /// </summary>
+    [Range(1, 10)]
+    public int FallbackProbeSampling { get; set; } = 3;
+
+    /// <summary>
+    ///     Допустимая доля неудачных проверок, при которой сервер ещё выбирается; 0 — без ограничения
+    /// </summary>
+    [Range(0.0, 1.0)]
+    public double FallbackTolerance { get; set; } = 0.5;
 }

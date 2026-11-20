@@ -1,0 +1,22 @@
+{
+    "balancer": {
+        "override": {},
+        "principleTarget": {
+            "tag": [
+                "out-con-a-1"
+            ]
+        }
+    }
+}
+
+{
+    "balancer": {
+        "override": {},
+        "principleTarget": {
+            "tag": [
+                "out-con-b"
+            ]
+        }
+    }
+}
+

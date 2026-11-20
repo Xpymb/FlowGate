@@ -29,6 +29,21 @@ public sealed record XrayConfigModel(
     public static IReadOnlyList<string> LogLevels { get; } = ["debug", "info", "warning", "error", "none"];
 
     /// <summary>
+    ///     Балансировщики соединений с резервными серверами
+    /// </summary>
+    public IReadOnlyList<XrayBalancer> Balancers { get; init; } = [];
+
+    /// <summary>
+    ///     Наблюдение за outbound для балансировщиков; null — не нужно
+    /// </summary>
+    public XrayObservatory? Observatory { get; init; }
+
+    /// <summary>
+    ///     Блок API для чтения выбора балансировщиков; null — без API
+    /// </summary>
+    public XrayApi? Api { get; init; }
+
+    /// <summary>
     ///     Пустая модель: ни одного соединения
     /// </summary>
     /// <param name="logLevel">Уровень логирования</param>

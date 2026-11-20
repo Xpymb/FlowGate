@@ -21,6 +21,7 @@ public sealed class ConnectionXrayConfigSource : IXrayConfigSource
     private readonly ISettingsProvider _settings;
     private readonly ConnectionOptions _options;
     private readonly UpdateProxyOptions _updateProxyOptions;
+    private readonly XrayOptions _xrayOptions;
 
     /// <summary>
     ///     Инициализирует новый экземпляр класса <see cref="ConnectionXrayConfigSource"/>
@@ -30,13 +31,15 @@ public sealed class ConnectionXrayConfigSource : IXrayConfigSource
     /// <param name="settings">Пользовательские настройки (сервер прокси обновлений)</param>
     /// <param name="options">Настройки соединений</param>
     /// <param name="updateProxyOptions">Настройки прокси обновлений (порт)</param>
+    /// <param name="xrayOptions">Настройки Xray (порт API)</param>
     /// <exception cref="ArgumentNullException">Если любой аргумент равен null</exception>
     public ConnectionXrayConfigSource(
         IConnectionProvider connections,
         IServerProvider servers,
         ISettingsProvider settings,
         IOptions<ConnectionOptions> options,
-        IOptions<UpdateProxyOptions> updateProxyOptions)
+        IOptions<UpdateProxyOptions> updateProxyOptions,
+        IOptions<XrayOptions> xrayOptions)
     {
         _connections = connections ?? throw new ArgumentNullException(nameof(connections));
         _servers = servers ?? throw new ArgumentNullException(nameof(servers));
@@ -45,6 +48,8 @@ public sealed class ConnectionXrayConfigSource : IXrayConfigSource
         ArgumentNullException.ThrowIfNull(updateProxyOptions);
         _options = options.Value;
         _updateProxyOptions = updateProxyOptions.Value;
+        ArgumentNullException.ThrowIfNull(xrayOptions);
+        _xrayOptions = xrayOptions.Value;
     }
 
     /// <inheritdoc />
@@ -62,7 +67,7 @@ public sealed class ConnectionXrayConfigSource : IXrayConfigSource
         var servers = await _servers.GetAllAsync(cancellationToken);
         var model = connections.Count == 0
             ? XrayConfigModel.Empty(logLevel)
-            : ConnectionXrayModel.Build(logLevel, connections, servers, _options.ListenAddress, _options.WireguardMtu);
+            : ConnectionXrayModel.Build(logLevel, connections, servers, _options, _xrayOptions.ApiPort);
 
         var proxyServer = servers.FirstOrDefault(server => string.Equals(server.Id, proxyServerId, StringComparison.Ordinal));
         return proxyServer is null

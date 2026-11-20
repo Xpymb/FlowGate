@@ -50,6 +50,21 @@ public sealed class ServerEndpointsTests : IDisposable
     }
 
     /// <summary>
+    ///     Пинг без установленного Xray — 409, пустой список — 400
+    /// </summary>
+    [Fact]
+    public async Task Ping_WithoutXray_ReturnsConflict()
+    {
+        using var client = _factory.CreateClient();
+
+        var conflict = await ApiJson.PostAsync(client, "/api/servers/ping", new { serverIds = new[] { "srv-1" } }, HttpStatusCode.Conflict);
+        var empty = await ApiJson.PostAsync(client, "/api/servers/ping", new { serverIds = Array.Empty<string>() }, HttpStatusCode.BadRequest);
+
+        Assert.Equal("CONFLICT", conflict.GetProperty("errorCode").GetString());
+        Assert.Equal("VALIDATION_ERROR", empty.GetProperty("errorCode").GetString());
+    }
+
+    /// <summary>
     ///     Предпросмотр ссылок отдаёт сервер с ключом и ничего не сохраняет; пустой текст — 400
     /// </summary>
     [Fact]

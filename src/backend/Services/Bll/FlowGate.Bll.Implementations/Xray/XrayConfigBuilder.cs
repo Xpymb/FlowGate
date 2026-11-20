@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 using FlowGate.Bll.Interfaces.Xray;
 using FlowGate.Contracts.Xray;
@@ -17,17 +18,41 @@ public sealed class XrayConfigBuilder : IXrayConfigBuilder
         ArgumentNullException.ThrowIfNull(model);
         Validate(model);
 
-        return new JsonObject
+        var routing = new JsonObject
+        {
+            ["domainStrategy"] = "AsIs",
+            ["rules"] = new JsonArray(model.Rules.Select(BuildRule).ToArray<JsonNode?>()),
+        };
+
+        if (model.Balancers.Count > 0)
+        {
+            routing["balancers"] = new JsonArray(model.Balancers.Select(BuildBalancer).ToArray<JsonNode?>());
+        }
+
+        var config = new JsonObject
         {
             ["log"] = new JsonObject { ["loglevel"] = model.LogLevel },
             ["inbounds"] = new JsonArray(model.Inbounds.Select(BuildInbound).ToArray<JsonNode?>()),
             ["outbounds"] = new JsonArray(BuildOutbounds(model).ToArray<JsonNode?>()),
-            ["routing"] = new JsonObject
-            {
-                ["domainStrategy"] = "AsIs",
-                ["rules"] = new JsonArray(model.Rules.Select(BuildRule).ToArray<JsonNode?>()),
-            },
+            ["routing"] = routing,
         };
+
+        if (model.Observatory is { } observatory)
+        {
+            config["burstObservatory"] = BuildObservatory(observatory);
+        }
+
+        if (model.Api is { } api)
+        {
+            config["api"] = new JsonObject
+            {
+                ["tag"] = XrayApi.Tag,
+                ["listen"] = api.Listen,
+                ["services"] = new JsonArray(api.Services.Select(service => (JsonNode?)service).ToArray()),
+            };
+        }
+
+        return config;
     }
 
     private static JsonObject BuildInbound(XrayInbound inbound)
@@ -79,9 +104,56 @@ public sealed class XrayConfigBuilder : IXrayConfigBuilder
             node["domain"] = new JsonArray(domains.Select(domain => (JsonNode?)domain).ToArray());
         }
 
-        node["outboundTag"] = rule.OutboundTag;
+        if (rule.BalancerTag is not null)
+        {
+            node["balancerTag"] = rule.BalancerTag;
+        }
+        else
+        {
+            node["outboundTag"] = rule.OutboundTag;
+        }
+
         return node;
     }
+
+    private static JsonObject BuildBalancer(XrayBalancer balancer)
+    {
+        var costs = balancer.Costs
+            .Select(cost => (JsonNode?)new JsonObject
+            {
+                ["regexp"] = true,
+                ["match"] = "^" + Regex.Escape(cost.Key) + "$",
+                ["value"] = cost.Value,
+            })
+            .ToArray();
+
+        var settings = new JsonObject { ["expected"] = 1, ["costs"] = new JsonArray(costs) };
+        if (balancer.Tolerance > 0)
+        {
+            settings["tolerance"] = balancer.Tolerance;
+        }
+
+        return new JsonObject
+        {
+            ["tag"] = balancer.Tag,
+            ["selector"] = new JsonArray(balancer.Selector.Select(tag => (JsonNode?)tag).ToArray()),
+            ["fallbackTag"] = balancer.FallbackTag,
+            ["strategy"] = new JsonObject { ["type"] = "leastLoad", ["settings"] = settings },
+        };
+    }
+
+    private static JsonObject BuildObservatory(XrayObservatory observatory) =>
+        new()
+        {
+            ["subjectSelector"] = new JsonArray(observatory.SubjectSelector.Select(tag => (JsonNode?)tag).ToArray()),
+            ["pingConfig"] = new JsonObject
+            {
+                ["destination"] = observatory.ProbeUrl,
+                ["interval"] = observatory.Interval,
+                ["sampling"] = observatory.Sampling,
+                ["timeout"] = observatory.Timeout,
+            },
+        };
 
     private static void Validate(XrayConfigModel model)
     {
@@ -99,8 +171,28 @@ public sealed class XrayConfigBuilder : IXrayConfigBuilder
             throw Invalid($"тег outbound «{reserved}» зарезервирован");
         }
 
+        if (model.Api is not null && (inboundTags.Contains(XrayApi.Tag) || outboundTags.Contains(XrayApi.Tag)))
+        {
+            throw Invalid($"тег «{XrayApi.Tag}» зарезервирован для API");
+        }
+
         outboundTags.Add(XrayConfigModel.DirectTag);
         outboundTags.Add(XrayConfigModel.BlockTag);
+
+        var balancerTags = EnsureUnique(model.Balancers.Select(balancer => balancer.Tag), "балансировщика");
+        foreach (var balancer in model.Balancers)
+        {
+            if (balancer.Selector.Count == 0)
+            {
+                throw Invalid($"у балансировщика «{balancer.Tag}» нет кандидатов");
+            }
+
+            var unknown = balancer.Selector.Append(balancer.FallbackTag).FirstOrDefault(tag => !outboundTags.Contains(tag));
+            if (unknown is not null)
+            {
+                throw Invalid($"балансировщик «{balancer.Tag}» ссылается на несуществующий outbound «{unknown}»");
+            }
+        }
 
         foreach (var rule in model.Rules)
         {
@@ -110,9 +202,19 @@ public sealed class XrayConfigBuilder : IXrayConfigBuilder
                 throw Invalid($"правило ссылается на несуществующий inbound «{unknownInbound}»");
             }
 
-            if (!outboundTags.Contains(rule.OutboundTag))
+            if ((rule.OutboundTag is null) == (rule.BalancerTag is null))
+            {
+                throw Invalid("у правила должен быть ровно один из outbound и балансировщика");
+            }
+
+            if (rule.OutboundTag is not null && !outboundTags.Contains(rule.OutboundTag))
             {
                 throw Invalid($"правило ссылается на несуществующий outbound «{rule.OutboundTag}»");
+            }
+
+            if (rule.BalancerTag is not null && !balancerTags.Contains(rule.BalancerTag))
+            {
+                throw Invalid($"правило ссылается на несуществующий балансировщик «{rule.BalancerTag}»");
             }
         }
 

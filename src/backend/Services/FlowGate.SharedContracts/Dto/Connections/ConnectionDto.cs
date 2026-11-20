@@ -8,6 +8,8 @@ namespace FlowGate.SharedContracts.Dto.Connections;
 /// <param name="Kind"><c>Socks</c>, <c>Http</c> или <c>Wireguard</c></param>
 /// <param name="ServerId">Сервер</param>
 /// <param name="ServerName">Имя сервера или null, если сервер удалён</param>
+/// <param name="Fallbacks">Резервные серверы по убыванию приоритета: Xray переключается на них, если основной не отвечает</param>
+/// <param name="Routing">Через какой сервер сейчас идёт трафик</param>
 /// <param name="Port">Порт inbound Xray</param>
 /// <param name="InterfaceName">Интерфейс Keenetic</param>
 /// <param name="SupportsUdp">Переносит UDP (QUIC, звонки); socks и http через Keenetic — только TCP</param>
@@ -21,6 +23,8 @@ public sealed record ConnectionDto(
     string Kind,
     string ServerId,
     string? ServerName,
+    IReadOnlyList<ConnectionFallbackDto> Fallbacks,
+    ConnectionRoutingDto Routing,
     int Port,
     string InterfaceName,
     bool SupportsUdp,

@@ -6,4 +6,5 @@ namespace FlowGate.SharedContracts.Dto.Connections;
 /// <param name="Name">Имя, до 64 символов, без кавычек</param>
 /// <param name="Kind"><c>Socks</c>, <c>Http</c> или <c>Wireguard</c></param>
 /// <param name="ServerId">Сервер, через который пойдёт трафик</param>
-public sealed record ConnectionCreateRequest(string Name, string Kind, string ServerId);
+/// <param name="FallbackServerIds">Резервные серверы по убыванию приоритета, до трёх; null — без резервных</param>
+public sealed record ConnectionCreateRequest(string Name, string Kind, string ServerId, IReadOnlyList<string>? FallbackServerIds = null);

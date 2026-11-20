@@ -5,4 +5,5 @@ namespace FlowGate.SharedContracts.Dto.Connections;
 /// </summary>
 /// <param name="Name">Имя, до 64 символов, без кавычек</param>
 /// <param name="ServerId">Сервер, через который пойдёт трафик</param>
-public sealed record ConnectionUpdateRequest(string Name, string ServerId);
+/// <param name="FallbackServerIds">Резервные серверы по убыванию приоритета, до трёх; null — без резервных</param>
+public sealed record ConnectionUpdateRequest(string Name, string ServerId, IReadOnlyList<string>? FallbackServerIds = null);

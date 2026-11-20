@@ -5,7 +5,7 @@
 	import { ask } from '#lib/confirm.svelte.js';
 	import { hotkey } from '#lib/hotkeys.js';
 	import { connectionKindOptions, suggestConnectionName } from '#lib/connections.js';
-	import { connectionKinds, interfaceState } from '#lib/labels.js';
+	import { connectionKinds, connectionRouting, interfaceState } from '#lib/labels.js';
 	import { Resource } from '#lib/resource.svelte.js';
 	import { matchesQuery, Selection, UrlParam } from '#lib/table.svelte.js';
 	import { attempt, attemptOk, copyText, notify, notifyError } from '#lib/toast.svelte.js';
@@ -36,7 +36,14 @@
 
 	let editorOpen = $state(false);
 	let editingId = $state<string>();
-	let form = $state({ name: '', kind: 'Wireguard', serverId: '' });
+	const maxFallbacks = 3;
+
+	let form = $state({
+		name: '',
+		kind: 'Wireguard',
+		serverId: '',
+		fallbackServerIds: [] as string[]
+	});
 	let saving = $state(false);
 	/** Имя подставлено автоматически и ещё не правилось: при смене типа оно следует за типом. */
 	let autoName = $state(false);
@@ -49,7 +56,13 @@
 	const all = $derived(connections.data ?? []);
 	const visible = $derived(
 		all.filter((item) =>
-			matchesQuery(query.value, [item.name, item.serverName, item.interfaceName, item.kind])
+			matchesQuery(query.value, [
+				item.name,
+				item.serverName,
+				item.interfaceName,
+				item.kind,
+				...item.fallbacks.map((fallback) => fallback.serverName)
+			])
 		)
 	);
 	const visibleIds = $derived(visible.map((item) => item.id));
@@ -79,7 +92,8 @@
 		form = {
 			name: suggestName('Wireguard'),
 			kind: 'Wireguard',
-			serverId: servers.data?.[0]?.id ?? ''
+			serverId: servers.data?.[0]?.id ?? '',
+			fallbackServerIds: []
 		};
 		autoName = true;
 		editorOpen = true;
@@ -92,9 +106,52 @@
 
 	function openEdit(item: Connection) {
 		editingId = item.id;
-		form = { name: item.name, kind: item.kind, serverId: item.serverId };
+		form = {
+			name: item.name,
+			kind: item.kind,
+			serverId: item.serverId,
+			fallbackServerIds: item.fallbacks.map((fallback) => fallback.serverId)
+		};
 		autoName = false;
 		editorOpen = true;
+	}
+
+	function changePrimary(serverId: string) {
+		form.serverId = serverId;
+		form.fallbackServerIds = form.fallbackServerIds.filter((id) => id !== serverId);
+	}
+
+	/** Серверы, которые можно выбрать в слоте: без основного и без занятых другими слотами. */
+	function fallbackChoices(slot: number) {
+		const taken = new Set([form.serverId, ...form.fallbackServerIds.filter((_, i) => i !== slot)]);
+		return (servers.data ?? []).filter((server) => !taken.has(server.id));
+	}
+
+	function addFallback() {
+		const [first] = fallbackChoices(form.fallbackServerIds.length);
+		if (first) form.fallbackServerIds = [...form.fallbackServerIds, first.id];
+	}
+
+	function removeFallback(slot: number) {
+		form.fallbackServerIds = form.fallbackServerIds.filter((_, i) => i !== slot);
+	}
+
+	function moveFallback(slot: number, delta: number) {
+		const list = [...form.fallbackServerIds];
+		const target = slot + delta;
+		if (target < 0 || target >= list.length) return;
+		[list[slot], list[target]] = [list[target], list[slot]];
+		form.fallbackServerIds = list;
+	}
+
+	function serverExists(id: string): boolean {
+		return (servers.data ?? []).some((server) => server.id === id);
+	}
+
+	function fallbackTitle(item: Connection): string {
+		return item.fallbacks
+			.map((fallback, i) => `${i + 1}. ${fallback.serverName ?? 'сервер удалён'}`)
+			.join('\n');
 	}
 
 	async function save() {
@@ -102,18 +159,19 @@
 		if (!name || !form.serverId) return;
 		saving = true;
 		const id = editingId;
+		const fallbackServerIds = [...form.fallbackServerIds];
 		const result = await attempt(
 			() =>
 				id
 					? unwrap(
 							api.PUT('/api/connections/{id}', {
 								params: { path: { id } },
-								body: { name, serverId: form.serverId }
+								body: { name, serverId: form.serverId, fallbackServerIds }
 							})
 						)
 					: unwrap(
 							api.POST('/api/connections', {
-								body: { name, kind: form.kind, serverId: form.serverId }
+								body: { name, kind: form.kind, serverId: form.serverId, fallbackServerIds }
 							})
 						),
 			id ? 'Соединение изменено' : 'Соединение создано'
@@ -253,6 +311,7 @@
 								</th>
 								<th>Соединение</th>
 								<th>Сервер</th>
+								<th>Сейчас через</th>
 								<th>Интерфейс Keenetic</th>
 								<th>Состояние</th>
 								<th class="actions-cell"><span class="visually-hidden">Действия</span></th>
@@ -261,6 +320,7 @@
 						<tbody>
 							{#each visible as item (item.id)}
 								{@const state = interfaceState(item)}
+								{@const routing = connectionRouting(item.routing)}
 								<tr class:selected={selection.has(item.id)}>
 									<td class="check-cell">
 										<Checkbox
@@ -288,6 +348,24 @@
 											<a href={resolve('/servers/[id]', { id: item.serverId })}>{item.serverName}</a
 											>
 										{:else}<Badge tone="danger">сервер удалён</Badge>{/if}
+										{#if item.fallbacks.length > 0}
+											<div class="sub" title={fallbackTitle(item)}>
+												+{item.fallbacks.length}
+												{item.fallbacks.length === 1 ? 'резервный' : 'резервных'}
+											</div>
+										{/if}
+									</td>
+									<td data-label="Сейчас через">
+										{#if routing.server}
+											<a href={resolve('/servers/[id]', { id: routing.server.id })}
+												>{routing.server.name}</a
+											>
+											{#if routing.badge}
+												<div><Badge tone={routing.tone}>{routing.badge}</Badge></div>
+											{/if}
+										{:else}
+											<span class="muted small" title={routing.hint}>{routing.label}</span>
+										{/if}
 									</td>
 									<td data-label="Интерфейс">
 										<Copyable value={item.interfaceName} />
@@ -329,7 +407,7 @@
 								</tr>
 							{:else}
 								<tr>
-									<td colspan="6">
+									<td colspan="7">
 										<EmptyState bare icon="search" title="Ничего не найдено">
 											<button class="btn" onclick={() => query.set('')}>Сбросить поиск</button>
 										</EmptyState>
@@ -356,7 +434,7 @@
 <Dialog
 	bind:open={bulkServerOpen}
 	title="Сменить сервер"
-	description={`Выбрано соединений: ${selected.length}. Конфигурация Xray пересоберётся один раз.`}
+	description={`Выбрано соединений: ${selected.length}. Конфигурация Xray пересоберётся один раз. Резервные серверы не меняются.`}
 	onsubmit={changeServer}
 >
 	<div class="form">
@@ -422,11 +500,66 @@
 			</div>
 		</Field>
 		<Field label="Сервер" hint="Сервер Xray для исходящего трафика. Можно изменить в любой момент.">
-			<select bind:value={form.serverId}>
+			<select value={form.serverId} onchange={(event) => changePrimary(event.currentTarget.value)}>
 				{#each servers.data ?? [] as server (server.id)}
 					<option value={server.id}>{server.name} — {server.protocol}</option>
 				{/each}
 			</select>
+		</Field>
+		<Field
+			label="Резервные серверы"
+			group
+			hint="Если основной сервер не отвечает, Xray переводит трафик на резервный, обычно за минуту. Основной сервер в приоритете, дальше резервные по порядку, но выбор не строгий: заметно более стабильный сервер может победить."
+		>
+			<div class="fallbacks">
+				{#each form.fallbackServerIds as serverId, slot (slot)}
+					<div class="fallback">
+						<span class="slot muted small">{slot + 1}</span>
+						<select
+							aria-label="Резервный сервер {slot + 1}"
+							bind:value={form.fallbackServerIds[slot]}
+						>
+							{#if !serverExists(serverId)}
+								<option value={serverId}>сервер удалён</option>
+							{/if}
+							{#each fallbackChoices(slot) as server (server.id)}
+								<option value={server.id}>{server.name} — {server.protocol}</option>
+							{/each}
+						</select>
+						<button
+							type="button"
+							class="btn ghost sm icon"
+							title="Выше"
+							aria-label="Поднять резервный сервер {slot + 1}"
+							disabled={slot === 0}
+							onclick={() => moveFallback(slot, -1)}><Icon name="arrowUp" size={14} /></button
+						>
+						<button
+							type="button"
+							class="btn ghost sm icon"
+							title="Ниже"
+							aria-label="Опустить резервный сервер {slot + 1}"
+							disabled={slot === form.fallbackServerIds.length - 1}
+							onclick={() => moveFallback(slot, 1)}><Icon name="arrowDown" size={14} /></button
+						>
+						<button
+							type="button"
+							class="btn ghost sm icon"
+							title="Убрать"
+							aria-label="Убрать резервный сервер {slot + 1}"
+							onclick={() => removeFallback(slot)}><Icon name="close" size={14} /></button
+						>
+					</div>
+				{/each}
+				{#if form.fallbackServerIds.length < maxFallbacks}
+					<button
+						type="button"
+						class="btn sm"
+						disabled={fallbackChoices(form.fallbackServerIds.length).length === 0}
+						onclick={addFallback}><Icon name="plus" size={14} />Добавить резервный</button
+					>
+				{/if}
+			</div>
 		</Field>
 	</div>
 	{#snippet actions()}
@@ -478,6 +611,29 @@
 
 	.name:hover {
 		color: var(--accent-text);
+	}
+
+	.fallbacks {
+		display: grid;
+		gap: 8px;
+		justify-items: start;
+	}
+
+	.fallback {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		width: 100%;
+	}
+
+	.fallback select {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.slot {
+		width: 16px;
+		text-align: center;
 	}
 
 	.problem {

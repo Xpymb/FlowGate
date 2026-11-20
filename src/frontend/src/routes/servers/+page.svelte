@@ -7,6 +7,7 @@
 	import { unwrap } from '#lib/api/errors.js';
 	import { ask } from '#lib/confirm.svelte.js';
 	import { hotkey } from '#lib/hotkeys.js';
+	import { pingLabel, pinging, pings, pingServers } from '#lib/ping.svelte.js';
 	import { Resource } from '#lib/resource.svelte.js';
 	import { matchesQuery, Selection, Sorter, UrlParam } from '#lib/table.svelte.js';
 	import { attempt, copyText, notify, notifyError } from '#lib/toast.svelte.js';
@@ -43,6 +44,7 @@
 	let importing = $state(false);
 	let importResult = $state<ImportResult>();
 	let deleting = $state(false);
+	let pingBusy = $state(false);
 
 	const subscriptionNames = $derived(
 		new Map((subscriptions.data ?? []).map((item) => [item.id, item.displayName]))
@@ -87,6 +89,16 @@
 			void goto(resolve('/servers'), { replace: true, reset: false });
 		});
 	});
+
+	async function ping(ids: string[]) {
+		if (ids.length === 0) return;
+		pingBusy = true;
+		const done = await attempt(() => pingServers(ids).then(() => true));
+		pingBusy = false;
+		if (!done) return;
+		const alive = ids.filter((id) => pings[id]?.latencyMs != null).length;
+		if (ids.length > 1) notify('ok', `Ответили серверов: ${alive} из ${ids.length}`);
+	}
 
 	function sourceName(server: Server): string {
 		return server.source === 'Subscription'
@@ -176,6 +188,13 @@
 	description="Серверы Xray для исходящего трафика соединений. Добавляются вручную, импортом ссылок или из подписок."
 >
 	{#snippet actions()}
+		<button
+			class="btn"
+			disabled={visible.length === 0}
+			aria-busy={pingBusy}
+			title="HTTP-запрос через каждый видимый сервер во временном Xray"
+			onclick={() => ping(visibleIds)}><Icon name="play" size={16} />Пинг</button
+		>
 		<button class="btn" onclick={openImport}><Icon name="upload" size={16} />Импорт ссылок</button>
 		<a class="btn primary" href={resolve('/servers/[id]', { id: 'new' })} title="Клавиша N">
 			<Icon name="plus" size={16} />Добавить сервер
@@ -237,6 +256,7 @@
 								{@render sortHead('protocol', 'Протокол')}
 								{@render sortHead('address', 'Адрес')}
 								<th>Транспорт</th>
+								<th>Пинг</th>
 								{@render sortHead('source', 'Источник')}
 								<th class="actions-cell"><span class="visually-hidden">Действия</span></th>
 							</tr>
@@ -258,6 +278,19 @@
 									<td data-label="Протокол"><span class="proto">{server.protocol}</span></td>
 									<td data-label="Адрес"><Copyable value={endpoint(server)} /></td>
 									<td data-label="Транспорт" class="muted">{server.network} · {server.security}</td>
+									<td data-label="Пинг" class="ping">
+										{#if pinging[server.id]}
+											<span class="muted small">…</span>
+										{:else if pings[server.id]}
+											{@const result = pings[server.id]}
+											{@const label = pingLabel(result)}
+											<span title={result.error}
+												><Badge tone={label.tone} dot>{label.label}</Badge></span
+											>
+										{:else}
+											<span class="faint">—</span>
+										{/if}
+									</td>
 									<td data-label="Источник">
 										{#if manual}<Badge>вручную</Badge>
 										{:else}<Badge tone="accent">{sourceName(server)}</Badge>{/if}
@@ -270,6 +303,12 @@
 													label: manual ? 'Изменить' : 'Открыть',
 													icon: manual ? 'edit' : 'eye',
 													href: resolve('/servers/[id]', { id: server.id })
+												},
+												{
+													label: 'Пинг',
+													icon: 'play',
+													disabled: !!pinging[server.id],
+													onclick: () => ping([server.id])
 												},
 												{
 													label: 'Скопировать адрес',
@@ -290,7 +329,7 @@
 								</tr>
 							{:else}
 								<tr>
-									<td colspan="7">
+									<td colspan="8">
 										<EmptyState
 											bare
 											icon="search"
@@ -317,6 +356,9 @@
 </Loadable>
 
 <BulkBar count={selection.size} onclear={() => selection.clear()}>
+	<button class="btn sm" aria-busy={pingBusy} onclick={() => ping([...selection.ids])}>
+		<Icon name="play" size={14} />Пинг
+	</button>
 	<button
 		class="btn sm danger"
 		disabled={selectedManual.length === 0}
@@ -401,6 +443,10 @@
 	.name a {
 		color: var(--ink);
 		font-weight: 500;
+	}
+
+	.ping {
+		white-space: nowrap;
 	}
 
 	.proto {

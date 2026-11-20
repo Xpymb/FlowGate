@@ -50,7 +50,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IXrayProcessService, XrayProcessService>();
         services.AddSingleton<IXrayConfigBuilder, XrayConfigBuilder>();
         services.AddSingleton<IXrayConfigSource, ConnectionXrayConfigSource>();
+        services.AddSingleton<IXrayApiState, XrayApiState>();
         services.AddSingleton<IXrayConfigService, XrayConfigService>();
+        services.AddSingleton<IXrayBalancerStatusProvider, XrayBalancerStatusProvider>();
         services.AddSingleton<IXrayReleaseService, XrayReleaseService>();
         services.AddSingleton<IXrayInstaller, XrayInstaller>();
         services.AddSingleton<IXrayService, XrayService>();
@@ -58,6 +60,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IServerImportParser, ServerImportParser>();
         services.AddSingleton<IOutboundValidator, OutboundValidator>();
         services.AddSingleton<IServerService, ServerService>();
+        services.AddSingleton<IOutboundProbe, SocksOutboundProbe>();
+        services.AddSingleton<IServerPingService, ServerPingService>();
 
         services.AddSingleton<ISubscriptionFetcher, SubscriptionFetcher>();
         services.AddSingleton<ISubscriptionService, SubscriptionService>();

@@ -151,7 +151,7 @@ public sealed class ServerPingService : IServerPingService, IDisposable
             if (!await WaitForPortsAsync(process, ports, cancellationToken))
             {
                 var reason = Tail(output);
-                _logger.LogWarning("Временный Xray для пинга не запустился: {Reason}", reason);
+                _logger.LogWarning("Temporary Xray for ping failed to start: {Reason}", reason);
                 return Fail(servers, $"Xray не запустился: {reason}");
             }
 
@@ -163,7 +163,7 @@ public sealed class ServerPingService : IServerPingService, IDisposable
                 async (index, token) => results[index] = await ProbeAsync(servers[index], ports[index], token));
 
             _logger.LogInformation(
-                "Пинг серверов: {Alive} из {Total} ответили",
+                "Server ping: {Alive} of {Total} responded",
                 results.Count(result => result.LatencyMs is not null),
                 results.Length);
             return results;

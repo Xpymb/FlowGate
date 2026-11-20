@@ -132,7 +132,7 @@ public sealed class SubscriptionService : ISubscriptionService
             _timeProvider.GetUtcNow());
 
         await _subscriptions.AddAsync(subscription, cancellationToken);
-        _logger.LogInformation("Подписка {SubscriptionId} ({Host}) добавлена", subscription.Id, subscription.DisplayName);
+        _logger.LogInformation("Subscription {SubscriptionId} ({Host}) added", subscription.Id, subscription.DisplayName);
 
         var job = StartRefresh(subscription);
         return subscription.ToDto(0, await DefaultIntervalAsync(cancellationToken), RetryAfterFailure, job.Id);
@@ -170,7 +170,7 @@ public sealed class SubscriptionService : ISubscriptionService
             },
             cancellationToken);
 
-        _logger.LogInformation("Предпросмотр подписки {Host}: серверов {Servers}, отклонено {Rejected}", new Uri(draft.Url).Host, preview!.Servers.Count, preview.Rejected.Count);
+        _logger.LogInformation("Subscription preview {Host}: {Servers} servers, {Rejected} rejected", new Uri(draft.Url).Host, preview!.Servers.Count, preview.Rejected.Count);
         return preview;
     }
 
@@ -203,7 +203,7 @@ public sealed class SubscriptionService : ISubscriptionService
 
         await _servers.ReplaceSubscriptionServersAsync(id, [], cancellationToken);
         await _subscriptions.DeleteAsync(id, cancellationToken);
-        _logger.LogInformation("Подписка {SubscriptionId} «{Name}» удалена вместе с её серверами", id, subscription.DisplayName);
+        _logger.LogInformation("Subscription {SubscriptionId} '{Name}' deleted along with its servers", id, subscription.DisplayName);
 
         await ApplyXrayConfigAsync(cancellationToken);
     }
@@ -288,7 +288,16 @@ public sealed class SubscriptionService : ISubscriptionService
         var summary = $"принято {result.Accepted}, добавлено {result.Added}, изменено {result.Updated}, удалено {result.Removed}"
             + (result.Retained > 0 ? $", сохранено {result.Retained}" : string.Empty);
         context.Report($"Готово: {summary}");
-        _logger.LogInformation("Подписка {SubscriptionId} «{Name}» обновлена ({Status}): {Summary}", id, subscription.DisplayName, result.Status, summary);
+        _logger.LogInformation(
+            "Subscription {SubscriptionId} '{Name}' refreshed ({Status}): accepted {Accepted}, added {Added}, updated {Updated}, removed {Removed}, retained {Retained}",
+            id,
+            subscription.DisplayName,
+            result.Status,
+            result.Accepted,
+            result.Added,
+            result.Updated,
+            result.Removed,
+            result.Retained);
 
         await ApplyXrayConfigAsync(cancellationToken);
     }
@@ -311,7 +320,7 @@ public sealed class SubscriptionService : ISubscriptionService
         }
         catch (XrayOperationException ex)
         {
-            _logger.LogWarning("Конфигурация Xray после изменения серверов не применена: {Error}", ex.Message);
+            _logger.LogWarning("Xray configuration not applied after server change: {Error}", ex.Message);
         }
     }
 

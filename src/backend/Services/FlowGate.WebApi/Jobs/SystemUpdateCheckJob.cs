@@ -58,7 +58,7 @@ public sealed class SystemUpdateCheckJob : BackgroundService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning("Проверка обновлений FlowGate не удалась: {Error}", ex.Message);
+            _logger.LogWarning("FlowGate update check failed: {Error}", ex.Message);
         }
     }
 }

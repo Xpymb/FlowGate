@@ -242,7 +242,7 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
 
         NotifyChanged();
 
-        _logger.LogInformation("Xray запущен (pid {Pid})", process.Id);
+        _logger.LogInformation("Xray started (pid {Pid})", process.Id);
         _ = SuperviseAsync(process, startedAt);
     }
 
@@ -266,11 +266,11 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
             }
             catch (TimeoutException)
             {
-                _logger.LogWarning("Xray (pid {Pid}) не завершился за {Seconds} с после остановки", process.Id, StopTimeout.TotalSeconds);
+                _logger.LogWarning("Xray (pid {Pid}) did not exit within {Seconds} s after stop", process.Id, StopTimeout.TotalSeconds);
             }
 
             process.Dispose();
-            _logger.LogInformation("Xray остановлен");
+            _logger.LogInformation("Xray stopped");
         }
 
         SetState(XrayProcessState.Stopped, null);
@@ -298,7 +298,7 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
         NotifyChanged();
         process.Dispose();
         _logger.LogWarning(
-            "Xray неожиданно завершился с кодом {ExitCode}, перезапуск через {Delay} с. {Output}",
+            "Xray exited unexpectedly with code {ExitCode}, restarting in {Delay} s. {Output}",
             exitCode,
             delay.TotalSeconds,
             LastOutput());
@@ -351,7 +351,7 @@ public sealed class XrayProcessService : IXrayProcessService, IDisposable
 
                 NotifyChanged();
 
-                _logger.LogWarning("Перезапуск Xray не удался: {Error}. Следующая попытка через {Delay} с", ex.Message, delay.TotalSeconds);
+                _logger.LogWarning("Xray restart failed: {Error}. Next attempt in {Delay} s", ex.Message, delay.TotalSeconds);
             }
         }
     }

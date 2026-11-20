@@ -108,7 +108,7 @@ public sealed class XrayConfigService : IXrayConfigService
             }
 
             SetApiAvailability(availability);
-            _logger.LogInformation("Конфигурация Xray обновлена: {Inbounds} inbound, {Outbounds} outbound", model.Inbounds.Count, model.Outbounds.Count);
+            _logger.LogInformation("Xray configuration updated: {Inbounds} inbounds, {Outbounds} outbounds", model.Inbounds.Count, model.Outbounds.Count);
             return true;
         }
 
@@ -154,7 +154,7 @@ public sealed class XrayConfigService : IXrayConfigService
         }
         catch (XrayOperationException ex) when (!last)
         {
-            _logger.LogWarning("Xray отклонил конфигурацию с API, пробую без API: {Error}", ex.Message);
+            _logger.LogWarning("Xray rejected configuration with API, retrying without API: {Error}", ex.Message);
             return false;
         }
     }
@@ -163,7 +163,7 @@ public sealed class XrayConfigService : IXrayConfigService
     {
         if (availability == XrayApiAvailability.Rejected && _apiState.Availability != XrayApiAvailability.Rejected)
         {
-            _logger.LogWarning("Установленный Xray не принимает API: выбор балансировщиков соединений недоступен");
+            _logger.LogWarning("Installed Xray does not accept API: connection balancer selection unavailable");
         }
 
         _apiState.Availability = availability;

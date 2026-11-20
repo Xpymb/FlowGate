@@ -279,7 +279,7 @@ public sealed class UpdateProxyService : IUpdateProxyService
 
         if (changed)
         {
-            _logger.LogWarning("Прокси обновлений недоступен: {Reason}", reason);
+            _logger.LogWarning("Update proxy unavailable: {Reason}", reason);
         }
     }
 

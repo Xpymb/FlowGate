@@ -134,7 +134,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
             try
             {
                 await _interfaces.ExecuteAsync(
-                    $"Создание интерфейса {connection.InterfaceName}",
+                    $"interface-create {connection.InterfaceName}",
                     KeeneticInterfaceCommands.Configure(connection, _interfaceParameters, bringUp: true),
                     ignoreMissing: false,
                     cancellationToken);
@@ -151,7 +151,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         }
 
         _logger.LogInformation(
-            "Соединение {ConnectionId} «{Name}» создано: {Kind} через {Interface}, порт {Port}",
+            "Connection {ConnectionId} '{Name}' created: {Kind} via {Interface}, port {Port}",
             connection.Id,
             connection.Name,
             connection.Kind,
@@ -206,7 +206,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
             if (name != current.Name)
             {
                 await _interfaces.ExecuteAsync(
-                    $"Переименование интерфейса {updated.InterfaceName}",
+                    $"interface-rename {updated.InterfaceName}",
                     [KeeneticInterfaceCommands.Describe(updated)],
                     ignoreMissing: false,
                     cancellationToken);
@@ -218,7 +218,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         }
 
         _logger.LogInformation(
-            "Соединение {ConnectionId} «{Name}» изменено, сервер {ServerId}, резервных {Fallbacks}",
+            "Connection {ConnectionId} '{Name}' updated: server {ServerId}, fallbacks {Fallbacks}",
             updated.Id,
             updated.Name,
             updated.ServerId,
@@ -284,7 +284,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
 
         if (changed.Count > 0)
         {
-            _logger.LogInformation("Соединения ({Count}) переведены на сервер {ServerId}", changed.Count, request.ServerId);
+            _logger.LogInformation("{Count} connections switched to server {ServerId}", changed.Count, request.ServerId);
         }
 
         var result = await GetAllAsync(cancellationToken);
@@ -309,7 +309,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
             }
 
             await _interfaces.ExecuteAsync(
-                $"Удаление интерфейса {connection.InterfaceName}",
+                $"interface-delete {connection.InterfaceName}",
                 [KeeneticInterfaceCommands.Delete(connection.InterfaceName)],
                 ignoreMissing: true,
                 cancellationToken);
@@ -322,7 +322,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
             _sync.Release();
         }
 
-        _logger.LogInformation("Соединение {ConnectionId} «{Name}» удалено вместе с {Interface}", connection.Id, connection.Name, connection.InterfaceName);
+        _logger.LogInformation("Connection {ConnectionId} '{Name}' deleted along with {Interface}", connection.Id, connection.Name, connection.InterfaceName);
     }
 
     /// <inheritdoc />
@@ -346,7 +346,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
             {
                 if (!interfaces.TryGetValue(connection.InterfaceName, out var state))
                 {
-                    _logger.LogWarning("Интерфейс {Interface} соединения «{Name}» не найден в Keenetic: создаю заново", connection.InterfaceName, connection.Name);
+                    _logger.LogWarning("Interface {Interface} of connection '{Name}' not found in Keenetic: recreating", connection.InterfaceName, connection.Name);
                     commands.AddRange(KeeneticInterfaceCommands.Configure(connection, _interfaceParameters, bringUp: true));
                     recreated.Add(connection.InterfaceName);
                     repaired++;
@@ -356,7 +356,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
                 if (!state.Description.StartsWith(Connection.DescriptionPrefix, StringComparison.Ordinal))
                 {
                     _logger.LogWarning(
-                        "Интерфейс {Interface} соединения «{Name}» занят чужим объектом ({Description}): не трогаю",
+                        "Interface {Interface} of connection '{Name}' is taken by a foreign object ({Description}): skipping",
                         connection.InterfaceName,
                         connection.Name,
                         state.Description);
@@ -366,13 +366,13 @@ public sealed class ConnectionService : IConnectionService, IDisposable
                 var drift = KeeneticInterfaceCommands.FindDrift(connection, state, _interfaceParameters);
                 if (drift.Count > 0)
                 {
-                    _logger.LogWarning("Интерфейс {Interface} разошёлся с соединением «{Name}» ({Drift}): исправляю", connection.InterfaceName, connection.Name, string.Join(", ", drift));
+                    _logger.LogWarning("Interface {Interface} drifted from connection '{Name}' ({Drift}): repairing", connection.InterfaceName, connection.Name, string.Join(", ", drift));
                     commands.AddRange(KeeneticInterfaceCommands.Configure(connection, _interfaceParameters, bringUp: false));
                     repaired++;
                 }
             }
 
-            await _interfaces.ExecuteAsync("Сверка интерфейсов соединений", commands, ignoreMissing: false, cancellationToken);
+            await _interfaces.ExecuteAsync("connections-reconcile-interfaces", commands, ignoreMissing: false, cancellationToken);
             return new ConnectionReconcileResult(repaired, recreated);
         }
         finally
@@ -421,14 +421,14 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         try
         {
             await _interfaces.ExecuteAsync(
-                $"Откат интерфейса {connection.InterfaceName}",
+                $"interface-rollback {connection.InterfaceName}",
                 [KeeneticInterfaceCommands.Delete(connection.InterfaceName)],
                 ignoreMissing: true,
                 CancellationToken.None);
         }
         catch (Exception ex) when (ex is KeeneticCommandException or KeeneticUnavailableException)
         {
-            _logger.LogWarning("Не удалось удалить интерфейс {Interface} при откате: {Error}", connection.InterfaceName, ex.Message);
+            _logger.LogWarning("Failed to delete interface {Interface} during rollback: {Error}", connection.InterfaceName, ex.Message);
         }
 
         await _connections.DeleteAsync(connection.Id, CancellationToken.None);
@@ -443,7 +443,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         }
         catch (XrayOperationException ex)
         {
-            _logger.LogWarning("Конфигурация Xray после изменения соединений не применена: {Error}", ex.Message);
+            _logger.LogWarning("Xray configuration not applied after connection change: {Error}", ex.Message);
         }
     }
 
@@ -463,7 +463,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         }
         catch (KeeneticUnavailableException ex)
         {
-            _logger.LogWarning("Состояние интерфейсов Keenetic недоступно: {Error}", ex.Message);
+            _logger.LogWarning("Keenetic interface state unavailable: {Error}", ex.Message);
             return null;
         }
     }
@@ -483,7 +483,7 @@ public sealed class ConnectionService : IConnectionService, IDisposable
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning("Выбор балансировщиков Xray недоступен: {Error}", ex.Message);
+            _logger.LogWarning("Xray balancer selection unavailable: {Error}", ex.Message);
             return XrayBalancerStatus.Without(XrayBalancerSupport.Unavailable);
         }
     }

@@ -55,7 +55,7 @@ public sealed class JobRunner : IJobRunner, IDisposable
             _jobs.Insert(0, job);
         }
 
-        _logger.LogInformation("Задача {JobId} «{Title}» запущена", job.Id, title);
+        _logger.LogInformation("Job {JobId} '{Title}' started", job.Id, title);
         NotifyChanged();
         job.Completion = Task.Run(() => RunAsync(job, work));
         return job.ToSnapshot();
@@ -106,12 +106,12 @@ public sealed class JobRunner : IJobRunner, IDisposable
         {
             await work(job, _shutdown.Token);
             job.Finish(JobStatus.Succeeded, null);
-            _logger.LogInformation("Задача {JobId} «{Title}» выполнена", job.Id, job.Title);
+            _logger.LogInformation("Job {JobId} '{Title}' completed", job.Id, job.Title);
         }
         catch (Exception ex)
         {
             job.Finish(JobStatus.Failed, ex.Message);
-            _logger.LogWarning(ex, "Задача {JobId} «{Title}» завершилась ошибкой: {Error}", job.Id, job.Title, ex.Message);
+            _logger.LogWarning(ex, "Job {JobId} '{Title}' failed: {Error}", job.Id, job.Title, ex.Message);
         }
         finally
         {

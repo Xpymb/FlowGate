@@ -140,7 +140,7 @@ public sealed partial class DomainSourceService : IDomainSourceService
             _timeProvider.GetUtcNow());
 
         await _sources.AddAsync(source, cancellationToken);
-        _logger.LogInformation("Источник {SourceId} «{Name}» добавлен ({Origin})", source.Id, source.Name, source.SafeOrigin);
+        _logger.LogInformation("Domain source {SourceId} '{Name}' added ({Origin})", source.Id, source.Name, source.SafeOrigin);
 
         if (source.HasFile)
         {
@@ -189,7 +189,7 @@ public sealed partial class DomainSourceService : IDomainSourceService
             StartRefresh(updated);
         }
 
-        _logger.LogInformation("Источник {SourceId} «{Name}» изменён", id, updated.Name);
+        _logger.LogInformation("Domain source {SourceId} '{Name}' updated", id, updated.Name);
         return await GetAsync(id, cancellationToken);
     }
 
@@ -212,7 +212,7 @@ public sealed partial class DomainSourceService : IDomainSourceService
         await _localLists.DeleteSourceAsync(id, cancellationToken);
         _files.Delete(id);
         _reader.Invalidate(id);
-        _logger.LogInformation("Источник {SourceId} «{Name}» удалён", id, source.Name);
+        _logger.LogInformation("Domain source {SourceId} '{Name}' deleted", id, source.Name);
     }
 
     /// <inheritdoc />
@@ -346,7 +346,7 @@ public sealed partial class DomainSourceService : IDomainSourceService
         var list = new LocalList(source.Id, listName, text, _timeProvider.GetUtcNow());
         await _localLists.UpsertAsync(list, cancellationToken);
         await RebuildLocalCatalogAsync(source, cancellationToken);
-        _logger.LogInformation("Локальный список «{List}» источника «{Source}» сохранён", listName, source.Name);
+        _logger.LogInformation("Local list '{List}' of domain source '{Source}' saved", listName, source.Name);
         return list.ToDto();
     }
 
@@ -432,7 +432,14 @@ public sealed partial class DomainSourceService : IDomainSourceService
 
             var summary = contentChanged ? $"обновлён, списков {catalog.Lists.Count}" : "не изменился";
             context.Report($"Готово: {summary}");
-            _logger.LogInformation("Источник {SourceId} «{Name}» ({Origin}) {Summary}", id, source.Name, source.SafeOrigin, summary);
+            if (contentChanged)
+            {
+                _logger.LogInformation("Domain source {SourceId} '{Name}' ({Origin}) refreshed: {Lists} lists", id, source.Name, source.SafeOrigin, catalog.Lists.Count);
+            }
+            else
+            {
+                _logger.LogInformation("Domain source {SourceId} '{Name}' ({Origin}) unchanged", id, source.Name, source.SafeOrigin);
+            }
 
             if (contentChanged && (await _routes.GetAllAsync(cancellationToken)).Any(route => route.SourceId == id))
             {
@@ -446,7 +453,7 @@ public sealed partial class DomainSourceService : IDomainSourceService
                 id,
                 existing => existing with { LastRefresh = new DomainSourceRefresh(_timeProvider.GetUtcNow(), DomainSourceRefreshStatus.Failed, message, existing.LastRefresh?.Lists ?? 0, []) },
                 CancellationToken.None);
-            _logger.LogWarning("Источник {SourceId} ({Origin}) не обновлён: {Error}", id, source.SafeOrigin, message);
+            _logger.LogWarning("Domain source {SourceId} ({Origin}) refresh failed: {Error}", id, source.SafeOrigin, message);
             if (ex is DomainListException)
             {
                 throw new ExternalServiceUnavailableException(message);

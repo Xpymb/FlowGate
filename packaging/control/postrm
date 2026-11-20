@@ -4,7 +4,7 @@
 if [ "$1" = "remove" ]; then
     # 90-flowgate.conf opkg уже удалил: lighttpd перечитывает конфигурацию и закрывает :8090.
     [ -x /opt/etc/init.d/S80lighttpd ] && /opt/etc/init.d/S80lighttpd restart
-    echo "FlowGate удалён. Настройки остались в /opt/etc/flowgate, Xray — в /opt/sbin/flowgate-xray."
-    echo "Полное удаление: rm -rf /opt/etc/flowgate /opt/sbin/flowgate-xray* /opt/etc/opkg/flowgate.conf"
+    echo "FlowGate removed. Settings are kept in /opt/etc/flowgate, Xray in /opt/sbin/flowgate-xray."
+    echo "Full removal: rm -rf /opt/etc/flowgate /opt/sbin/flowgate-xray* /opt/etc/opkg/flowgate.conf"
 fi
 exit 0

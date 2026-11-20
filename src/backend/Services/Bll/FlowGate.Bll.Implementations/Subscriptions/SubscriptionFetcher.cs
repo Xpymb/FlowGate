@@ -251,7 +251,7 @@ public sealed partial class SubscriptionFetcher : ISubscriptionFetcher
         }
         catch (FlowGateException ex)
         {
-            _logger.LogWarning("Сведения о роутере для подписки не получены: {Error}", ex.Message);
+            _logger.LogWarning("Router info for subscription request unavailable: {Error}", ex.Message);
             return [("X-App-Version", AppVersion.Current)];
         }
     }

@@ -104,11 +104,11 @@ public sealed class SystemServiceTests : IDisposable
     [Fact]
     public async Task GetStatusAsync_UpgradeLog_ReturnsLastResult()
     {
-        await File.WriteAllTextAsync(_options.UpgradeLogPath, "ok 0.1.0\n2026-11-05 обновление\nUpgrading flowgate...\nfailed opkg update не выполнен\n", Token);
+        await File.WriteAllTextAsync(_options.UpgradeLogPath, "ok 0.1.0\n2026-11-05 FlowGate upgrade\nUpgrading flowgate...\nfailed opkg update failed\n", Token);
 
         var status = await _sut.GetStatusAsync(Token);
 
-        Assert.Equal("failed opkg update не выполнен", status.LastUpgradeResult);
+        Assert.Equal("failed opkg update failed", status.LastUpgradeResult);
     }
 
     /// <summary>

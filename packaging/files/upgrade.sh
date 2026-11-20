@@ -32,7 +32,7 @@ mkdir -p "$(dirname "$LOG")"
 exec >>"$LOG" 2>&1
 
 if ! mkdir "$LOCK" 2>/dev/null; then
-    echo "failed обновление уже идёт"
+    echo "failed upgrade already in progress"
     exit 1
 fi
 
@@ -73,28 +73,28 @@ installed_version() {
     opkg status flowgate | sed -n 's/^Version: //p'
 }
 
-echo "$(date '+%Y-%m-%d %H:%M:%S') обновление FlowGate, установлена $(installed_version)"
+echo "$(date '+%Y-%m-%d %H:%M:%S') FlowGate upgrade, installed $(installed_version)"
 before=$(installed_version)
 
 if [ -n "$PROXY_CONFIG" ]; then
     if start_proxy; then
         export http_proxy="http://127.0.0.1:$PROXY_PORT"
         export https_proxy="$http_proxy"
-        echo "загрузка через прокси обновлений (127.0.0.1:$PROXY_PORT)"
+        echo "downloading via update proxy (127.0.0.1:$PROXY_PORT)"
     else
         stop_proxy
-        echo "прокси обновлений не запустился, загрузка напрямую"
+        echo "update proxy failed to start, downloading directly"
     fi
 fi
 
 if ! opkg update; then
-    echo "failed opkg update не выполнен"
+    echo "failed opkg update failed"
     exit 1
 fi
 
 if ! opkg upgrade flowgate; then
     "$INIT" status >/dev/null || "$INIT" start
-    echo "failed opkg upgrade flowgate не выполнен"
+    echo "failed opkg upgrade flowgate failed"
     exit 1
 fi
 
@@ -105,15 +105,15 @@ fi
 if awk '/^Package: / { pkg = $2 } pkg == "nginx-ssl" && /^Auto-Installed: yes/ { found = 1 } END { exit !found }' \
     /opt/lib/opkg/status 2>/dev/null; then
     if opkg remove nginx-ssl; then
-        echo "удалён nginx-ssl: шлюз FlowGate теперь работает на lighttpd"
+        echo "removed nginx-ssl: the FlowGate gateway now runs on lighttpd"
     else
-        echo "nginx-ssl оставлен: он нужен другим пакетам"
+        echo "kept nginx-ssl: other packages depend on it"
     fi
 fi
 
 after=$(installed_version)
 if [ "$before" = "$after" ]; then
-    echo "ok $after (уже последняя)"
+    echo "ok $after (already latest)"
 else
     echo "ok $after"
 fi

@@ -148,7 +148,7 @@ public sealed class DnsRouteService : IDnsRouteService, IDisposable
         };
 
         await _routes.AddAsync(route, cancellationToken);
-        _logger.LogInformation("Маршрут {RouteId}: список «{List}» ({Source}) → соединение {ConnectionId}", route.Id, listName, source.Name, route.ConnectionId);
+        _logger.LogInformation("DNS route {RouteId}: list '{List}' ({Source}) → connection {ConnectionId}", route.Id, listName, source.Name, route.ConnectionId);
         RequestApply();
         return await ToDtoAsync(route, cancellationToken);
     }
@@ -189,7 +189,7 @@ public sealed class DnsRouteService : IDnsRouteService, IDisposable
     {
         var route = await GetExistingAsync(id, cancellationToken);
         await _routes.DeleteAsync(id, cancellationToken);
-        _logger.LogInformation("Маршрут {RouteId} списка «{List}» удалён", id, route.ListName);
+        _logger.LogInformation("DNS route {RouteId} for list '{List}' deleted", id, route.ListName);
         RequestApply();
     }
 
@@ -324,7 +324,7 @@ public sealed class DnsRouteService : IDnsRouteService, IDisposable
 
             try
             {
-                await _dns.ExecuteAsync("Применение DNS-маршрутов", plan.Commands, report, cancellationToken);
+                await _dns.ExecuteAsync("dns-routes-apply", plan.Commands, report, cancellationToken);
             }
             catch (Exception ex) when (ex is KeeneticCommandException or KeeneticUnavailableException)
             {
@@ -378,7 +378,7 @@ public sealed class DnsRouteService : IDnsRouteService, IDisposable
                 {
                     await _routes.DeleteAsync(outcome.RouteId, cancellationToken);
                     _logger.LogInformation(
-                        "Список «{List}» удалён в Keenetic пользователем: маршрут {RouteId} удалён из FlowGate",
+                        "List '{List}' was deleted in Keenetic by the user: DNS route {RouteId} removed from FlowGate",
                         target.Route.ListName,
                         outcome.RouteId);
                     break;

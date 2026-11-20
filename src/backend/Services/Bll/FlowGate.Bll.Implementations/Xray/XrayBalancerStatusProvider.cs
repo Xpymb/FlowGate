@@ -117,7 +117,7 @@ public sealed class XrayBalancerStatusProvider : IXrayBalancerStatusProvider, ID
         }
         catch (Exception ex) when (ex is TimeoutException or Win32Exception or IOException)
         {
-            _logger.LogDebug("Выбор балансировщиков Xray не получен: {Error}", ex.Message);
+            _logger.LogDebug("Xray balancer selection not received: {Error}", ex.Message);
             return XrayBalancerStatus.Without(XrayBalancerSupport.Unavailable);
         }
 
@@ -128,7 +128,7 @@ public sealed class XrayBalancerStatusProvider : IXrayBalancerStatusProvider, ID
                 return new XrayBalancerStatus(XrayBalancerSupport.Supported, active);
             }
 
-            _logger.LogWarning("Ответ xray api bi в неизвестном формате: выбор балансировщиков этой версией Xray не поддерживается");
+            _logger.LogWarning("Unknown xray api bi response format: balancer selection is not supported by this Xray version");
             return XrayBalancerStatus.Without(XrayBalancerSupport.Unsupported);
         }
 
@@ -138,7 +138,7 @@ public sealed class XrayBalancerStatusProvider : IXrayBalancerStatusProvider, ID
             return XrayBalancerStatus.Without(XrayBalancerSupport.Unavailable);
         }
 
-        _logger.LogDebug("xray api bi завершился с кодом {ExitCode}: {Output}", result.ExitCode, output.Length > 200 ? output[..200] : output);
+        _logger.LogDebug("xray api bi exited with code {ExitCode}: {Output}", result.ExitCode, output.Length > 200 ? output[..200] : output);
         return XrayBalancerStatus.Without(XrayBalancerSupport.Unsupported);
     }
 }

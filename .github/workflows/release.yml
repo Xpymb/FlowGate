@@ -26,7 +26,7 @@ jobs:
       - name: Version from tag
         run: |
           version="${GITHUB_REF_NAME#v}"
-          echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "Тег $GITHUB_REF_NAME не вида vX.Y.Z"; exit 1; }
+          echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "Tag $GITHUB_REF_NAME is not vX.Y.Z"; exit 1; }
           echo "VERSION=$version" >> "$GITHUB_ENV"
 
       - uses: actions/setup-dotnet@v4
@@ -55,7 +55,7 @@ jobs:
             cd src/frontend && npm ci && npm run build
             echo "WWW_DIR=$GITHUB_WORKSPACE/src/frontend/dist" >> "$GITHUB_ENV"
           else
-            echo "Фронта нет: пакет без статики (режим API only)"
+            echo "No frontend: package without static files (API only)"
             echo "WWW_DIR=-" >> "$GITHUB_ENV"
           fi
 
@@ -70,7 +70,7 @@ jobs:
           mkdir -p feed
           if [ -d "pages/$FEED_DIR" ]; then
             if [ -f "pages/$FEED_DIR/flowgate_${VERSION}_aarch64-3.10.ipk" ]; then
-              echo "Версия $VERSION уже опубликована"; exit 1
+              echo "Version $VERSION is already published"; exit 1
             fi
             find "pages/$FEED_DIR" -name 'flowgate_*.ipk' -printf '%f\n' | sort -V | tail -n "$KEEP_PREVIOUS" \
               | while read -r name; do cp "pages/$FEED_DIR/$name" feed/; done
@@ -88,7 +88,7 @@ jobs:
         run: |
           assets=("feed/flowgate_${VERSION}_aarch64-3.10.ipk" feed/SHA256SUMS)
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "Релиз $GITHUB_REF_NAME уже создан вручную: загружаю файлы, описание и отметки не трогаю"
+            echo "Release $GITHUB_REF_NAME was created manually: uploading assets, keeping notes and flags"
             gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
           else
             gh release create "$GITHUB_REF_NAME" "${assets[@]}" --title "FlowGate $VERSION" --generate-notes

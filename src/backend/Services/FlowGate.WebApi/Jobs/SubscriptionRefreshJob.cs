@@ -65,7 +65,7 @@ public sealed class SubscriptionRefreshJob : BackgroundService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "Плановое обновление подписок не удалось: {Error}", ex.Message);
+            _logger.LogWarning(ex, "Scheduled subscription refresh failed: {Error}", ex.Message);
         }
     }
 }

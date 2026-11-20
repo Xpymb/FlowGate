@@ -42,7 +42,7 @@ public sealed class ExceptionHandlerMiddleware
         }
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
         {
-            _logger.LogDebug("Запрос {Method} {Path} отменён клиентом", context.Request.Method, context.Request.Path);
+            _logger.LogDebug("Request {Method} {Path} cancelled by client", context.Request.Method, context.Request.Path);
         }
         catch (Exception ex)
         {

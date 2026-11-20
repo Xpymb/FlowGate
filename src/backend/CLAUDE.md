@@ -39,7 +39,7 @@ dotnet test --solution FlowGate.slnx --coverage --coverage-output-format cobertu
 с OpenSSL. Сборка под эмуляцией arm64 не годится: ILCompiler под QEMU падает случайным образом.
 
 ```bash
-# результат: out/router/flowgate (static-pie aarch64, ~20 МиБ) + appsettings.json
+# результат: out/router/flowgate (static-pie aarch64, ~29 МиБ) + appsettings.json
 docker buildx build -f docker/Dockerfile.router --build-arg VERSION=0.1.0 --output type=local,dest=out/router .
 
 # пакет и индекс feed (из корня репозитория; нужны bash и python3)

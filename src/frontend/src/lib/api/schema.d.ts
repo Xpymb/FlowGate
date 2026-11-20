@@ -1319,12 +1319,6 @@ export interface components {
             /** @description Интервалы обновлений */
             intervals: components["schemas"]["UpdateIntervalsSaveRequest"];
         };
-        SseItemOfstring: {
-            data?: null | string;
-            eventType?: null | string;
-            eventId?: null | string;
-            reconnectionInterval?: null | string;
-        };
         /** @description Подписка */
         SubscriptionDto: {
             /** @description Идентификатор */
@@ -1761,7 +1755,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/event-stream": components["schemas"]["SseItemOfstring"];
+                    "text/event-stream": unknown;
                 };
             };
         };

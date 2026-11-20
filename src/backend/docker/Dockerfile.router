@@ -3,7 +3,7 @@
 # на sysroot из пакетов Alpine (подробности — docs/keenetic-findings.md, раздел 10).
 # Запуск из src/backend:
 #   docker buildx build -f docker/Dockerfile.router --build-arg VERSION=0.1.0 --output type=local,dest=out/router .
-FROM --platform=linux/amd64 mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+FROM --platform=linux/amd64 mcr.microsoft.com/dotnet/sdk:11.0-alpine AS build
 
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_NOLOGO=1 \

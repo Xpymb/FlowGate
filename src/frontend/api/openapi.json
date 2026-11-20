@@ -1,12 +1,12 @@
 {
-  "openapi": "3.1.1",
+  "openapi": "3.2.0",
   "info": {
     "title": "FlowGate.WebApi | v1",
     "version": "1.0.0"
   },
   "servers": [
     {
-      "url": "http://localhost/"
+      "url": "http://localhost"
     }
   ],
   "paths": {
@@ -74,8 +74,22 @@
             "description": "OK",
             "content": {
               "text/event-stream": {
-                "schema": {
-                  "$ref": "#/components/schemas/SseItemOfstring"
+                "itemSchema": {
+                  "required": [
+                    "data"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "string"
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -3906,36 +3920,6 @@
         },
         "description": "Сохранение настроек целиком"
       },
-      "SseItemOfstring": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "eventType": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "eventId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "reconnectionInterval": {
-            "pattern": "^-?(\\d+\\.)?\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,7})?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
       "SubscriptionDto": {
         "required": [
           "id",
@@ -4785,37 +4769,37 @@
   },
   "tags": [
     {
-      "name": "System"
-    },
-    {
-      "name": "Keenetic"
-    },
-    {
-      "name": "Events"
-    },
-    {
-      "name": "Xray"
-    },
-    {
-      "name": "Jobs"
-    },
-    {
-      "name": "Servers"
-    },
-    {
-      "name": "Subscriptions"
-    },
-    {
       "name": "Connections"
-    },
-    {
-      "name": "DomainSources"
     },
     {
       "name": "DnsRoutes"
     },
     {
+      "name": "DomainSources"
+    },
+    {
+      "name": "Events"
+    },
+    {
+      "name": "Jobs"
+    },
+    {
+      "name": "Keenetic"
+    },
+    {
+      "name": "Servers"
+    },
+    {
       "name": "Settings"
+    },
+    {
+      "name": "Subscriptions"
+    },
+    {
+      "name": "System"
+    },
+    {
+      "name": "Xray"
     }
   ]
 }

@@ -68,6 +68,17 @@ public sealed class ConnectionProvider : IConnectionProvider
     }
 
     /// <inheritdoc />
+    public Task UpdateManyAsync(IReadOnlyCollection<Connection> connections, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(connections);
+
+        var replacements = connections.ToDictionary(connection => connection.Id, StringComparer.Ordinal);
+        return _store.UpdateAsync(
+            catalog => new ConnectionCatalog(catalog.Connections.Select(existing => replacements.GetValueOrDefault(existing.Id, existing)).ToList()),
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task<bool> DeleteAsync(string id, CancellationToken cancellationToken)
     {
         var found = false;

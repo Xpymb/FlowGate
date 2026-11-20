@@ -39,6 +39,13 @@ public interface IConnectionProvider
     Task<bool> UpdateAsync(Connection connection, CancellationToken cancellationToken);
 
     /// <summary>
+    ///     Заменяет соединения с теми же идентификаторами одной записью файла. Неизвестные идентификаторы пропускаются
+    /// </summary>
+    /// <param name="connections">Соединения</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    Task UpdateManyAsync(IReadOnlyCollection<Connection> connections, CancellationToken cancellationToken);
+
+    /// <summary>
     ///     Удаляет соединение
     /// </summary>
     /// <param name="id">Идентификатор</param>

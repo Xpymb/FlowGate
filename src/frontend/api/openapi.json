@@ -1331,6 +1331,60 @@
         }
       }
     },
+    "/api/connections/change-server": {
+      "post": {
+        "tags": [
+          "Connections"
+        ],
+        "summary": "Перевести несколько соединений на один сервер",
+        "operationId": "ChangeConnectionsServer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectionServerChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConnectionDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/domain-sources": {
       "get": {
         "tags": [
@@ -2507,6 +2561,27 @@
           }
         },
         "description": "Состояние интерфейса Keenetic соединения"
+      },
+      "ConnectionServerChangeRequest": {
+        "required": [
+          "connectionIds",
+          "serverId"
+        ],
+        "type": "object",
+        "properties": {
+          "connectionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Идентификаторы соединений"
+          },
+          "serverId": {
+            "type": "string",
+            "description": "Сервер, через который пойдёт трафик"
+          }
+        },
+        "description": "Перевод нескольких соединений на один сервер"
       },
       "ConnectionUpdateRequest": {
         "required": [

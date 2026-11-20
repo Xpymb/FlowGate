@@ -42,6 +42,12 @@ public static class ConnectionEndpoints
             .Produces<ErrorResponse>(StatusCodes.Status400BadRequest)
             .Produces<ErrorResponse>(StatusCodes.Status404NotFound);
 
+        connections.MapPost("/change-server", ChangeServerAsync)
+            .WithName("ChangeConnectionsServer")
+            .WithSummary("Перевести несколько соединений на один сервер")
+            .Produces<ErrorResponse>(StatusCodes.Status400BadRequest)
+            .Produces<ErrorResponse>(StatusCodes.Status404NotFound);
+
         connections.MapDelete("/{id}", DeleteAsync)
             .WithName("DeleteConnection")
             .WithSummary("Удалить соединение вместе с интерфейсом Keenetic")
@@ -72,6 +78,12 @@ public static class ConnectionEndpoints
         ConnectionUpdateRequest request,
         CancellationToken cancellationToken) =>
         TypedResults.Ok(await connections.UpdateAsync(id, request, cancellationToken));
+
+    private static async Task<Ok<IReadOnlyList<ConnectionDto>>> ChangeServerAsync(
+        IConnectionService connections,
+        ConnectionServerChangeRequest request,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await connections.ChangeServerAsync(request, cancellationToken));
 
     private static async Task<NoContent> DeleteAsync(IConnectionService connections, string id, CancellationToken cancellationToken)
     {

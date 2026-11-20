@@ -48,6 +48,7 @@ namespace FlowGate.WebApi.Serialization;
 [JsonSerializable(typeof(ConnectionDto))]
 [JsonSerializable(typeof(ConnectionCreateRequest))]
 [JsonSerializable(typeof(ConnectionUpdateRequest))]
+[JsonSerializable(typeof(ConnectionServerChangeRequest))]
 [JsonSerializable(typeof(IReadOnlyList<DomainSourceDto>))]
 [JsonSerializable(typeof(DomainSourceDto))]
 [JsonSerializable(typeof(DomainSourceSaveRequest))]

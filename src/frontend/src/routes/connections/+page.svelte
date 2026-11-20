@@ -7,10 +7,12 @@
 	import { connectionKindOptions, suggestConnectionName } from '#lib/connections.js';
 	import { connectionKinds, interfaceState } from '#lib/labels.js';
 	import { Resource } from '#lib/resource.svelte.js';
-	import { matchesQuery, UrlParam } from '#lib/table.svelte.js';
-	import { attempt, attemptOk, copyText } from '#lib/toast.svelte.js';
+	import { matchesQuery, Selection, UrlParam } from '#lib/table.svelte.js';
+	import { attempt, attemptOk, copyText, notify, notifyError } from '#lib/toast.svelte.js';
 	import type { components } from '#lib/api/schema.js';
 	import Badge from '#lib/components/Badge.svelte';
+	import BulkBar from '#lib/components/BulkBar.svelte';
+	import Checkbox from '#lib/components/Checkbox.svelte';
 	import Copyable from '#lib/components/Copyable.svelte';
 	import Dialog from '#lib/components/Dialog.svelte';
 	import EmptyState from '#lib/components/EmptyState.svelte';
@@ -28,6 +30,7 @@
 	});
 	const servers = new Resource(() => unwrap(api.GET('/api/servers')), { live: ['servers'] });
 	const query = new UrlParam('q');
+	const selection = new Selection();
 
 	const kinds = connectionKindOptions;
 
@@ -37,13 +40,24 @@
 	let saving = $state(false);
 	/** Имя подставлено автоматически и ещё не правилось: при смене типа оно следует за типом. */
 	let autoName = $state(false);
+	let bulkServerOpen = $state(false);
+	let bulkServerId = $state('');
+	let changingServer = $state(false);
+	let deleting = $state(false);
 
 	const noServers = $derived(servers.data?.length === 0);
+	const all = $derived(connections.data ?? []);
 	const visible = $derived(
-		(connections.data ?? []).filter((item) =>
+		all.filter((item) =>
 			matchesQuery(query.value, [item.name, item.serverName, item.interfaceName, item.kind])
 		)
 	);
+	const visibleIds = $derived(visible.map((item) => item.id));
+	const selected = $derived(all.filter((item) => selection.has(item.id)));
+
+	$effect(() => {
+		selection.retain(all.map((item) => item.id));
+	});
 
 	// Состояние интерфейсов Keenetic в события не попадает — опрашиваем.
 	$effect(() => {
@@ -124,6 +138,61 @@
 		);
 		if (done) void connections.reload();
 	}
+
+	function openBulkServer() {
+		const current = new Set(selected.map((item) => item.serverId));
+		const [only] = current;
+		bulkServerId =
+			current.size === 1 && servers.data?.some((server) => server.id === only)
+				? only
+				: (servers.data?.[0]?.id ?? '');
+		bulkServerOpen = true;
+	}
+
+	async function changeServer() {
+		const ids = selected.map((item) => item.id);
+		if (ids.length === 0 || !bulkServerId) return;
+		changingServer = true;
+		const result = await attempt(
+			() =>
+				unwrap(
+					api.POST('/api/connections/change-server', {
+						body: { connectionIds: ids, serverId: bulkServerId }
+					})
+				),
+			ids.length === 1 ? 'Сервер изменён' : `Сервер изменён у соединений: ${ids.length}`
+		);
+		changingServer = false;
+		if (!result) return;
+		bulkServerOpen = false;
+		void connections.reload();
+	}
+
+	async function removeSelected() {
+		const list = selected;
+		const ok = await ask({
+			title: `Удалить соединения: ${list.length}?`,
+			message:
+				'Их интерфейсы будут удалены из Keenetic. Соединения с назначенными маршрутами будут пропущены.',
+			action: 'Удалить',
+			danger: true
+		});
+		if (!ok) return;
+		deleting = true;
+		let done = 0;
+		for (const item of list) {
+			try {
+				await unwrap(api.DELETE('/api/connections/{id}', { params: { path: { id: item.id } } }));
+				selection.ids.delete(item.id);
+				done++;
+			} catch (error) {
+				notifyError(error);
+			}
+		}
+		deleting = false;
+		if (done > 0) notify('ok', done === 1 ? 'Соединение удалено' : `Удалено соединений: ${done}`);
+		void connections.reload();
+	}
 </script>
 
 <PageHeader
@@ -174,6 +243,14 @@
 					<table class="table cards">
 						<thead>
 							<tr>
+								<th class="check-cell">
+									<Checkbox
+										label="Выбрать все"
+										checked={selection.allState(visibleIds) === 'all'}
+										indeterminate={selection.allState(visibleIds) === 'some'}
+										onchange={() => selection.toggleAll(visibleIds)}
+									/>
+								</th>
 								<th>Соединение</th>
 								<th>Сервер</th>
 								<th>Интерфейс Keenetic</th>
@@ -184,7 +261,14 @@
 						<tbody>
 							{#each visible as item (item.id)}
 								{@const state = interfaceState(item)}
-								<tr>
+								<tr class:selected={selection.has(item.id)}>
+									<td class="check-cell">
+										<Checkbox
+											label="Выбрать {item.name}"
+											checked={selection.has(item.id)}
+											onchange={() => selection.toggle(item.id)}
+										/>
+									</td>
 									<td class="primary">
 										<button class="name" onclick={() => openEdit(item)}>{item.name}</button>
 										<div class="sub">
@@ -245,7 +329,7 @@
 								</tr>
 							{:else}
 								<tr>
-									<td colspan="5">
+									<td colspan="6">
 										<EmptyState bare icon="search" title="Ничего не найдено">
 											<button class="btn" onclick={() => query.set('')}>Сбросить поиск</button>
 										</EmptyState>
@@ -259,6 +343,41 @@
 		{/if}
 	{/snippet}
 </Loadable>
+
+<BulkBar count={selection.size} onclear={() => selection.clear()}>
+	<button class="btn sm" disabled={noServers} onclick={openBulkServer}>
+		<Icon name="server" size={14} />Сменить сервер
+	</button>
+	<button class="btn sm danger" aria-busy={deleting} onclick={removeSelected}>
+		<Icon name="trash" size={14} />Удалить
+	</button>
+</BulkBar>
+
+<Dialog
+	bind:open={bulkServerOpen}
+	title="Сменить сервер"
+	description={`Выбрано соединений: ${selected.length}. Конфигурация Xray пересоберётся один раз.`}
+	onsubmit={changeServer}
+>
+	<div class="form">
+		<Field label="Сервер" hint="Сервер Xray для исходящего трафика выбранных соединений.">
+			<select bind:value={bulkServerId}>
+				{#each servers.data ?? [] as server (server.id)}
+					<option value={server.id}>{server.name} — {server.protocol}</option>
+				{/each}
+			</select>
+		</Field>
+	</div>
+	{#snippet actions()}
+		<button class="btn" onclick={() => (bulkServerOpen = false)}>Отмена</button>
+		<button
+			class="btn primary"
+			disabled={!bulkServerId || selected.length === 0}
+			aria-busy={changingServer}
+			onclick={changeServer}>Сменить сервер</button
+		>
+	{/snippet}
+</Dialog>
 
 <Dialog
 	bind:open={editorOpen}
